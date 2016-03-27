@@ -1,5 +1,12 @@
+using Gurobi
+using ECOS
+using JuMP
+using StructJuMP
 using StochasticDualDynamicProgramming
 using Base.Test
 
-# write your own tests here
-@test 1 == 1
+misocp_solver = GurobiSolver(OutputFlag=0)
+socp_solver = ECOS.ECOSSolver(verbose=false)
+
+include("prob5.2.jl")
+#include("prob5.2_3stages.jl")
