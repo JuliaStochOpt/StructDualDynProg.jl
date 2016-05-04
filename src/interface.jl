@@ -229,7 +229,7 @@ type SDDPModelData
   nodes::Vector{Nullable{SDDPNode}}
 end
 
-function getSDDPNode(allnodes, m::Model, t, num_stages, solver, parent)
+function getSDDPNode(allnodes, m::Model, t, num_stages, solver, parent, cutmode)
   if !(:SDDP in keys(m.ext))
     nodes = Vector{Nullable{SDDPNode}}(num_stages)
     fill!(nodes, nothing)
@@ -238,7 +238,7 @@ function getSDDPNode(allnodes, m::Model, t, num_stages, solver, parent)
   nodes = m.ext[:SDDP].nodes
   if isnull(nodes[t])
     (c,T,W,h,C,K,v) = conicconstraintdata(m)
-    newnode = SDDPNode(W,h,T,K,C,c,solver,parent)
+    newnode = SDDPNode(NLDS{Float64}(W,h,T,K,C,c,solver), parent)
     nodes[t] = newnode
     push!(allnodes[t], newnode)
     struct = getStructure(m)
@@ -246,9 +246,9 @@ function getSDDPNode(allnodes, m::Model, t, num_stages, solver, parent)
       num_scen = length(struct.children)
       children = Vector{SDDPNode}(num_scen)
       for i in 1:num_scen
-        children[i] = getSDDPNode(allnodes, struct.children[i], t+1, num_stages, solver, newnode)
+        children[i] = getSDDPNode(allnodes, struct.children[i], t+1, num_stages, solver, newnode, cutmode)
       end
-      setchildren!(newnode, children, struct.probability)
+      setchildren!(newnode, children, struct.probability, cutmode)
     end
   end
   get(nodes[t])
@@ -260,32 +260,38 @@ function SDDP(m::Model, num_stages, solver, cutmode=:MultiCut, TOL=1e-5)
     nodes[i] = SDDPNode[]
   end
 
-  root = getSDDPNode(nodes, m, 1, num_stages, solver, nothing)
+  root = getSDDPNode(nodes, m, 1, num_stages, solver, nothing, cutmode)
 
   cut_added = true
   niter = 0
-  while cut_added && root.status != :Infeasible
+  nfcuts = 0
+  nocuts = 0
+  while cut_added && (root.sol === nothing || root.sol.status != :Infeasible)
     niter += 1
+    cut_added = false
     for t in 1:num_stages
       for node in nodes[t]
-        loadAndSolve(node, cutmode)
+        loadAndSolve(node)
       end
       if t > 1
-        cut_added = false
         for node in nodes[t-1]
-          cut_added |= addCuttingPlanes(node, cutmode, TOL)
+          (nnewfcuts, nnewocuts) = addCuttingPlanes(node, cutmode, TOL)
+          nfcuts += nnewfcuts
+          nocuts += nnewocuts
+          cut_added |= (nnewfcuts + nnewocuts > 0)
         end
       end
     end
   end
-  @show niter
 
-  (root.status, root.objval, root.x)
+  (root.sol.status, root.sol.objval, root.sol.x, niter, nfcuts, nocuts)
 end
 
 function SDDPclear(m::Model)
   for child in getStructure(m).children
     SDDPclear(child)
   end
-  pop!(m.ext, :SDDP)
+  if :SDDP in keys(m.ext)
+    pop!(m.ext, :SDDP)
+  end
 end
