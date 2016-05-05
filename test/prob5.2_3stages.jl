@@ -3,33 +3,38 @@ include("data.jl")
 numScen = 2
 M = StructuredModel(num_scenarios=numScen)
 
-@variable M x1[1:n] >= 0
-@variable M v1[1:n] >= 0
+x = Vector{Vector{JuMP.Variable}}(2)
+v = Vector{Vector{JuMP.Variable}}(2)
+y = Vector{Matrix{JuMP.Variable}}(2)
+
+@variable M x[1][1:n] >= 0
+@variable M v[1][1:n] >= 0
 @constraints M begin
-  x1 .== v1
+  x[1] .== v[1]
 end
-@objective(M, Min, dot(I, v1))
+@objective(M, Min, dot(I, v[1]))
+
 
 for s in 1:numScen
-    M2 = StructuredModel(parent=M, prob=p2[s])
-    @variable(M2, y2[1:n, 1:m] >= 0)
-    @variable(M2, x2[1:n] >= 0)
-    @variable(M2, v2[1:n] >= 0)
-    @constraints M2 begin
-      x2 .== x1 + v2
-      demand[j=1:m], sum(y2[:,j]) == D2[j,s]
-      ylim[i=1:n], sum(y2[i,:]) <= x1[i]
+  M2 = StructuredModel(parent=M, prob=p2[s])
+  @variable(M2, y[1][1:n, 1:m] >= 0)
+  @variable(M2, x[2][1:n] >= 0)
+  @variable(M2, v[2][1:n] >= 0)
+  @constraints M2 begin
+    x[2] .== x[1] + v[2]
+    demand[j=1:m], sum(y[1][:,j]) == D2[j,s]
+    ylim[i=1:n], sum(y[1][i,:]) <= x[1][i]
+  end
+  @objective(M2, Min, dot(I, v[2]) + dot(C, y[1] * T))
+  for S in 1:numScen
+    M3 = StructuredModel(parent=M2, prob=p2[S])
+    @variable(M3, y[2][1:n, 1:m] >= 0)
+    @constraints M3 begin
+      demand[j=1:m], sum(y[2][:,j]) == D2[j,s]
+      ylim[i=1:n], sum(y[2][i,:]) <= x[2][i]
     end
-    @objective(M2, Min, dot(I, v2) + dot(C, y2 * T))
-    for S in 1:numScen
-      M3 = StructuredModel(parent=M2, prob=p2[S])
-      @variable(M3, y3[1:n, 1:m] >= 0)
-      @constraints M3 begin
-        demand[j=1:m], sum(y3[:,j]) == D2[j,s]
-        ylim[i=1:n], sum(y3[i,:]) <= x2[i]
-      end
-      @objective(M3, Min, dot(C, y3 * T))
-    end
+    @objective(M3, Min, dot(C, y[2] * T))
+  end
 end
 
 for cutmode in [:AveragedCut, :MultiCut]
