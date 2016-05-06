@@ -39,14 +39,14 @@ end
 
 for cutmode in [:AveragedCut, :MultiCut]
   root = model2lattice(M, 3, solver, cutmode)
-  status, objval, sol = SDDP(root, 3, cutmode)
+  sol = SDDP(root, 3, cutmode)
 
-  v11value = sol[1:4]
-  @show status
-  @show objval
+  v11value = sol.sol[1:4]
+  @show sol.status
+  @show sol.objval
   @show v11value
-  @test status == :Optimal
-  @test abs(objval - 405969.63) < 0.1
+  @test sol.status == :Optimal
+  @test abs(sol.objval - 405969.63) < 0.1
   @test norm(v11value - [2986,0,7329,854]) < 0.1
   SDDPclear(M)
 end

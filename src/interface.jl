@@ -269,6 +269,13 @@ function model2lattice(m::Model, num_stages, solver, cutmode=:MultiCut)
   root = getSDDPNode(nodes, m, 1, num_stages, solver, nothing, cutmode)
 end
 
+type SDDPSolution
+    status
+    objval
+    sol
+    attrs
+end
+
 function SDDP(root::SDDPNode, num_stages, cutmode=:MultiCut, TOL=1e-5)
   npaths = numberofpaths(root)
 
@@ -306,7 +313,11 @@ function SDDP(root::SDDPNode, num_stages, cutmode=:MultiCut, TOL=1e-5)
     end
   end
 
-  (root.sol.status, root.sol.objval, root.sol.x, niter, nfcuts, nocuts)
+  attrs = Dict()
+  attrs[:niter] = niter
+  attrs[:nfcuts] = nfcuts
+  attrs[:nocuts] = nocuts
+  SDDPSolution(root.sol.status, root.sol.objval, root.sol.x, attrs)
 end
 
 function SDDPclear(m::Model)
