@@ -9,6 +9,7 @@ type SDDPNode{S}
   # Optimality cuts
   root::Bool
   leaf::Bool
+  npath::Nullable{Int}
 
   fcuts::CutStore{S}
   ocuts::CutStore{S}
@@ -19,14 +20,14 @@ type SDDPNode{S}
     nvars = size(nlds.W, 2)
     root = parent === nothing
     nvars_a = root ? 0 : parent.nvars
-    new(nlds, nvars, parent, SDDPNode[], Float64[], root, true, CutStore{S}(nvars_a), CutStore{S}(nvars_a), nothing)
+    new(nlds, nvars, parent, SDDPNode[], Float64[], root, true, nothing, CutStore{S}(nvars_a), CutStore{S}(nvars_a), nothing)
   end
 
 end
 
 SDDPNode{S}(nlds::NLDS{S}, parent) = SDDPNode{S}(nlds, parent)
 
-function setchildren!(node, children, proba, cutmode)
+function setchildren!(node::SDDPNode, children, proba, cutmode)
   @assert length(children) == length(proba)
   node.children = children
   node.proba = proba
@@ -34,6 +35,17 @@ function setchildren!(node, children, proba, cutmode)
   childFC = map(child -> child.fcuts, children)
   childOC = map(child -> child.ocuts, children)
   setchildren!(node.nlds, childFC, childOC, proba, cutmode)
+end
+
+function numberofpaths(node::SDDPNode)
+  if isnull(node.npath)
+    if length(node.children) == 0
+      node.npath = 1
+    else
+      node.npath = sum(map(numberofpaths, node.children))
+    end
+  end
+  get(node.npath)
 end
 
 function pushfeasibilitycut!(node, coef, rhs)
@@ -105,8 +117,8 @@ function addCuttingPlanes(node, cutmode, TOL)
 end
 
 function loadAndSolve(node::SDDPNode)
-  if !isnull(node.parent)
-    setparentx(node.nlds, get(node.parent).sol.x)
-  end
+# if !isnull(node.parent)
+#   setparentx(node.nlds, get(node.parent).sol.x)
+# end
   node.sol = solve!(node.nlds)
 end

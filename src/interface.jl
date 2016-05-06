@@ -1,4 +1,4 @@
-export SDDP, SDDPclear
+export model2lattice, SDDP, SDDPclear
 
 #===================================================
  The following function is taken from JuMP
@@ -244,7 +244,7 @@ function getSDDPNode(allnodes, m::Model, t, num_stages, solver, parent, cutmode)
     struct = getStructure(m)
     if t < num_stages
       num_scen = length(struct.children)
-      children = Vector{SDDPNode}(num_scen)
+      children = Vector{SDDPNode{Float64}}(num_scen)
       for i in 1:num_scen
         children[i] = getSDDPNode(allnodes, struct.children[i], t+1, num_stages, solver, newnode, cutmode)
       end
@@ -254,13 +254,23 @@ function getSDDPNode(allnodes, m::Model, t, num_stages, solver, parent, cutmode)
   get(nodes[t])
 end
 
-function SDDP(m::Model, num_stages, solver, cutmode=:MultiCut, TOL=1e-5)
+function filter(lim, a)
+  f = findfirst(x -> x > lim, a)
+  n = f == 0 ? length(a) : f-1
+  a[1:n], a[n+1:end]
+end
+
+function model2lattice(m::Model, num_stages, solver, cutmode=:MultiCut)
   nodes = Vector{Vector{SDDPNode}}(num_stages)
   for i in 1:num_stages
     nodes[i] = SDDPNode[]
   end
 
   root = getSDDPNode(nodes, m, 1, num_stages, solver, nothing, cutmode)
+end
+
+function SDDP(root::SDDPNode, num_stages, cutmode=:MultiCut, TOL=1e-5)
+  npaths = numberofpaths(root)
 
   cut_added = true
   niter = 0
@@ -269,18 +279,30 @@ function SDDP(m::Model, num_stages, solver, cutmode=:MultiCut, TOL=1e-5)
   while cut_added && (root.sol === nothing || root.sol.status != :Infeasible)
     niter += 1
     cut_added = false
+    pathss = [(nothing, Float64[], collect(1:npaths))]
     for t in 1:num_stages
-      for node in nodes[t]
-        loadAndSolve(node)
-      end
-      if t > 1
-        for node in nodes[t-1]
-          (nnewfcuts, nnewocuts) = addCuttingPlanes(node, cutmode, TOL)
+      newpathss = []
+      for (parent, x, paths) in pathss
+        if parent == nothing
+          loadAndSolve(root)
+          push!(newpathss, (root, root.sol.x, paths))
+        else
+          for child in parent.children
+            setparentx(child.nlds, x)
+            loadAndSolve(child)
+            newpaths, paths = filter(numberofpaths(child), paths)
+            paths -= numberofpaths(child)
+            if length(newpaths) > 0
+              push!(newpathss, (child, child.sol.x, newpaths))
+            end
+          end
+          (nnewfcuts, nnewocuts) = addCuttingPlanes(parent, cutmode, TOL)
           nfcuts += nnewfcuts
           nocuts += nnewocuts
           cut_added |= (nnewfcuts + nnewocuts > 0)
         end
       end
+      pathss = newpathss
     end
   end
 

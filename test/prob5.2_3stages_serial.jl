@@ -46,8 +46,9 @@ for s in 1:numScen
   end
 end
 
-for cutmode in [:AveragedCut, :MultiCut]
-  status, objval, sol = SDDP(models[1], 3, solver, cutmode)
+for cutmode in [:MultiCut, :AveragedCut]
+  root = model2lattice(models[1], 3, solver, cutmode)
+  status, objval, sol = SDDP(root, 3, cutmode)
 
   v11value = sol[1:4]
   @show status
