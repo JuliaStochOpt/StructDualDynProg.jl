@@ -1,5 +1,7 @@
 import MathProgBase
 
+export SDDPNode, setchildren!
+
 type SDDPNode{S}
   nlds::NLDS{S}
   nvars::Int

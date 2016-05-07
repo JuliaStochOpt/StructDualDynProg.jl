@@ -1,5 +1,9 @@
 using MathProgBase
 
+export NLDS
+
+# Nested L-Shaped Decomposition Subproblem (NLDS)
+
 # Primal
 # min c x
 #     + θ           -> :AveragedCut
@@ -64,6 +68,10 @@ type NLDS{S}
     addfollower(localOC, nlds)
     nlds
   end
+end
+
+function (::Type{NLDS{S}}){S}(W::AbstractMatrix, h::Vector, T::AbstractMatrix, K, C, c::Vector, solver)
+  NLDS{S}(AbstractMatrix{S}(W), Vector{S}(h), AbstractMatrix{S}(T), K, C, Vector{S}(c), solver)
 end
 
 function setchildren!(nlds::NLDS, childFC, childOC, proba, cutmode)
