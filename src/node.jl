@@ -11,7 +11,8 @@ type SDDPNode{S}
   # Optimality cuts
   root::Bool
   leaf::Bool
-  npath::Nullable{Int}
+
+  npath::Dict{Tuple{Int,Int},Int}
 
   fcuts::CutStore{S}
   ocuts::CutStore{S}
@@ -22,7 +23,7 @@ type SDDPNode{S}
     nvars = size(nlds.W, 2)
     root = parent === nothing
     nvars_a = root ? 0 : parent.nvars
-    new(nlds, nvars, parent, SDDPNode[], Float64[], root, true, nothing, CutStore{S}(nvars_a), CutStore{S}(nvars_a), nothing)
+    new(nlds, nvars, parent, SDDPNode[], Float64[], root, true, Dict{Tuple{Int,Int},Int}(), CutStore{S}(nvars_a), CutStore{S}(nvars_a), nothing)
   end
 
 end
@@ -39,15 +40,16 @@ function setchildren!(node::SDDPNode, children, proba, cutmode)
   setchildren!(node.nlds, childFC, childOC, proba, cutmode)
 end
 
-function numberofpaths(node::SDDPNode)
-  if isnull(node.npath)
-    if length(node.children) == 0
-      node.npath = 1
-    else
-      node.npath = sum(map(numberofpaths, node.children))
+function numberofpaths(node::SDDPNode, t, num_stages)
+  if t == num_stages || isempty(node.children)
+    1
+  else
+    key = (t,num_stages)
+    if !(key in keys(node.npath))
+      node.npath[key] = sum(map(c -> numberofpaths(c, t+1, num_stages), node.children))
     end
+    node.npath[key]
   end
-  get(node.npath)
 end
 
 function pushfeasibilitycut!(node, coef, rhs)
@@ -88,7 +90,7 @@ function addCuttingPlanes(node, cutmode, TOL)
       # We scale it to avoid this issue
       scaling = abs(rhs)
       if scaling == 0
-        scaling = maximum(coef)
+        scaling = maximum(abs(coef))
       end
       infeasible_master = true
       pushfeasibilitycut!(child, coef/scaling, sign(rhs))
@@ -101,7 +103,7 @@ function addCuttingPlanes(node, cutmode, TOL)
         if cutmode == :AveragedCut
           averaged_optimality_cut_coef += node.proba[i] * coef
           averaged_optimality_cut_rhs += node.proba[i] * rhs
-        else
+        elseif cutmode == :MultiCut
           if !infeasible_master && node.sol.θ[i] < (rhs - dot(coef, node.sol.x)) - TOL
             pushoptimalitycutforparent!(child, coef, rhs)
             # FIXME it will be added multiple times ! each time a parent satisfies theta < ...

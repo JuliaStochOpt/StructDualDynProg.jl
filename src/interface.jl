@@ -277,7 +277,8 @@ type SDDPSolution
 end
 
 function SDDP(root::SDDPNode, num_stages, cutmode=:MultiCut, TOL=1e-5)
-  npaths = numberofpaths(root)
+  # If the graph is not a tree, this will loop if I don't use a num_stages limit
+  npaths = numberofpaths(root, 1, num_stages)
 
   cut_added = true
   niter = 0
@@ -288,6 +289,7 @@ function SDDP(root::SDDPNode, num_stages, cutmode=:MultiCut, TOL=1e-5)
     cut_added = false
     pathss = [(nothing, Float64[], collect(1:npaths))]
     for t in 1:num_stages
+      # children are at t, parents are at t-1
       newpathss = []
       for (parent, x, paths) in pathss
         if parent == nothing
@@ -297,8 +299,9 @@ function SDDP(root::SDDPNode, num_stages, cutmode=:MultiCut, TOL=1e-5)
           for child in parent.children
             setparentx(child.nlds, x)
             loadAndSolve(child)
-            newpaths, paths = filter(numberofpaths(child), paths)
-            paths -= numberofpaths(child)
+            childnpaths = numberofpaths(child, t, num_stages)
+            newpaths, paths = filter(childnpaths, paths)
+            paths -= childnpaths
             if length(newpaths) > 0
               push!(newpathss, (child, child.sol.x, newpaths))
             end
