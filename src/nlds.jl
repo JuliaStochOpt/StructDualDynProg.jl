@@ -1,4 +1,5 @@
 using MathProgBase
+using InformationTheory # TODO remove
 
 export NLDS
 
@@ -30,8 +31,7 @@ type NLDS{S}
   c::Vector{S}
 
   # used to generate cuts
-  cuts_d
-  cuts_e
+  cuts_de
 
   # parent solution
   x_a
@@ -42,6 +42,7 @@ type NLDS{S}
   localOC::CutStore{S}
   proba
 
+  nx
   nθ
   nπ
   nσ
@@ -52,8 +53,13 @@ type NLDS{S}
 
   model
   loaded
+  solved
+  constrsadded
+  boundsupdated
+  prevsol
 
   function NLDS(W::AbstractMatrix{S}, h::Vector{S}, T::AbstractMatrix{S}, K, C, c::Vector{S}, solver)
+    nx = size(W, 2)
     nθ = 0
     nπ = length(h)
     localFC = CutStore{S}(size(W, 2))
@@ -63,9 +69,9 @@ type NLDS{S}
     else
       model = MathProgBase.LinearQuadraticModel(solver)
     end
-    nlds = new(W, h, T, K, C, c, nothing, nothing, S[], CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, nθ, nπ, 0, 0, 1:nπ, nothing, nothing, model, false)
-    addfollower(localFC, nlds)
-    addfollower(localOC, nlds)
+    nlds = new(W, h, T, K, C, c, nothing, S[], CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, nx, nθ, nπ, 0, 0, 1:nπ, nothing, nothing, model, false, false, false, false, nothing)
+    addfollower(localFC, (nlds, (:Feasibility, 0)))
+    addfollower(localOC, (nlds, (:Optimality, 0)))
     nlds
   end
 end
@@ -85,24 +91,13 @@ function setchildren!(nlds::NLDS, childFC, childOC, proba, cutmode)
     nlds.nθ = 0
   end
   nlds.childFC = childFC
-  for store in childFC
-    addfollower(store, nlds)
+  for i in 1:length(childFC)
+    addfollower(childFC[i], (nlds, (:Feasibility, i)))
   end
   nlds.childOC = childOC
-  for store in childOC
-    addfollower(store, nlds)
+  for i in 1:length(childOC)
+    addfollower(childOC[i], (nlds, (:Optimality, i)))
   end
-end
-
-function notifynewcut(nlds::NLDS)
-  # Invalidate current model
-  nlds.loaded = false
-end
-
-function setparentx(nlds::NLDS, x_a)
-  nlds.x_a = x_a
-  # TODO hotstart
-  nlds.loaded = false
 end
 
 function getfeasibilitycuts(nlds::NLDS)
@@ -120,21 +115,70 @@ function getoptimalitycuts{S}(nlds::NLDS{S})
   if nlds.nθ == 1
     cuts_E = [nlds.localOC.A ones(size(nlds.localOC.A, 1), 1)]
   else
-    cuts_E = reduce(vcat, spzeros(S, 0, size(nlds.W, 2) + nlds.nθ), map(f, 1:length(nlds.childOC)))
+    cuts_E = spzeros(S, 0, nlds.nx + nlds.nθ)
+  end
+  if nlds.nθ == length(nlds.childOC)
+    cuts_E = reduce(vcat, spzeros(S, 0, nlds.nx + nlds.nθ), map(f, 1:length(nlds.childOC)))
   end
   cuts_e = reduce(vcat, nlds.localOC.b, map(x -> x.b, nlds.childOC))
   (cuts_E, cuts_e)
 end
 
-function myload!(model::MathProgBase.AbstractConicModel, c, A, b, K, C)
-  MathProgBase.loadproblem!(nlds.model, c, A, b, K, C)
+function notifynewcut{S}(nlds::NLDS{S}, a::Vector{S}, β::S, attrs)
+  if nlds.loaded
+    @assert attrs[1] in [:Feasibility, :Optimality]
+    idx = collect(1:nlds.nx)
+    if attrs[1] == :Feasibility
+      nlds.nσ += 1
+      push!(nlds.σs, nlds.nπ + nlds.nσ + nlds.nρ)
+    else
+      a = [a; one(S)]
+      if attrs[2] == 0
+        push!(idx, nlds.nx+1)
+      else
+        push!(idx, nlds.nx+attrs[2])
+      end
+      nlds.nρ += 1
+      push!(nlds.ρs, nlds.nπ + nlds.nσ + nlds.nρ)
+    end
+    applyboundsupdates!(nlds)
+    myaddconstr!(nlds.model, idx, a, β, :NonPos)
+    push!(nlds.cuts_de, β)
+    nlds.constrsadded = true
+    nlds.solved = false
+  end
 end
 
-function myload!(model::MathProgBase.AbstractLinearQuadraticModel, c, A, b, K, C)
-  l  = Vector{Float64}(size(A, 2))
-  u  = Vector{Float64}(size(A, 2))
-  lb = Vector{Float64}(size(A, 1))
-  ub = Vector{Float64}(size(A, 1))
+function getrhs(nlds)
+  bigb = [nlds.h - nlds.T * nlds.x_a; nlds.cuts_de]
+  bigK = nlds.K
+  if nlds.nσ > 0
+    push!(bigK, (:NonPos, nlds.σs))
+  end
+  if nlds.nρ > 0
+    push!(bigK, (:NonPos, nlds.ρs))
+  end
+  bigb, bigK
+end
+
+function setparentx(nlds::NLDS, x_a)
+  nlds.x_a = x_a
+  if nlds.loaded
+    bigb, bigK = getrhs(nlds)
+    applyconstraintsaddition!(nlds)
+    mysetconstrB!(nlds.model, bigb, bigK)
+    nlds.boundsupdated = true
+    nlds.solved = false
+  end
+end
+
+function mysetconstrB!(m::MathProgBase.AbstractConicModel, b, K)
+  error("Not supported")
+end
+
+function getLPconstrbounds(b, K)
+  lb = Vector{Float64}(length(b))
+  ub = Vector{Float64}(length(b))
   for (cone, idx) in K
     for i in idx
       if !(cone  in [:Zero, :NonPos, :NonNeg])
@@ -152,6 +196,53 @@ function myload!(model::MathProgBase.AbstractLinearQuadraticModel, c, A, b, K, C
       end
     end
   end
+  lb, ub
+end
+
+function mysetconstrB!(m::MathProgBase.AbstractLinearQuadraticModel, b, K)
+  lb, ub = getLPconstrbounds(b, K)
+  MathProgBase.setconstrLB!(m, lb)
+  MathProgBase.setconstrUB!(m, ub)
+end
+
+function applyboundsupdates!(nlds::NLDS)
+  if nlds.boundsupdated
+    MathProgBase.updatemodel!(nlds.model)
+    nlds.boundsupdated = false
+  end
+end
+
+function myaddconstr!(m::MathProgBase.AbstractConicModel, idx, a, β, cone)
+  error("Not supported")
+end
+
+function myaddconstr!(m::MathProgBase.AbstractLinearQuadraticModel, idx, a, β, cone)
+  lb = -Inf
+  ub = Inf
+  if cone == :Zero || cone == :NonPos
+    lb = β
+  end
+  if cone == :Zero || cone == :NonNeg
+    ub = β
+  end
+  MathProgBase.addconstr!(m, idx, a, lb, ub)
+end
+
+function applyconstraintsaddition!(nlds::NLDS)
+  if nlds.constrsadded
+    MathProgBase.updatemodel!(nlds.model)
+    nlds.constrsadded = false
+  end
+end
+
+function myload!(model::MathProgBase.AbstractConicModel, c, A, b, K, C)
+  MathProgBase.loadproblem!(nlds.model, c, A, b, K, C)
+end
+
+function myload!(model::MathProgBase.AbstractLinearQuadraticModel, c, A, b, K, C)
+  l  = Vector{Float64}(size(A, 2))
+  u  = Vector{Float64}(size(A, 2))
+  lb, ub = getLPconstrbounds(b, K)
   for (cone, idx) in C
     for i in idx
       if !(cone  in [:Free, :NonPos, :NonNeg])
@@ -186,37 +277,28 @@ end
 function load!{S}(nlds::NLDS{S})
   if !nlds.loaded
     bigA = nlds.W
-    bigb = nlds.h - nlds.T * nlds.x_a
     nlds.nπ = length(nlds.h)
-    cuts_D, nlds.cuts_d = getfeasibilitycuts(nlds)
+    cuts_D, cuts_d = getfeasibilitycuts(nlds)
     bigA = [bigA; cuts_D]
-    bigb = [bigb; nlds.cuts_d]
-    nlds.nσ = length(nlds.cuts_d)
+    nlds.nσ = length(cuts_d)
     if nlds.nθ > 0
       bigA = [bigA spzeros(size(bigA, 1), nlds.nθ)]
-      cuts_E, nlds.cuts_e = getoptimalitycuts(nlds)
+      cuts_E, cuts_e = getoptimalitycuts(nlds)
       bigA = [bigA; cuts_E]
-      bigb = [bigb; nlds.cuts_e]
-      nlds.nρ = length(nlds.cuts_e)
+      nlds.nρ = length(cuts_e)
     else
-      nlds.cuts_e = S[]
+      cuts_e = S[]
       nlds.nρ = 0
     end
-    nlds.πs = 1:nlds.nπ
-    nlds.σs = nlds.nπ+(1:nlds.nσ)
-    nlds.ρs = nlds.nπ+nlds.nσ+(1:nlds.nρ)
-    if size(bigA, 1) > size(nlds.W, 1)
-      bigK = [nlds.K;
-             (:NonPos, collect(nlds.σs));
-             (:NonPos, collect(nlds.ρs))]
-    else
-      bigK = nlds.K
-    end
+    nlds.cuts_de = [cuts_d; cuts_e]
+    nlds.πs = collect(1:nlds.nπ)
+    nlds.σs = collect(nlds.nπ+(1:nlds.nσ))
+    nlds.ρs = collect(nlds.nπ+nlds.nσ+(1:nlds.nρ))
     if nlds.nθ == 0
       bigC = nlds.C
       bigc = nlds.c
     else
-      bigC = [nlds.C; (:NonNeg, collect(size(nlds.W, 2)+(1:nlds.nθ)))]
+      bigC = [nlds.C; (:NonNeg, collect(nlds.nx+(1:nlds.nθ)))]
       bigc = nlds.c
       if nlds.proba === nothing
         @assert nlds.nθ == 1
@@ -225,6 +307,8 @@ function load!{S}(nlds::NLDS{S})
         bigc = [bigc; nlds.proba]
       end
     end
+
+    bigb, bigK = getrhs(nlds)
 
     myload!(nlds.model, bigc, bigA, bigb, bigK, bigC)
     nlds.loaded = true
@@ -246,15 +330,27 @@ end
 
 function solve!(nlds::NLDS)
   load!(nlds)
-  MathProgBase.optimize!(nlds.model)
-  status = MathProgBase.status(nlds.model)
-  objval = MathProgBase.getobjval(nlds.model)
-  primal = MathProgBase.getsolution(nlds.model)
-  dual   = mygetdual(nlds.model)
-  x = primal[1:end-nlds.nθ]
-  θ = primal[end-nlds.nθ+1:end]
-  π = dual[nlds.πs]
-  σ = dual[nlds.σs]
-  ρ = dual[nlds.ρs]
-  NLDSSolution(status, objval, x, θ, vec(π' * nlds.T), vecdot(π, nlds.h), vecdot(σ, nlds.cuts_d), vecdot(ρ, nlds.cuts_e))
+  if !nlds.solved
+    applyboundsupdates!(nlds)
+    # No need to call updatemodel!(model) for added constraints for Gurobi and only Gurobi needs model updates
+    nlds.constrsadded = false
+    MathProgBase.optimize!(nlds.model)
+    status = MathProgBase.status(nlds.model)
+    objval = MathProgBase.getobjval(nlds.model)
+    primal = MathProgBase.getsolution(nlds.model)
+    dual   = mygetdual(nlds.model)
+    x = primal[1:end-nlds.nθ]
+    θ = primal[end-nlds.nθ+1:end]
+    π = dual[nlds.πs]
+    σ = dual[nlds.σs]
+    ρ = dual[nlds.ρs]
+    cuts_d = nlds.cuts_de[nlds.σs-nlds.nπ]
+    cuts_e = nlds.cuts_de[nlds.ρs-nlds.nπ]
+    nlds.prevsol = NLDSSolution(status, objval, x, θ, vec(π' * nlds.T), vecdot(π, nlds.h), vecdot(σ, cuts_d), vecdot(ρ, cuts_e))
+  end
+end
+
+function getsolution(nlds::NLDS)
+  solve!(nlds)
+  nlds.prevsol
 end

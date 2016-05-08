@@ -269,60 +269,6 @@ function model2lattice(m::Model, num_stages, solver, cutmode=:MultiCut)
   root = getSDDPNode(nodes, m, 1, num_stages, solver, nothing, cutmode)
 end
 
-type SDDPSolution
-    status
-    objval
-    sol
-    attrs
-end
-
-function SDDP(root::SDDPNode, num_stages, cutmode=:MultiCut, TOL=1e-5)
-  # If the graph is not a tree, this will loop if I don't use a num_stages limit
-  npaths = numberofpaths(root, 1, num_stages)
-
-  cut_added = true
-  niter = 0
-  nfcuts = 0
-  nocuts = 0
-  while cut_added && (root.sol === nothing || root.sol.status != :Infeasible)
-    niter += 1
-    cut_added = false
-    pathss = [(nothing, Float64[], collect(1:npaths))]
-    for t in 1:num_stages
-      # children are at t, parents are at t-1
-      newpathss = []
-      for (parent, x, paths) in pathss
-        if parent == nothing
-          loadAndSolve(root)
-          push!(newpathss, (root, root.sol.x, paths))
-        else
-          for child in parent.children
-            setparentx(child.nlds, x)
-            loadAndSolve(child)
-            childnpaths = numberofpaths(child, t, num_stages)
-            newpaths, paths = filter(childnpaths, paths)
-            paths -= childnpaths
-            if length(newpaths) > 0
-              push!(newpathss, (child, child.sol.x, newpaths))
-            end
-          end
-          (nnewfcuts, nnewocuts) = addCuttingPlanes(parent, cutmode, TOL)
-          nfcuts += nnewfcuts
-          nocuts += nnewocuts
-          cut_added |= (nnewfcuts + nnewocuts > 0)
-        end
-      end
-      pathss = newpathss
-    end
-  end
-
-  attrs = Dict()
-  attrs[:niter] = niter
-  attrs[:nfcuts] = nfcuts
-  attrs[:nocuts] = nocuts
-  SDDPSolution(root.sol.status, root.sol.objval, root.sol.x, attrs)
-end
-
 function SDDPclear(m::Model)
   for child in getStructure(m).children
     SDDPclear(child)

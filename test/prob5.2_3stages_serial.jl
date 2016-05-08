@@ -48,7 +48,7 @@ end
 
 for cutmode in [:MultiCut, :AveragedCut]
   root = model2lattice(models[1], 3, solver, cutmode)
-  sol = SDDP(root, 3, cutmode)
+  sol = SDDP(root, 3, cutmode, :All)
 
   v11value = sol.sol[1:4]
   @show sol.status

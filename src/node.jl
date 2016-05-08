@@ -124,5 +124,5 @@ function loadAndSolve(node::SDDPNode)
 # if !isnull(node.parent)
 #   setparentx(node.nlds, get(node.parent).sol.x)
 # end
-  node.sol = solve!(node.nlds)
+  node.sol = getsolution(node.nlds)
 end
