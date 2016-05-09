@@ -1,13 +1,15 @@
-#using GLPKMathProgInterface
-#using ECOS
-using Clp
 using JuMP
 using StructJuMP
 using StochasticDualDynamicProgramming
 using Base.Test
 
+#using ECOS
 #solver = ECOS.ECOSSolver(verbose=false)
-solver = Clp.ClpSolver()
+#using Clp
+#solver = Clp.ClpSolver()
+using Gurobi
+solver = Gurobi.GurobiSolver(OutputFlag=0)
+#using GLPKMathProgInterface
 #solver = GLPKSolverLP()
 
 include("prob5.2.jl")

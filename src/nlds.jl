@@ -1,5 +1,4 @@
 using MathProgBase
-using InformationTheory # TODO remove
 
 export NLDS
 
@@ -58,7 +57,7 @@ type NLDS{S}
   boundsupdated
   prevsol
 
-  function NLDS(W::AbstractMatrix{S}, h::Vector{S}, T::AbstractMatrix{S}, K, C, c::Vector{S}, solver)
+  function NLDS(W::AbstractMatrix{S}, h::AbstractVector{S}, T::AbstractMatrix{S}, K, C, c::AbstractVector{S}, solver)
     nx = size(W, 2)
     nθ = 0
     nπ = length(h)
@@ -76,8 +75,8 @@ type NLDS{S}
   end
 end
 
-function (::Type{NLDS{S}}){S}(W::AbstractMatrix, h::Vector, T::AbstractMatrix, K, C, c::Vector, solver)
-  NLDS{S}(AbstractMatrix{S}(W), Vector{S}(h), AbstractMatrix{S}(T), K, C, Vector{S}(c), solver)
+function (::Type{NLDS{S}}){S}(W::AbstractMatrix, h::AbstractVector, T::AbstractMatrix, K, C, c::AbstractVector, solver)
+  NLDS{S}(AbstractMatrix{S}(W), AbstractVector{S}(h), AbstractMatrix{S}(T), K, C, AbstractVector{S}(c), solver)
 end
 
 function setchildren!(nlds::NLDS, childFC, childOC, proba, cutmode)
@@ -124,28 +123,34 @@ function getoptimalitycuts{S}(nlds::NLDS{S})
   (cuts_E, cuts_e)
 end
 
-function notifynewcut{S}(nlds::NLDS{S}, a::Vector{S}, β::S, attrs)
+function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs)
   if nlds.loaded
-    @assert attrs[1] in [:Feasibility, :Optimality]
-    idx = collect(1:nlds.nx)
-    if attrs[1] == :Feasibility
-      nlds.nσ += 1
-      push!(nlds.σs, nlds.nπ + nlds.nσ + nlds.nρ)
+    if false
+      nlds.loaded = false
+      nlds.solved = false
     else
-      a = [a; one(S)]
-      if attrs[2] == 0
-        push!(idx, nlds.nx+1)
+      @assert attrs[1] in [:Feasibility, :Optimality]
+      idx = collect(1:nlds.nx)
+      if attrs[1] == :Feasibility
+        nlds.nσ += 1
+        push!(nlds.σs, nlds.nπ + nlds.nσ + nlds.nρ)
       else
-        push!(idx, nlds.nx+attrs[2])
+        a = [a; one(S)]
+        if attrs[2] == 0
+          push!(idx, nlds.nx+1)
+        else
+          push!(idx, nlds.nx+attrs[2])
+        end
+        nlds.nρ += 1
+        push!(nlds.ρs, nlds.nπ + nlds.nσ + nlds.nρ)
       end
-      nlds.nρ += 1
-      push!(nlds.ρs, nlds.nπ + nlds.nσ + nlds.nρ)
+      applyboundsupdates!(nlds)
+      myaddconstr!(nlds.model, idx, a, β, :NonPos)
+      #push!(nlds.cuts_de, β)
+      nlds.cuts_de = [nlds.cuts_de; sparsevec([β])]
+      nlds.constrsadded = true
+      nlds.solved = false
     end
-    applyboundsupdates!(nlds)
-    myaddconstr!(nlds.model, idx, a, β, :NonPos)
-    push!(nlds.cuts_de, β)
-    nlds.constrsadded = true
-    nlds.solved = false
   end
 end
 

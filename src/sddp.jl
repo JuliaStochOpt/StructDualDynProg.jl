@@ -18,14 +18,15 @@ function SDDP(root::SDDPNode, num_stages, cutmode=:MultiCut, mccount=25, TOL=1e-
   niter = 0
   nfcuts = 0
   nocuts = 0
-  #@show npaths
-  #@show mccount
-  while cut_added && (root.sol === nothing || root.sol.status != :Infeasible)
+  @show npaths
+  @show mccount
+  while (mccount < npaths || cut_added) && (root.sol === nothing || root.sol.status != :Infeasible)
+    @show niter
     niter += 1
     cut_added = false
-    allpaths =
     pathss = [(nothing, Float64[], sort(randperm(npaths)[1:mccount]))]
     for t in 1:num_stages
+      @show t
       # children are at t, parents are at t-1
       newpathss = []
       for (parent, x, paths) in pathss
@@ -56,7 +57,7 @@ function SDDP(root::SDDPNode, num_stages, cutmode=:MultiCut, mccount=25, TOL=1e-
       end
       pathss = newpathss
     end
-    #@show root.sol.status, root.sol.objval, root.sol.x, niter, nfcuts, nocuts
+    @show root.sol.status, root.sol.objval, root.sol.x, niter, nfcuts, nocuts
   end
 
   attrs = Dict()
