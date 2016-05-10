@@ -5,7 +5,7 @@ type SDDPSolution
     attrs
 end
 
-function SDDP(root::SDDPNode, num_stages, cutmode=:MultiCut, mccount=25, TOL=1e-5)
+function SDDP(root::SDDPNode, num_stages, cutmode=:MultiCut, mccount=25, debug=false, TOL=1e-5)
   # If the graph is not a tree, this will loop if I don't use a num_stages limit
   npaths = numberofpaths(root, 1, num_stages)
   if mccount == :All
@@ -18,16 +18,22 @@ function SDDP(root::SDDPNode, num_stages, cutmode=:MultiCut, mccount=25, TOL=1e-
   niter = 0
   nfcuts = 0
   nocuts = 0
-  @show npaths
-  @show mccount
+  if debug
+    @show npaths
+    @show mccount
+  end
   rootsol = nothing
   while (mccount < npaths || cut_added) && (rootsol === nothing || rootsol.status != :Infeasible)
-    @show niter
+    if debug
+      @show niter
+    end
     niter += 1
     cut_added = false
     pathss = [(nothing, Float64[], sort(randperm(npaths)[1:mccount]))]
     for t in 1:num_stages
-      @show t
+      if debug
+        @show t
+      end
       # children are at t, parents are at t-1
       newpathss = []
       for (parent, psol, paths) in pathss
@@ -108,7 +114,9 @@ function SDDP(root::SDDPNode, num_stages, cutmode=:MultiCut, mccount=25, TOL=1e-
       end
       pathss = newpathss
     end
-    @show rootsol.status, rootsol.objval, rootsol.x, niter, nfcuts, nocuts
+    if debug
+      @show rootsol.status, rootsol.objval, rootsol.x, niter, nfcuts, nocuts
+    end
   end
 
   attrs = Dict()

@@ -55,7 +55,7 @@ for cutmode in [:MultiCut, :AveragedCut]
   @show sol.objval
   @show v11value
   @test sol.status == :Optimal
-  @test abs(sol.objval - 405969.63) < 0.1
+  @test abs(sol.objval - 406712.49) < 0.1
   @test norm(v11value - [2986,0,7329,854]) < 0.1
   SDDPclear(models[1])
 end

@@ -30,7 +30,7 @@ for s in 1:numScen
     M3 = StructuredModel(parent=M2, prob=p2[S])
     @variable(M3, y[2][1:n, 1:m] >= 0)
     @constraints M3 begin
-      demand[j=1:m], sum(y[2][:,j]) == D2[j,s]
+      demand[j=1:m], sum(y[2][:,j]) == D2[j,S]
       ylim[i=1:n], sum(y[2][i,:]) <= x[2][i]
     end
     @objective(M3, Min, dot(C, y[2] * T))
@@ -39,14 +39,14 @@ end
 
 for cutmode in [:AveragedCut, :MultiCut]
   root = model2lattice(M, 3, solver, cutmode)
-  @time sol = SDDP(root, 3, cutmode, :All)
+  sol = SDDP(root, 3, cutmode, :All)
 
   v11value = sol.sol[1:4]
   @show sol.status
   @show sol.objval
   @show v11value
   @test sol.status == :Optimal
-  @test abs(sol.objval - 405969.63) < 0.1
+  @test abs(sol.objval - 406712.49) < 0.1
   @test norm(v11value - [2986,0,7329,854]) < 0.1
   SDDPclear(M)
 end
