@@ -20,7 +20,8 @@ function SDDP(root::SDDPNode, num_stages, cutmode=:MultiCut, mccount=25, TOL=1e-
   nocuts = 0
   @show npaths
   @show mccount
-  while (mccount < npaths || cut_added) && (root.sol === nothing || root.sol.status != :Infeasible)
+  rootsol = nothing
+  while (mccount < npaths || cut_added) && (rootsol === nothing || rootsol.status != :Infeasible)
     @show niter
     niter += 1
     cut_added = false
@@ -29,42 +30,90 @@ function SDDP(root::SDDPNode, num_stages, cutmode=:MultiCut, mccount=25, TOL=1e-
       @show t
       # children are at t, parents are at t-1
       newpathss = []
-      for (parent, x, paths) in pathss
+      for (parent, psol, paths) in pathss
         if parent == nothing
-          loadAndSolve(root)
-          push!(newpathss, (root, root.sol.x, paths))
+          rootsol = loadAndSolve(root)
+          push!(newpathss, (root, rootsol, paths))
         else
           curpathss = []
+          childsolved = zeros(Bool, length(parent.children))
+          feasible = true
+          nnewfcuts = 0
+          nnewocuts = 0
+          childocuts = Array{Any}(length(parent.children))
           for i in 1:length(parent.children)
-            setchildx(parent, i, x)
-            #setparentx(child.nlds, parent.childT[i] * x)
             child = parent.children[i]
-            loadAndSolve(child)
             childnpaths = numberofpaths(child, t, num_stages)
             newpaths, paths = filter(childnpaths, paths)
             paths -= childnpaths
-            if length(newpaths) > 0
-              push!(curpathss, (child, child.sol.x, newpaths))
+            if length(newpaths) > 0 || cutmode == :AveragedCut
+              setchildx(parent, i, psol.x)
+              childsol = loadAndSolve(child)
+              childsolved[i] = true
+
+              # Feasibility cut
+              # D = π T
+              # d = π h + σ d
+              # Optimality cut
+              # E = π T
+              # e = π h + ρ e + σ d
+              coef = childsol.πT
+              rhs = childsol.πh + childsol.σd
+              if childsol.status == :Infeasible
+                feasible = false
+                nnewfcuts += 1
+                pushfeasibilitycut!(child, coef, rhs)
+                break
+              else
+                rhs += childsol.ρe
+                childocuts[i] = (coef, rhs)
+              end
+              if length(newpaths) > 0
+                push!(curpathss, (child, childsol, newpaths))
+              end
             end
           end
-          (nnewfcuts, nnewocuts) = addCuttingPlanes(parent, cutmode, TOL)
+          if feasible
+            if cutmode == :MultiCut
+              for i in 1:length(parent.children)
+                if childsolved[i]
+                  a, β = childocuts[i][1], childocuts[i][2]
+                  if psol.θ[i] < (β - dot(a, psol.x)) - TOL
+                    pushoptimalitycutforparent!(parent.children[i], a, β)
+                    nnewocuts += 1
+                  end
+                end
+              end
+            elseif cutmode == :AveragedCut
+              if !isempty(parent.children)
+                a = sum(map(i->childocuts[i][1]*parent.proba[i], 1:length(parent.children)))
+                β = sum(map(i->childocuts[i][2]*parent.proba[i], 1:length(parent.children)))
+                if psol.θ[1] < (β - dot(a, psol.x)) - TOL
+                  pushoptimalitycut!(parent, a, β)
+                  nnewocuts += 1
+                end
+              end
+            end
+          end
           nfcuts += nnewfcuts
           nocuts += nnewocuts
           cut_added |= (nnewfcuts + nnewocuts > 0)
-          if nnewfcuts == 0 && !isempty(curpathss)
-            # Do not continue of there were feasibility cuts
+          if feasible && !isempty(curpathss)
+            @assert nnewfcuts == 0
             append!(newpathss, curpathss)
+          else
+            @assert nnewfcuts == 1
           end
         end
       end
       pathss = newpathss
     end
-    @show root.sol.status, root.sol.objval, root.sol.x, niter, nfcuts, nocuts
+    @show rootsol.status, rootsol.objval, rootsol.x, niter, nfcuts, nocuts
   end
 
   attrs = Dict()
   attrs[:niter] = niter
   attrs[:nfcuts] = nfcuts
   attrs[:nocuts] = nocuts
-  SDDPSolution(root.sol.status, root.sol.objval, root.sol.x, attrs)
+  SDDPSolution(rootsol.status, rootsol.objval, rootsol.x, attrs)
 end
