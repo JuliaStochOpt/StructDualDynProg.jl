@@ -8,6 +8,7 @@ type SDDPNode{S}
   parent::Nullable{SDDPNode{S}}
   children::Vector{SDDPNode{S}}
   proba::Vector{S}
+  childT::Nullable{Vector{AbstractMatrix{S}}}
   # Optimality cuts
   root::Bool
   leaf::Bool
@@ -23,21 +24,29 @@ type SDDPNode{S}
     nvars = size(nlds.W, 2)
     root = parent === nothing
     nvars_a = root ? 0 : parent.nvars
-    new(nlds, nvars, parent, SDDPNode[], Float64[], root, true, Dict{Tuple{Int,Int},Int}(), CutStore{S}(nvars_a), CutStore{S}(nvars_a), nothing)
+    new(nlds, nvars, parent, SDDPNode[], Float64[], nothing, root, true, Dict{Tuple{Int,Int},Int}(), CutStore{S}(nvars_a), CutStore{S}(nvars_a), nothing)
   end
 
 end
 
 SDDPNode{S}(nlds::NLDS{S}, parent) = SDDPNode{S}(nlds, parent)
 
-function setchildren!(node::SDDPNode, children, proba, cutmode)
+function setchildren!(node::SDDPNode, children, proba, cutmode, childT=nothing)
   @assert length(children) == length(proba)
   node.children = children
   node.proba = proba
   node.leaf = false
   childFC = map(child -> child.fcuts, children)
   childOC = map(child -> child.ocuts, children)
-  setchildren!(node.nlds, childFC, childOC, proba, cutmode)
+  node.childT = childT
+  setchildren!(node.nlds, childFC, childOC, proba, cutmode, childT)
+end
+
+function setchildx(node::SDDPNode, i, x)
+  if !isnull(node.childT)
+    x = get(node.childT)[i] * x
+  end
+  setparentx(node.children[i].nlds, x)
 end
 
 function numberofpaths(node::SDDPNode, t, num_stages)

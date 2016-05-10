@@ -40,6 +40,7 @@ type NLDS{S}
   localFC::CutStore{S}
   localOC::CutStore{S}
   proba
+  childT::Nullable{Vector{AbstractMatrix{S}}}
 
   nx
   nθ
@@ -68,7 +69,7 @@ type NLDS{S}
     else
       model = MathProgBase.LinearQuadraticModel(solver)
     end
-    nlds = new(W, h, T, K, C, c, nothing, S[], CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, nx, nθ, nπ, 0, 0, 1:nπ, nothing, nothing, model, false, false, false, false, nothing)
+    nlds = new(W, h, T, K, C, c, nothing, S[], CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, nothing, nx, nθ, nπ, 0, 0, 1:nπ, nothing, nothing, model, false, false, false, false, nothing)
     addfollower(localFC, (nlds, (:Feasibility, 0)))
     addfollower(localOC, (nlds, (:Optimality, 0)))
     nlds
@@ -79,7 +80,7 @@ function (::Type{NLDS{S}}){S}(W::AbstractMatrix, h::AbstractVector, T::AbstractM
   NLDS{S}(AbstractMatrix{S}(W), AbstractVector{S}(h), AbstractMatrix{S}(T), K, C, AbstractVector{S}(c), solver)
 end
 
-function setchildren!(nlds::NLDS, childFC, childOC, proba, cutmode)
+function setchildren!(nlds::NLDS, childFC, childOC, proba, cutmode, childT=nothing)
   @assert length(childFC) == length(childOC) == length(proba)
   if cutmode == :MultiCut
     nlds.proba = proba
@@ -97,10 +98,18 @@ function setchildren!(nlds::NLDS, childFC, childOC, proba, cutmode)
   for i in 1:length(childOC)
     addfollower(childOC[i], (nlds, (:Optimality, i)))
   end
+  nlds.childT = childT
 end
 
 function getfeasibilitycuts(nlds::NLDS)
-  cuts_D = reduce(vcat, nlds.localFC.A, map(x -> x.A, nlds.childFC))
+  function f(i)
+    D = nlds.childFC[i].A
+    if !isnull(nlds.childT)
+      D = D * get(nlds.childT)[i]
+    end
+    D
+  end
+  cuts_D = reduce(vcat, nlds.localFC.A, map(i -> f(i), 1:length(nlds.childFC)))
   cuts_d = reduce(vcat, nlds.localFC.b, map(x -> x.b, nlds.childFC))
   (cuts_D, cuts_d)
 end
@@ -108,6 +117,9 @@ end
 function getoptimalitycuts{S}(nlds::NLDS{S})
   function f(i)
     E = nlds.childOC[i].A
+    if !isnull(nlds.childT)
+      E = E * get(nlds.childT)[i]
+    end
     nrows = size(E, 1)
     [E spzeros(S, nrows, i-1) ones(S, nrows, 1) spzeros(S, nrows, nlds.nθ-i)]
   end
@@ -143,6 +155,9 @@ function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs)
         end
         nlds.nρ += 1
         push!(nlds.ρs, nlds.nπ + nlds.nσ + nlds.nρ)
+      end
+      if attrs[2] > 0 && !isnull(nlds.childT)
+        a = get(nlds.childT)[attrs[2]]' * a
       end
       applyboundsupdates!(nlds)
       myaddconstr!(nlds.model, idx, a, β, :NonPos)

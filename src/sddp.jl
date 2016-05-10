@@ -35,8 +35,10 @@ function SDDP(root::SDDPNode, num_stages, cutmode=:MultiCut, mccount=25, TOL=1e-
           push!(newpathss, (root, root.sol.x, paths))
         else
           curpathss = []
-          for child in parent.children
-            setparentx(child.nlds, x)
+          for i in 1:length(parent.children)
+            setchildx(parent, i, x)
+            #setparentx(child.nlds, parent.childT[i] * x)
+            child = parent.children[i]
             loadAndSolve(child)
             childnpaths = numberofpaths(child, t, num_stages)
             newpaths, paths = filter(childnpaths, paths)
