@@ -107,8 +107,6 @@ function SDDP(root::SDDPNode, num_stages, cutmode=:MultiCut, mccount=25, debug=f
           if feasible && !isempty(curpathss)
             @assert nnewfcuts == 0
             append!(newpathss, curpathss)
-          else
-            @assert nnewfcuts == 1
           end
         end
       end

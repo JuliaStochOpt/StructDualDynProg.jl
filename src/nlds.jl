@@ -58,7 +58,9 @@ type NLDS{S}
   boundsupdated
   prevsol
 
-  function NLDS(W::AbstractMatrix{S}, h::AbstractVector{S}, T::AbstractMatrix{S}, K, C, c::AbstractVector{S}, solver)
+  newcut::Symbol
+
+  function NLDS(W::AbstractMatrix{S}, h::AbstractVector{S}, T::AbstractMatrix{S}, K, C, c::AbstractVector{S}, solver, newcut::Symbol=:AddImmediately)
     nx = size(W, 2)
     nθ = 0
     nπ = length(h)
@@ -69,15 +71,15 @@ type NLDS{S}
     else
       model = MathProgBase.LinearQuadraticModel(solver)
     end
-    nlds = new(W, h, T, K, C, c, nothing, S[], CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, nothing, nx, nθ, nπ, 0, 0, 1:nπ, nothing, nothing, model, false, false, false, false, nothing)
+    nlds = new(W, h, T, K, C, c, nothing, S[], CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, nothing, nx, nθ, nπ, 0, 0, 1:nπ, nothing, nothing, model, false, false, false, false, nothing, newcut)
     addfollower(localFC, (nlds, (:Feasibility, 0)))
     addfollower(localOC, (nlds, (:Optimality, 0)))
     nlds
   end
 end
 
-function (::Type{NLDS{S}}){S}(W::AbstractMatrix, h::AbstractVector, T::AbstractMatrix, K, C, c::AbstractVector, solver)
-  NLDS{S}(AbstractMatrix{S}(W), AbstractVector{S}(h), AbstractMatrix{S}(T), K, C, AbstractVector{S}(c), solver)
+function (::Type{NLDS{S}}){S}(W::AbstractMatrix, h::AbstractVector, T::AbstractMatrix, K, C, c::AbstractVector, solver, newcut::Symbol=:AddImmediately)
+  NLDS{S}(AbstractMatrix{S}(W), AbstractVector{S}(h), AbstractMatrix{S}(T), K, C, AbstractVector{S}(c), solver, newcut)
 end
 
 function setchildren!(nlds::NLDS, childFC, childOC, proba, cutmode, childT=nothing)
@@ -137,10 +139,10 @@ end
 
 function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs)
   if nlds.loaded
-    if false
+    if nlds.newcut == :InvalidateSolver
       nlds.loaded = false
       nlds.solved = false
-    else
+    elseif nlds.newcut == :AddImmediately
       @assert attrs[1] in [:Feasibility, :Optimality]
       idx = collect(1:nlds.nx)
       if attrs[1] == :Feasibility
@@ -165,6 +167,8 @@ function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs)
       nlds.cuts_de = [nlds.cuts_de; sparsevec([β])]
       nlds.constrsadded = true
       nlds.solved = false
+    else
+      error("Invalid newcut option $(nlds.newcut)")
     end
   end
 end
