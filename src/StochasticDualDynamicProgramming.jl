@@ -4,6 +4,7 @@ using JuMP
 using StructJuMP
 
 include("cutstore.jl")
+include("solver.jl")
 include("nlds.jl")
 include("node.jl")
 include("sddp.jl")
