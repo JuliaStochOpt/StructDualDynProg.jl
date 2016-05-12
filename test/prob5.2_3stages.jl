@@ -37,13 +37,12 @@ for s in 1:numScen
   end
 end
 
-for cutmode in [:AveragedCut, :MultiCut]
-  root = model2lattice(M, 3, solver, cutmode)
-  sol = SDDP(root, 3, cutmode, :All, 0)
-
-  v11value = sol.sol[1:4]
-  @test sol.status == :Optimal
-  @test abs(sol.objval - 406712.49) < 0.1
-  @test norm(v11value - [2986,0,7329,854]) < 0.1
-  SDDPclear(M)
-end
+fulltest(M, 3, 406712.49, [2986,0,7329,854])
+# root = model2lattice(M, 3, solver, cutmode)
+# sol = SDDP(root, 3, cutmode, :All, verbose)
+#
+# v11value = sol.sol[1:4]
+# @test sol.status == :Optimal
+# @test abs(sol.objval - 406712.49) < 0.1
+# @test norm(v11value - [2986,0,7329,854]) < 0.1
+# SDDPclear(M)

@@ -71,8 +71,12 @@ type NLDS{S}
   prevsol::Nullable{NLDSSolution}
 
   newcut::Symbol
+  maxncuts::Integer
 
-  function NLDS(W::AbstractMatrix{S}, h::AbstractVector{S}, T::AbstractMatrix{S}, K, C, c::AbstractVector{S}, solver, newcut::Symbol=:AddImmediately)
+  nwith::Vector{Int}
+  nused::Vector{Int}
+
+  function NLDS(W::AbstractMatrix{S}, h::AbstractVector{S}, T::AbstractMatrix{S}, K, C, c::AbstractVector{S}, solver, newcut::Symbol=:AddImmediately, maxncuts::Integer=-1)
     nx = size(W, 2)
     nθ = 0
     nπ = length(h)
@@ -83,14 +87,14 @@ type NLDS{S}
     else
       model = MathProgBase.LinearQuadraticModel(solver)
     end
-    nlds = new(W, h, T, K, C, c, nothing, nothing, S[], CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, nothing, nx, nθ, nπ, 0, 0, 1:nπ, nothing, nothing, model, false, false, false, false, nothing, newcut)
+    nlds = new(W, h, T, K, C, c, nothing, nothing, S[], CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, nothing, nx, nθ, nπ, 0, 0, 1:nπ, nothing, nothing, model, false, false, false, false, nothing, newcut, maxncuts, Int[], Int[])
     addfollower(localFC, (nlds, (:Feasibility, 0)))
     addfollower(localOC, (nlds, (:Optimality, 0)))
     nlds
   end
 end
 
-function (::Type{NLDS{S}}){S}(W::AbstractMatrix, h::AbstractVector, T::AbstractMatrix, K, C, c::AbstractVector, solver, newcut::Symbol=:AddImmediately)
+function (::Type{NLDS{S}}){S}(W::AbstractMatrix, h::AbstractVector, T::AbstractMatrix, K, C, c::AbstractVector, solver, newcut::Symbol=:AddImmediately, maxncuts::Integer=-1)
   NLDS{S}(AbstractMatrix{S}(W), AbstractVector{S}(h), AbstractMatrix{S}(T), K, C, AbstractVector{S}(c), solver, newcut)
 end
 
@@ -149,39 +153,65 @@ function getoptimalitycuts{S}(nlds::NLDS{S})
   (cuts_E, cuts_e)
 end
 
+function choosecuttoremove(nlds::NLDS)
+  isold = nlds.nwith >= 1
+  if reduce(|, false, isold) # at least one old
+    idx = (1:length(nlds.nwith))[isold]
+    i = indmin(map(i->nlds.nused[i]/nlds.nwith[i], 1:length(idx)))
+    idx[i]
+  else
+    # No cut has already been used, remove the oldest
+    1
+  end
+end
+
 function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs)
+  @assert attrs[1] in [:Feasibility, :Optimality]
   if nlds.loaded
-    if nlds.newcut == :InvalidateSolver
+    i = attrs[2]
+    if i > 0 && !isnull(nlds.childT)
+      a = get(nlds.childT)[i]' * a
+    end
+    if attrs[1] == :Feasibility
+      nlds.nσ += 1
+      push!(nlds.σs, nlds.nπ + nlds.nσ + nlds.nρ)
+      A = [a; spzeros(S, nlds.nθ)]
+    else
+      nlds.nρ += 1
+      push!(nlds.ρs, nlds.nπ + nlds.nσ + nlds.nρ)
+      if i == 0
+        A = [a; one(S)]
+      else
+        A = [a; spzeros(S, i-1); one(S); spzeros(S, nlds.nθ-i)]
+      end
+    end
+    if nlds.maxncuts != -1 && length(nlds.nwith) >= nlds.maxncuts
+      @assert length(nlds.nwith) == nlds.maxncuts
+      j = choosecuttoremove(nlds)
+      nlds.cuts_DE[j,:] = sparse(A)
+      nlds.cuts_de[j] = β
+      cutremoved = true
+    else
+      nlds.cuts_DE = [get(nlds.cuts_DE); sparse(A')]
+      nlds.cuts_de = [get(nlds.cuts_de); sparsevec([β])]
+      cutremoved = false
+    end
+    if cutremoved || nlds.newcut == :InvalidateSolver
       nlds.loaded = false
       nlds.solved = false
     elseif nlds.newcut == :AddImmediately
-      @assert attrs[1] in [:Feasibility, :Optimality]
       idx = collect(1:nlds.nx)
-      i = attrs[2]
-      if i > 0 && !isnull(nlds.childT)
-        a = get(nlds.childT)[i]' * a
-      end
-      if attrs[1] == :Feasibility
-        nlds.nσ += 1
-        push!(nlds.σs, nlds.nπ + nlds.nσ + nlds.nρ)
-        A = [a; spzeros(S, nlds.nθ)]
-      else
+      if attrs[1] == :Optimality
         if i == 0
           push!(idx, nlds.nx+1)
-          A = [a; one(S)]
         else
           push!(idx, nlds.nx+i)
-          A = [a; spzeros(S, i-1); one(S); spzeros(S, nlds.nθ-i)]
         end
         a = [a; one(S)]
-        nlds.nρ += 1
-        push!(nlds.ρs, nlds.nπ + nlds.nσ + nlds.nρ)
       end
       applyboundsupdates!(nlds)
       myaddconstr!(nlds.model, idx, a, β, :NonPos)
       #push!(nlds.cuts_de, β)
-      nlds.cuts_DE = [get(nlds.cuts_DE); sparse(A')]
-      nlds.cuts_de = [get(nlds.cuts_de); sparsevec([β])]
       nlds.constrsadded = true
       nlds.solved = false
     else
@@ -294,6 +324,10 @@ function solve!(nlds::NLDS)
     dual   = mygetdual(nlds.model)
     x = primal[1:end-nlds.nθ]
     θ = primal[end-nlds.nθ+1:end]
+    if !isempty(nlds.nwith)
+      nlds.nwith += 1
+      nlds.nused[dual[nlds.nπ+1:end] .> 1e-6] += 1
+    end
     π = dual[nlds.πs]
     σ = dual[nlds.σs]
     ρ = dual[nlds.ρs]
