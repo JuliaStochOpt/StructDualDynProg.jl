@@ -153,32 +153,35 @@ function getoptimalitycuts{S}(nlds::NLDS{S})
   (cuts_E, cuts_e)
 end
 
-function choosecuttoremove(nlds::NLDS)
-  isold = nlds.nwith >= 1
+function choosecuttoremove(nlds::NLDS, num)
+  isold = nlds.nwith .>= 1
   if reduce(|, false, isold) # at least one old
-    idx = (1:length(nlds.nwith))[isold]
-    i = indmin(map(i->nlds.nused[i]/nlds.nwith[i], 1:length(idx)))
-    idx[i]
+    all = 1:length(nlds.nwith)
+    idx = all[isold]
+    if length(idx) > num
+      sorted = sort(idx, by=i->nlds.nused[i]/nlds.nwith[i])
+      sorted[1:num]
+    else
+      new = all[!isold][1:(num-length(idx))]
+      [idx; new]
+    end
   else
     # No cut has already been used, remove the oldest
-    1
+    collect(1:num)
   end
 end
 
 function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs)
   @assert attrs[1] in [:Feasibility, :Optimality]
+  @assert length(nlds.nwith) == length(nlds.nused) == length(get(nlds.cuts_de))
   if nlds.loaded
     i = attrs[2]
     if i > 0 && !isnull(nlds.childT)
       a = get(nlds.childT)[i]' * a
     end
     if attrs[1] == :Feasibility
-      nlds.nσ += 1
-      push!(nlds.σs, nlds.nπ + nlds.nσ + nlds.nρ)
       A = [a; spzeros(S, nlds.nθ)]
     else
-      nlds.nρ += 1
-      push!(nlds.ρs, nlds.nπ + nlds.nσ + nlds.nρ)
       if i == 0
         A = [a; one(S)]
       else
@@ -186,14 +189,42 @@ function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs)
       end
     end
     if nlds.maxncuts != -1 && length(nlds.nwith) >= nlds.maxncuts
-      @assert length(nlds.nwith) == nlds.maxncuts
-      j = choosecuttoremove(nlds)
-      nlds.cuts_DE[j,:] = sparse(A)
-      nlds.cuts_de[j] = β
+      J = choosecuttoremove(nlds, length(nlds.nwith) - nlds.maxncuts + 1)
+      j = J[1]
+      get(nlds.cuts_DE)[j,:] = sparse(A)
+      get(nlds.cuts_de)[j] = β
+      nlds.nwith[j] = 0
+      nlds.nused[j] = 0
+
+      keep = setdiff(1:length(get(nlds.cuts_de)), J[2:end])
+      isσcut = zeros(Bool, length(nlds.nwith))
+      isσcut[nlds.σs-nlds.nπ] = true
+      isσcut[j] = attrs[1] == :Feasibility
+      isσcut = isσcut[keep]
+      nlds.σs = nlds.nπ + (1:length(isσcut))[isσcut]
+      nlds.ρs = nlds.nπ + (1:length(isσcut))[!isσcut]
+      nlds.nσ = length(nlds.σs)
+      nlds.nρ = length(nlds.ρs)
+
+      if length(J) > 1
+        nlds.cuts_DE = get(nlds.cuts_DE)[keep,:]
+        nlds.cuts_de = get(nlds.cuts_de)[keep]
+        nlds.nwith = nlds.nwith[keep]
+        nlds.nused = nlds.nused[keep]
+      end
       cutremoved = true
     else
+      if attrs[1] == :Feasibility
+        nlds.nσ += 1
+        push!(nlds.σs, nlds.nπ + nlds.nσ + nlds.nρ)
+      else
+        nlds.nρ += 1
+        push!(nlds.ρs, nlds.nπ + nlds.nσ + nlds.nρ)
+      end
       nlds.cuts_DE = [get(nlds.cuts_DE); sparse(A')]
       nlds.cuts_de = [get(nlds.cuts_de); sparsevec([β])]
+      push!(nlds.nwith, 0)
+      push!(nlds.nused, 0)
       cutremoved = false
     end
     if cutremoved || nlds.newcut == :InvalidateSolver
@@ -278,6 +309,8 @@ function computecuts!{S}(nlds::NLDS{S})
     nlds.πs = collect(1:nlds.nπ)
     nlds.σs = collect(nlds.nπ+(1:nlds.nσ))
     nlds.ρs = collect(nlds.nπ+nlds.nσ+(1:nlds.nρ))
+    nlds.nwith = zeros(Int, nlds.nσ+nlds.nρ)
+    nlds.nused = zeros(Int, nlds.nσ+nlds.nρ)
   end
 end
 
