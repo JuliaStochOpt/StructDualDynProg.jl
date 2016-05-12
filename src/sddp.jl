@@ -128,8 +128,11 @@ function iteration(root::SDDPNode, pathss, num_stages, cutmode=:MultiCut, mccoun
             end
           elseif cutmode == :AveragedCut
             if !isempty(parent.children)
-              # FIXME should use childT
-              a = sum(map(i->childocuts[i][1]*parent.proba[i], 1:length(parent.children)))
+              if isnull(parent.childT)
+                a = sum(map(i->childocuts[i][1]*parent.proba[i], 1:length(parent.children)))
+              else
+                a = sum(map(i->get(parent.childT)[i]'*childocuts[i][1]*parent.proba[i], 1:length(parent.children)))
+              end
               β = sum(map(i->childocuts[i][2]*parent.proba[i], 1:length(parent.children)))
               if psol.θ[1] < (β - dot(a, psol.x)) - TOL
                 stats.ocutstime += @mytime pushoptimalitycut!(parent, a, β)
