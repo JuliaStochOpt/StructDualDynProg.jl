@@ -5,12 +5,67 @@ type SDDPSolution
     attrs
 end
 
-function iteration(root::SDDPNode, pathss, num_stages, cutmode=:MultiCut, mccount=25, debug=false, TOL=1e-5)
+macro mytime(x)
+  quote
+    y = @timed $(esc(x))
+    # y[1] is returned value
+    # y[2] is time in seconds
+    y[2]
+  end
+end
+
+type SDDPStats
+  nsolved::Int
+  solvertime::Float64
+  nfcuts::Int
+  fcutstime::Float64
+  nocuts::Int
+  ocutstime::Float64
+  nsetx::Int
+  setxtime::Float64
+end
+
+SDDPStats() = SDDPStats(0,.0,0,.0,0,.0,0,.0)
+
+import Base: +, show
+
+function +(a::SDDPStats, b::SDDPStats)
+  SDDPStats(a.nsolved + b.nsolved, a.solvertime + b.solvertime,
+            a.nfcuts  + b.nfcuts , a.fcutstime  + b.fcutstime,
+            a.nocuts  + b.nocuts , a.ocutstime  + b.ocutstime,
+            a.nsetx   + b.nsetx  , a.setxtime   + b.setxtime)
+end
+
+function showtime(t::Float64)
+  if !isfinite(t)
+    "   min    s    ms    μs"
+  else
+    s = Int(floor(t))
+    t = (t - s) * 1000
+    min = div(s, 60)
+    s = mod(s, 60)
+    ms = Int(floor(t))
+    t = (t - ms) * 1000
+    μs = Int(floor(t))
+    @sprintf "%3dmin %3ds %3dms %3dμs" min s ms μs
+  end
+end
+
+function Base.show(io::IO, stat::SDDPStats)
+  println("                        |     Total time [s]      | Number | Average time [s]")
+  @printf "        Solving problem | %s | %6d | %s\n" showtime(stat.solvertime) stat.nsolved showtime(stat.solvertime / stat.nsolved)
+  @printf "Adding feasibility cuts | %s | %6d | %s\n" showtime(stat.fcutstime ) stat.nfcuts  showtime(stat.fcutstime  / stat.nfcuts )
+  @printf "Adding  optimality cuts | %s | %6d | %s\n" showtime(stat.ocutstime ) stat.nocuts  showtime(stat.ocutstime  / stat.nocuts )
+  @printf "Setting parent solution | %s | %6d | %s\n" showtime(stat.setxtime  ) stat.nsetx   showtime(stat.setxtime   / stat.nsetx  )
+  @printf "                        | %s |" showtime(stat.solvertime+stat.fcutstime+stat.ocutstime+stat.setxtime)
+end
+
+function iteration(root::SDDPNode, pathss, num_stages, cutmode=:MultiCut, mccount=25, verbose=0, TOL=1e-5)
   rootsol = nothing
-  nfcuts = 0
-  nocuts = 0
+
+  stats = SDDPStats()
   for t in 1:num_stages
-    if debug && false
+    if verbose >= 3
       @show t
     end
     # children are at t, parents are at t-1
@@ -31,9 +86,11 @@ function iteration(root::SDDPNode, pathss, num_stages, cutmode=:MultiCut, mccoun
           childnpaths = numberofpaths(child, t, num_stages)
           newpaths, paths = filter(childnpaths, paths)
           paths -= childnpaths
-          if length(newpaths) > 0 || cutmode == :AveragedCut
-            setchildx(parent, i, psol.x)
-            childsol = loadAndSolve(child)
+          if t == 2 || length(newpaths) > 0 || cutmode == :AveragedCut
+            stats.setxtime += @mytime setchildx(parent, i, psol.x)
+            stats.nsetx += 1
+            stats.solvertime += @mytime childsol = loadAndSolve(child)
+            stats.nsolved += 1
             childsolved[i] = true
 
             # Feasibility cut
@@ -47,7 +104,7 @@ function iteration(root::SDDPNode, pathss, num_stages, cutmode=:MultiCut, mccoun
             if childsol.status == :Infeasible
               feasible = false
               nnewfcuts += 1
-              pushfeasibilitycut!(child, coef, rhs)
+              stats.fcutstime += @mytime pushfeasibilitycut!(child, coef, rhs)
               break
             else
               rhs += childsol.ρe
@@ -64,24 +121,25 @@ function iteration(root::SDDPNode, pathss, num_stages, cutmode=:MultiCut, mccoun
               if childsolved[i]
                 a, β = childocuts[i][1], childocuts[i][2]
                 if psol.θ[i] < (β - dot(a, psol.x)) - TOL
-                  pushoptimalitycutforparent!(parent.children[i], a, β)
+                  stats.ocutstime += @mytime pushoptimalitycutforparent!(parent.children[i], a, β)
                   nnewocuts += 1
                 end
               end
             end
           elseif cutmode == :AveragedCut
             if !isempty(parent.children)
+              # FIXME should use childT
               a = sum(map(i->childocuts[i][1]*parent.proba[i], 1:length(parent.children)))
               β = sum(map(i->childocuts[i][2]*parent.proba[i], 1:length(parent.children)))
               if psol.θ[1] < (β - dot(a, psol.x)) - TOL
-                pushoptimalitycut!(parent, a, β)
+                stats.ocutstime += @mytime pushoptimalitycut!(parent, a, β)
                 nnewocuts += 1
               end
             end
           end
         end
-        nfcuts += nnewfcuts
-        nocuts += nnewocuts
+        stats.nfcuts += nnewfcuts
+        stats.nocuts += nnewocuts
         if feasible && !isempty(curpathss)
           @assert nnewfcuts == 0
           append!(newpathss, curpathss)
@@ -90,10 +148,10 @@ function iteration(root::SDDPNode, pathss, num_stages, cutmode=:MultiCut, mccoun
     end
     pathss = newpathss
   end
-  rootsol, nfcuts, nocuts
+  rootsol, stats
 end
 
-function SDDP(root::SDDPNode, num_stages, cutmode=:MultiCut, mccount=25, debug=false, TOL=1e-5)
+function SDDP(root::SDDPNode, num_stages, cutmode=:MultiCut, mccount=25, verbose=0, TOL=1e-5)
   # If the graph is not a tree, this will loop if I don't use a num_stages limit
   npaths = numberofpaths(root, 1, num_stages)
   if mccount == :All
@@ -106,15 +164,14 @@ function SDDP(root::SDDPNode, num_stages, cutmode=:MultiCut, mccount=25, debug=f
   niter = 0
   nfcuts = 0
   nocuts = 0
-  if debug
+  if verbose >= 3
     @show npaths
     @show mccount
   end
   rootsol = nothing
+  totaltime = 0
+  totalstats = SDDPStats()
   while (mccount < npaths || cut_added) && (rootsol === nothing || rootsol.status != :Infeasible)
-    if debug
-      @show niter
-    end
     niter += 1
     cut_added = false
     if mccount == npaths
@@ -122,13 +179,29 @@ function SDDP(root::SDDPNode, num_stages, cutmode=:MultiCut, mccount=25, debug=f
     else
       pathss = [(nothing, Float64[], sort(1+mod(rand(Int, mccount), npaths)))]
     end
-    @time rootsol, nnewfcuts, nnewocuts = iteration(root, pathss, num_stages, cutmode, mccount, debug, TOL)
-    cut_added = nnewfcuts > 0 || nnewocuts > 0
-    nfcuts += nnewfcuts
-    nocuts += nnewocuts
-    if debug
-      @show rootsol.status, rootsol.objval, rootsol.x, niter, nfcuts, nocuts
+    itertime = @mytime rootsol, stats = iteration(root, pathss, num_stages, cutmode, mccount, verbose, TOL)
+    totaltime  += itertime
+    totalstats += stats
+    if verbose >= 2
+      println("Iteration $niter completed in $itertime s (Total time is $totaltime)")
+      println("Status: $(rootsol.status)")
+      println("Objective value: $(rootsol.objval)")
+      println(" Solution value: $(rootsol.x)")
+      println("Stats for this iteration:")
+      println(stats)
+      println("Total stats:")
+      println(totalstats)
     end
+    cut_added = stats.nfcuts > 0 || stats.nocuts > 0
+  end
+
+  if verbose >= 1
+    println("SDDP completed in $niter iterations in $totaltime s")
+    println("Status: $(rootsol.status)")
+    println("Objective value: $(rootsol.objval)")
+    println(" Solution value: $(rootsol.x)")
+    println("Total stats:")
+    println(totalstats)
   end
 
   attrs = Dict()

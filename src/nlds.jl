@@ -41,7 +41,8 @@ type NLDS{S}
   c::Vector{S}
 
   # used to generate cuts
-  cuts_de
+  cuts_DE::Nullable{AbstractMatrix{S}}
+  cuts_de::Nullable{AbstractVector{S}}
 
   # parent solution
   x_a
@@ -82,7 +83,7 @@ type NLDS{S}
     else
       model = MathProgBase.LinearQuadraticModel(solver)
     end
-    nlds = new(W, h, T, K, C, c, nothing, S[], CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, nothing, nx, nθ, nπ, 0, 0, 1:nπ, nothing, nothing, model, false, false, false, false, nothing, newcut)
+    nlds = new(W, h, T, K, C, c, nothing, nothing, S[], CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, nothing, nx, nθ, nπ, 0, 0, 1:nπ, nothing, nothing, model, false, false, false, false, nothing, newcut)
     addfollower(localFC, (nlds, (:Feasibility, 0)))
     addfollower(localOC, (nlds, (:Optimality, 0)))
     nlds
@@ -156,26 +157,31 @@ function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs)
     elseif nlds.newcut == :AddImmediately
       @assert attrs[1] in [:Feasibility, :Optimality]
       idx = collect(1:nlds.nx)
+      i = attrs[2]
+      if i > 0 && !isnull(nlds.childT)
+        a = get(nlds.childT)[i]' * a
+      end
       if attrs[1] == :Feasibility
         nlds.nσ += 1
         push!(nlds.σs, nlds.nπ + nlds.nσ + nlds.nρ)
+        A = [a; spzeros(S, nlds.nθ)]
       else
-        a = [a; one(S)]
-        if attrs[2] == 0
+        if i == 0
           push!(idx, nlds.nx+1)
+          A = [a; one(S)]
         else
-          push!(idx, nlds.nx+attrs[2])
+          push!(idx, nlds.nx+i)
+          A = [a; spzeros(S, i-1); one(S); spzeros(S, nlds.nθ-i)]
         end
+        a = [a; one(S)]
         nlds.nρ += 1
         push!(nlds.ρs, nlds.nπ + nlds.nσ + nlds.nρ)
-      end
-      if attrs[2] > 0 && !isnull(nlds.childT)
-        a = get(nlds.childT)[attrs[2]]' * a
       end
       applyboundsupdates!(nlds)
       myaddconstr!(nlds.model, idx, a, β, :NonPos)
       #push!(nlds.cuts_de, β)
-      nlds.cuts_de = [nlds.cuts_de; sparsevec([β])]
+      nlds.cuts_DE = [get(nlds.cuts_DE); sparse(A')]
+      nlds.cuts_de = [get(nlds.cuts_de); sparsevec([β])]
       nlds.constrsadded = true
       nlds.solved = false
     else
@@ -185,7 +191,7 @@ function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs)
 end
 
 function getrhs(nlds)
-  bigb = [nlds.h - nlds.T * nlds.x_a; nlds.cuts_de]
+  bigb = [nlds.h - nlds.T * nlds.x_a; get(nlds.cuts_de)]
   bigK = nlds.K
   if nlds.nσ > 0
     push!(bigK, (:NonPos, nlds.σs))
@@ -221,26 +227,39 @@ function applyconstraintsaddition!(nlds::NLDS)
   end
 end
 
-function load!{S}(nlds::NLDS{S})
-  if !nlds.loaded
-    bigA = nlds.W
+function computecuts!{S}(nlds::NLDS{S})
+  if isnull(nlds.cuts_DE)
+    @assert isnull(nlds.cuts_de)
     nlds.nπ = length(nlds.h)
     cuts_D, cuts_d = getfeasibilitycuts(nlds)
-    bigA = [bigA; cuts_D]
     nlds.nσ = length(cuts_d)
     if nlds.nθ > 0
-      bigA = [bigA spzeros(size(bigA, 1), nlds.nθ)]
-      cuts_E, cuts_e = getoptimalitycuts(nlds)
-      bigA = [bigA; cuts_E]
-      nlds.nρ = length(cuts_e)
-    else
-      cuts_e = S[]
-      nlds.nρ = 0
+      cuts_D = [cuts_D spzeros(S, length(cuts_d), nlds.nθ)]
     end
+    #if nlds.nθ > 0
+      cuts_E, cuts_e = getoptimalitycuts(nlds)
+      nlds.nρ = length(cuts_e)
+    #else
+    #  cuts_e = S[]
+    #  nlds.nρ = 0
+    #end
+    nlds.cuts_DE = [cuts_D; cuts_E]
     nlds.cuts_de = [cuts_d; cuts_e]
     nlds.πs = collect(1:nlds.nπ)
     nlds.σs = collect(nlds.nπ+(1:nlds.nσ))
     nlds.ρs = collect(nlds.nπ+nlds.nσ+(1:nlds.nρ))
+  end
+end
+
+function load!{S}(nlds::NLDS{S})
+  if !nlds.loaded
+    bigA = nlds.W
+    if nlds.nθ > 0
+      bigA = [bigA spzeros(size(bigA, 1), nlds.nθ)]
+    end
+    computecuts!(nlds)
+    bigA = [bigA; get(nlds.cuts_DE)]
+
     if nlds.nθ == 0
       bigC = nlds.C
       bigc = nlds.c
@@ -278,8 +297,8 @@ function solve!(nlds::NLDS)
     π = dual[nlds.πs]
     σ = dual[nlds.σs]
     ρ = dual[nlds.ρs]
-    cuts_d = nlds.cuts_de[nlds.σs-nlds.nπ]
-    cuts_e = nlds.cuts_de[nlds.ρs-nlds.nπ]
+    cuts_d = get(nlds.cuts_de)[nlds.σs-nlds.nπ]
+    cuts_e = get(nlds.cuts_de)[nlds.ρs-nlds.nπ]
     nlds.prevsol = NLDSSolution(status, objval, x, θ, vec(π' * nlds.T), vecdot(π, nlds.h), vecdot(σ, cuts_d), vecdot(ρ, cuts_e))
   end
 end
