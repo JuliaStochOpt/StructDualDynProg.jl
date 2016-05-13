@@ -225,7 +225,8 @@ end
 
 function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs, author)
   @assert attrs[1] in [:Feasibility, :Optimality]
-  if nlds.loaded
+  if !isnull(nlds.cuts_DE)
+    @assert !isnull(nlds.cuts_de)
     @assert length(nlds.nwith) == length(nlds.nused) == length(nlds.mycut) == length(get(nlds.cuts_de))
     i = attrs[2]
     if i > 0 && !isnull(nlds.childT)
@@ -296,26 +297,28 @@ function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs, auth
       cutadded = true
       cutremoved = false
     end
-    if cutremoved || nlds.newcut == :InvalidateSolver
-      nlds.loaded = false
-      nlds.solved = false
-    elseif nlds.newcut == :AddImmediately
-      idx = collect(1:nlds.nx)
-      if attrs[1] == :Optimality
-        if i == 0
-          push!(idx, nlds.nx+1)
-        else
-          push!(idx, nlds.nx+i)
+    if nlds.loaded
+      if cutremoved || nlds.newcut == :InvalidateSolver
+        nlds.loaded = false
+        nlds.solved = false
+      elseif nlds.newcut == :AddImmediately
+        idx = collect(1:nlds.nx)
+        if attrs[1] == :Optimality
+          if i == 0
+            push!(idx, nlds.nx+1)
+          else
+            push!(idx, nlds.nx+i)
+          end
+          a = [a; one(S)]
         end
-        a = [a; one(S)]
+        applyboundsupdates!(nlds)
+        myaddconstr!(nlds.model, idx, a, β, :NonPos)
+        #push!(nlds.cuts_de, β)
+        nlds.constrsadded = true
+        nlds.solved = false
+      else
+        error("Invalid newcut option $(nlds.newcut)")
       end
-      applyboundsupdates!(nlds)
-      myaddconstr!(nlds.model, idx, a, β, :NonPos)
-      #push!(nlds.cuts_de, β)
-      nlds.constrsadded = true
-      nlds.solved = false
-    else
-      error("Invalid newcut option $(nlds.newcut)")
     end
   end
 end
