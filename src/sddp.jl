@@ -154,7 +154,7 @@ function iteration(root::SDDPNode, pathss, num_stages, cutmode=:MultiCut, mccoun
   rootsol, stats
 end
 
-function SDDP(root::SDDPNode, num_stages, cutmode=:MultiCut, mccount=25, verbose=0, TOL=1e-5)
+function SDDP(root::SDDPNode, num_stages, cutmode=:MultiCut, mccount=25, verbose=0, stopcrit::Function=(x,y)->false, TOL=1e-5)
   # If the graph is not a tree, this will loop if I don't use a num_stages limit
   npaths = numberofpaths(root, 1, num_stages)
   if mccount == :All
@@ -167,14 +167,14 @@ function SDDP(root::SDDPNode, num_stages, cutmode=:MultiCut, mccount=25, verbose
   niter = 0
   nfcuts = 0
   nocuts = 0
-  if verbose >= 3
+  if verbose >= 2
     @show npaths
     @show mccount
   end
   rootsol = nothing
   totaltime = 0
   totalstats = SDDPStats()
-  while (mccount < npaths || cut_added) && (rootsol === nothing || rootsol.status != :Infeasible)
+  while (mccount < npaths || cut_added) && (rootsol === nothing || rootsol.status != :Infeasible) && (niter == 0 || !stopcrit(niter, rootsol.objval))
     niter += 1
     cut_added = false
     if mccount == npaths
