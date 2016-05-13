@@ -104,7 +104,7 @@ function iteration(root::SDDPNode, pathss, num_stages, cutmode=:MultiCut, mccoun
             if childsol.status == :Infeasible
               feasible = false
               nnewfcuts += 1
-              stats.fcutstime += @mytime pushfeasibilitycut!(child, coef, rhs)
+              stats.fcutstime += @mytime pushfeasibilitycut!(child, coef, rhs, parent)
               break
             else
               rhs += childsol.ρe
@@ -121,7 +121,7 @@ function iteration(root::SDDPNode, pathss, num_stages, cutmode=:MultiCut, mccoun
               if childsolved[i]
                 a, β = childocuts[i][1], childocuts[i][2]
                 if psol.θ[i] < (β - dot(a, psol.x)) - TOL
-                  stats.ocutstime += @mytime pushoptimalitycutforparent!(parent.children[i], a, β)
+                  stats.ocutstime += @mytime pushoptimalitycutforparent!(parent.children[i], a, β, parent)
                   nnewocuts += 1
                 end
               end
@@ -135,7 +135,7 @@ function iteration(root::SDDPNode, pathss, num_stages, cutmode=:MultiCut, mccoun
               end
               β = sum(map(i->childocuts[i][2]*parent.proba[i], 1:length(parent.children)))
               if psol.θ[1] < (β - dot(a, psol.x)) - TOL
-                stats.ocutstime += @mytime pushoptimalitycut!(parent, a, β)
+                stats.ocutstime += @mytime pushoptimalitycut!(parent, a, β, parent)
                 nnewocuts += 1
               end
             end

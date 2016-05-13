@@ -13,6 +13,45 @@ type NLDSSolution
   ρe
 end
 
+function defaultbettercut(nwitha, nuseda, mycuta, nwithb, nusedb, mycutb)
+  # If they are equal, then since we are asked whether "a" is striclty better than "b", we return false.
+  # The stability of the sorting algorithm will do the rest.
+  # For this reason, only strict inequalities are used ">", "<"
+  if mycuta == mycutb
+    if nwitha == 0 && nwithb == 0
+      false
+    elseif nwitha > 0 && nwithb == 0
+      if mycutb
+        false
+      else
+        nuseda // nwitha > 3//4
+      end
+    elseif nwitha == 0 && nwithb > 0
+      if mycuta
+        true
+      else
+        nusedb // nwithb < 3//4
+      end
+    else # nwitha > 0 && nwithb > 0
+      nuseda // nwitha > nusedb // nwithb
+    end
+  elseif mycuta && !mycutb
+    if nwitha == 0
+      true
+    elseif nwithb == 0 # nwitha > 0
+      # if the ratio of "a" is larger than 1//2,
+      # then we want to keep it over a new cut not created by this NLDS
+      nuseda // nwitha > 1//2
+    else # nwitha > 0 && nwithb > 0
+      # "a" gets a 1/4 bonus trust because it was created by this NLDS
+      nuseda // nwitha + 1//4 > nusedb // nwithb
+    end
+  else
+    @assert mycutb && !mycuta
+    !defaultbettercut(nwithb, nusedb, mycutb, nwitha, nuseda, mycuta)
+  end
+end
+
 # Nested L-Shaped Decomposition Subproblem (NLDS)
 
 # Primal
@@ -75,8 +114,11 @@ type NLDS{S}
 
   nwith::Vector{Int}
   nused::Vector{Int}
+  mycut::Vector{Bool}
 
-  function NLDS(W::AbstractMatrix{S}, h::AbstractVector{S}, T::AbstractMatrix{S}, K, C, c::AbstractVector{S}, solver, newcut::Symbol=:AddImmediately, maxncuts::Integer=-1)
+  bettercut
+
+  function NLDS(W::AbstractMatrix{S}, h::AbstractVector{S}, T::AbstractMatrix{S}, K, C, c::AbstractVector{S}, solver, newcut::Symbol=:AddImmediately, maxncuts::Integer=-1, bettercut::Function=defaultbettercut)
     nx = size(W, 2)
     nθ = 0
     nπ = length(h)
@@ -87,15 +129,15 @@ type NLDS{S}
     else
       model = MathProgBase.LinearQuadraticModel(solver)
     end
-    nlds = new(W, h, T, K, C, c, nothing, nothing, S[], CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, nothing, nx, nθ, nπ, 0, 0, 1:nπ, nothing, nothing, model, false, false, false, false, nothing, newcut, maxncuts, Int[], Int[])
+    nlds = new(W, h, T, K, C, c, nothing, nothing, S[], CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, nothing, nx, nθ, nπ, 0, 0, 1:nπ, nothing, nothing, model, false, false, false, false, nothing, newcut, maxncuts, Int[], Int[], Bool[], bettercut)
     addfollower(localFC, (nlds, (:Feasibility, 0)))
     addfollower(localOC, (nlds, (:Optimality, 0)))
     nlds
   end
 end
 
-function (::Type{NLDS{S}}){S}(W::AbstractMatrix, h::AbstractVector, T::AbstractMatrix, K, C, c::AbstractVector, solver, newcut::Symbol=:AddImmediately, maxncuts::Integer=-1)
-  NLDS{S}(AbstractMatrix{S}(W), AbstractVector{S}(h), AbstractMatrix{S}(T), K, C, AbstractVector{S}(c), solver, newcut, maxncuts)
+function (::Type{NLDS{S}}){S}(W::AbstractMatrix, h::AbstractVector, T::AbstractMatrix, K, C, c::AbstractVector, solver, newcut::Symbol=:AddImmediately, maxncuts::Integer=-1, bettercut::Function=defaultbettercut)
+  NLDS{S}(AbstractMatrix{S}(W), AbstractVector{S}(h), AbstractMatrix{S}(T), K, C, AbstractVector{S}(c), solver, newcut, maxncuts, bettercut)
 end
 
 function setchildren!(nlds::NLDS, childFC, childOC, proba, cutmode, childT=nothing)
@@ -119,6 +161,11 @@ function setchildren!(nlds::NLDS, childFC, childOC, proba, cutmode, childT=nothi
   nlds.childT = childT
 end
 
+# .=== doesn't work :(
+function veceqeqeq(v::Vector, x)
+  map(el->el === x, v)
+end
+
 function getfeasibilitycuts(nlds::NLDS)
   function f(i)
     D = nlds.childFC[i].A
@@ -129,7 +176,8 @@ function getfeasibilitycuts(nlds::NLDS)
   end
   cuts_D = reduce(vcat, nlds.localFC.A, map(i -> f(i), 1:length(nlds.childFC)))
   cuts_d = reduce(vcat, nlds.localFC.b, map(x -> x.b, nlds.childFC))
-  (cuts_D, cuts_d)
+  mycut = reduce(vcat, veceqeqeq(nlds.localFC.authors, nlds), map(x -> veceqeqeq(x.authors, nlds), nlds.childFC))
+  (cuts_D, cuts_d, mycut)
 end
 
 function getoptimalitycuts{S}(nlds::NLDS{S})
@@ -150,31 +198,35 @@ function getoptimalitycuts{S}(nlds::NLDS{S})
     cuts_E = reduce(vcat, spzeros(S, 0, nlds.nx + nlds.nθ), map(f, 1:length(nlds.childOC)))
   end
   cuts_e = reduce(vcat, nlds.localOC.b, map(x -> x.b, nlds.childOC))
-  (cuts_E, cuts_e)
+  mycut = reduce(vcat, veceqeqeq(nlds.localOC.authors, nlds), map(x -> veceqeqeq(x.authors, nlds), nlds.childOC))
+  (cuts_E, cuts_e, mycut)
 end
 
-function choosecuttoremove(nlds::NLDS, num)
-  isold = nlds.nwith .>= 1
-  if reduce(|, false, isold) # at least one old
-    all = 1:length(nlds.nwith)
-    idx = all[isold]
-    if length(idx) > num
-      sorted = sort(idx, by=i->nlds.nused[i]/nlds.nwith[i])
-      sorted[1:num]
-    else
-      new = all[!isold][1:(num-length(idx))]
-      [idx; new]
-    end
-  else
-    # No cut has already been used, remove the oldest
-    collect(1:num)
-  end
+function choosecutstoremove(nlds::NLDS, num)
+  # MergeSort is stable so in case of equality, the oldest cut loose
+  sorted = sort(collect(1:length(nlds.nwith)), alg=MergeSort, lt=(i,j)->nlds.bettercut(nlds.nwith[i], nlds.nused[i], nlds.mycut[i], nlds.nwith[j], nlds.nused[j], nlds.mycut[j]), rev=true)
+  sorted[1:num]
+# isold = nlds.nwith .>= 1
+# if reduce(|, false, isold) # at least one old
+#   all = 1:length(nlds.nwith)
+#   idx = all[isold]
+#   if length(idx) > num
+#     sorted = sort(idx, by=i->nlds.nused[i]/nlds.nwith[i])
+#     sorted[1:num]
+#   else
+#     new = all[!isold][1:(num-length(idx))]
+#     [idx; new]
+#   end
+# else
+#   # No cut has already been used, remove the oldest
+#   collect(1:num)
+# end
 end
 
-function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs)
+function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs, author)
   @assert attrs[1] in [:Feasibility, :Optimality]
   if nlds.loaded
-    @assert length(nlds.nwith) == length(nlds.nused) == length(get(nlds.cuts_de))
+    @assert length(nlds.nwith) == length(nlds.nused) == length(nlds.mycut) == length(get(nlds.cuts_de))
     i = attrs[2]
     if i > 0 && !isnull(nlds.childT)
       a = get(nlds.childT)[i]' * a
@@ -188,32 +240,47 @@ function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs)
         A = [a; spzeros(S, i-1); one(S); spzeros(S, nlds.nθ-i)]
       end
     end
+    mine = author === nlds
     if nlds.maxncuts != -1 && length(nlds.nwith) >= nlds.maxncuts
-      J = choosecuttoremove(nlds, length(nlds.nwith) - nlds.maxncuts + 1)
-      j = J[1]
-      get(nlds.cuts_DE)[j,:] = sparse(A)
-      get(nlds.cuts_de)[j] = β
-      nlds.nwith[j] = 0
-      nlds.nused[j] = 0
+      # Need to remove some cuts
+      J = choosecutstoremove(nlds, length(nlds.nwith) - nlds.maxncuts + 1)
+      if nlds.bettercut(0, 0, mine, nlds.nwith[J[end]], nlds.nused[J[end]], nlds.mycut[J[end]])
+        j = J[end]
+        get(nlds.cuts_DE)[j,:] = sparse(A)
+        get(nlds.cuts_de)[j] = β
+        nlds.nwith[j] = 0
+        nlds.nused[j] = 0
+        nlds.mycut[j] = mine
+        cutadded = true
+      else
+        cutadded = false
+      end
+      J = J[1:end-1]
 
-      keep = setdiff(1:length(get(nlds.cuts_de)), J[2:end])
-      isσcut = zeros(Bool, length(nlds.nwith))
-      isσcut[nlds.σs-nlds.nπ] = true
-      isσcut[j] = attrs[1] == :Feasibility
-      isσcut = isσcut[keep]
-      nlds.σs = nlds.nπ + (1:length(isσcut))[isσcut]
-      nlds.ρs = nlds.nπ + (1:length(isσcut))[!isσcut]
-      nlds.nσ = length(nlds.σs)
-      nlds.nρ = length(nlds.ρs)
+      if length(J) > 1 || cutadded
+        keep = setdiff(1:length(get(nlds.cuts_de)), J)
+        isσcut = zeros(Bool, length(nlds.nwith))
+        isσcut[nlds.σs-nlds.nπ] = true
+        if cutadded
+          isσcut[j] = attrs[1] == :Feasibility
+        end
+        isσcut = isσcut[keep]
+        nlds.σs = nlds.nπ + (1:length(isσcut))[isσcut]
+        nlds.ρs = nlds.nπ + (1:length(isσcut))[!isσcut]
+        nlds.nσ = length(nlds.σs)
+        nlds.nρ = length(nlds.ρs)
+      end
 
       if length(J) > 1
         nlds.cuts_DE = get(nlds.cuts_DE)[keep,:]
         nlds.cuts_de = get(nlds.cuts_de)[keep]
         nlds.nwith = nlds.nwith[keep]
         nlds.nused = nlds.nused[keep]
+        nlds.mycut = nlds.mycut[keep]
       end
       cutremoved = true
     else
+      # Just append cut
       if attrs[1] == :Feasibility
         nlds.nσ += 1
         push!(nlds.σs, nlds.nπ + nlds.nσ + nlds.nρ)
@@ -225,6 +292,8 @@ function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs)
       nlds.cuts_de = [get(nlds.cuts_de); sparsevec([β])]
       push!(nlds.nwith, 0)
       push!(nlds.nused, 0)
+      push!(nlds.mycut, mine)
+      cutadded = true
       cutremoved = false
     end
     if cutremoved || nlds.newcut == :InvalidateSolver
@@ -292,13 +361,13 @@ function computecuts!{S}(nlds::NLDS{S})
   if isnull(nlds.cuts_DE)
     @assert isnull(nlds.cuts_de)
     nlds.nπ = length(nlds.h)
-    cuts_D, cuts_d = getfeasibilitycuts(nlds)
+    cuts_D, cuts_d, mycut_d = getfeasibilitycuts(nlds)
     nlds.nσ = length(cuts_d)
     if nlds.nθ > 0
       cuts_D = [cuts_D spzeros(S, length(cuts_d), nlds.nθ)]
     end
     #if nlds.nθ > 0
-      cuts_E, cuts_e = getoptimalitycuts(nlds)
+      cuts_E, cuts_e, mycut_e = getoptimalitycuts(nlds)
       nlds.nρ = length(cuts_e)
     #else
     #  cuts_e = S[]
@@ -311,6 +380,7 @@ function computecuts!{S}(nlds::NLDS{S})
     nlds.ρs = collect(nlds.nπ+nlds.nσ+(1:nlds.nρ))
     nlds.nwith = zeros(Int, nlds.nσ+nlds.nρ)
     nlds.nused = zeros(Int, nlds.nσ+nlds.nρ)
+    nlds.mycut = [mycut_d; mycut_e]
   end
 end
 

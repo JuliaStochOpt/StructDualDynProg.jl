@@ -60,7 +60,7 @@ function numberofpaths(node::SDDPNode, t, num_stages)
   end
 end
 
-function pushfeasibilitycut!(node, coef, rhs)
+function pushfeasibilitycut!(node, coef, rhs, author)
   # coef is a ray
   # so alpha * coef is also valid for any alpha >= 0.
   # Hence coef might have very large coefficients and alter
@@ -71,13 +71,13 @@ function pushfeasibilitycut!(node, coef, rhs)
     scaling = maximum(abs(coef))
   end
 
-  addcut(node.fcuts, coef/scaling, sign(rhs))
+  addcut(node.fcuts, coef/scaling, sign(rhs), author.nlds)
 end
-function pushoptimalitycut!(node, coef, rhs)
-  addcut(node.nlds.localOC, coef, rhs)
+function pushoptimalitycut!(node, coef, rhs, author)
+  addcut(node.nlds.localOC, coef, rhs, author.nlds)
 end
-function pushoptimalitycutforparent!(node, coef, rhs)
-  addcut(node.ocuts, coef, rhs)
+function pushoptimalitycutforparent!(node, coef, rhs, author)
+  addcut(node.ocuts, coef, rhs, author.nlds)
 end
 
 function loadAndSolve(node::SDDPNode)

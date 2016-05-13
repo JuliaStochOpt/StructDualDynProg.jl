@@ -13,7 +13,7 @@ solver = Clp.ClpSolver()
 #solver = GLPKSolverLP()
 
 function fulltest(m, num_stages, objval, solval)
-  for maxncuts in [-1, 10]
+  for maxncuts in [-1, 9]
     for newcut in [:AddImmediately, :InvalidateSolver]
       for cutmode in [:MultiCut, :AveragedCut]
         root = model2lattice(m, num_stages, solver, cutmode, newcut, maxncuts)
