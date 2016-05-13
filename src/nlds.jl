@@ -173,8 +173,8 @@ end
 
 function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs)
   @assert attrs[1] in [:Feasibility, :Optimality]
-  @assert length(nlds.nwith) == length(nlds.nused) == length(get(nlds.cuts_de))
   if nlds.loaded
+    @assert length(nlds.nwith) == length(nlds.nused) == length(get(nlds.cuts_de))
     i = attrs[2]
     if i > 0 && !isnull(nlds.childT)
       a = get(nlds.childT)[i]' * a
