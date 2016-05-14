@@ -130,7 +130,7 @@ type NLDS{S}
     else
       model = MathProgBase.LinearQuadraticModel(solver)
     end
-    nlds = new(W, h, T, K, C, c, nothing, nothing, S[], CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, nothing, :NoOptimalityCut, nx, nθ, nπ, 0, 0, 1:nπ, nothing, nothing, model, false, false, false, false, nothing, newcut, maxncuts, Int[], Int[], Bool[], bettercut)
+    nlds = new(W, h, T, K, C, c, nothing, nothing, S[], CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, nothing, :NoOptimalityCut, nx, nθ, nπ, 0, 0, 1:nπ, Int[], Int[], model, false, false, false, false, nothing, newcut, maxncuts, Int[], Int[], Bool[], bettercut)
     addfollower(localFC, (nlds, (:Feasibility, 0)))
     addfollower(localOC, (nlds, (:Optimality, 0)))
     nlds
@@ -189,10 +189,6 @@ function appendchildren!(nlds::NLDS, childFC, childOC, proba, childT)
       append!(get(nlds.childT), childT)
     end
   end
-  nlds.loaded = false
-  nlds.solved = false
-  nlds.cuts_DE = nothing
-  nlds.cuts_de = nothing
 end
 
 function updatemaxncuts!(nlds::NLDS, maxncuts)
@@ -361,15 +357,25 @@ function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs, auth
   end
 end
 
+function checkconsistency(nlds)
+  @assert length(nlds.nwith) == length(nlds.nused) == length(nlds.mycut)
+  @assert length(nlds.πs) == nlds.nπ
+  @assert length(nlds.σs) == nlds.nσ
+  @assert length(nlds.ρs) == nlds.nρ
+  @assert sort([nlds.πs; nlds.σs; nlds.ρs]) == collect(1:(nlds.nπ + nlds.nσ + nlds.nρ))
+end
+
 function getrhs(nlds)
   bigb = [nlds.h - nlds.T * nlds.x_a; get(nlds.cuts_de)]
-  bigK = nlds.K
+  # I do a copy since I am going to push!
+  bigK = copy(nlds.K)
   if nlds.nσ > 0
     push!(bigK, (:NonPos, nlds.σs))
   end
   if nlds.nρ > 0
     push!(bigK, (:NonPos, nlds.ρs))
   end
+  @assert length(bigb) == nlds.nπ + nlds.nσ + nlds.nρ
   bigb, bigK
 end
 
