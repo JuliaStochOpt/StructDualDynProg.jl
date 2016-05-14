@@ -17,7 +17,7 @@ function fulltest(m, num_stages, objval, solval)
     for newcut in [:AddImmediately, :InvalidateSolver]
       for cutmode in [:MultiCut, :AveragedCut]
         root = model2lattice(m, num_stages, solver, cutmode, newcut, maxncuts)
-        sol = SDDP(root, num_stages, cutmode, :All, 0)
+        sol = SDDP(root, num_stages, :All, 0)
 
         v11value = sol.sol[1:4]
         @test sol.status == :Optimal

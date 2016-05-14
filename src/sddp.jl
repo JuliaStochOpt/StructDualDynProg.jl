@@ -60,7 +60,7 @@ function Base.show(io::IO, stat::SDDPStats)
   @printf "                        | %s |" showtime(stat.solvertime+stat.fcutstime+stat.ocutstime+stat.setxtime)
 end
 
-function iteration(root::SDDPNode, pathss, num_stages, cutmode=:MultiCut, mccount=25, verbose=0, TOL=1e-5)
+function iteration(root::SDDPNode, pathss, num_stages, mccount=25, verbose=0, TOL=1e-5)
   rootsol = nothing
 
   stats = SDDPStats()
@@ -86,7 +86,7 @@ function iteration(root::SDDPNode, pathss, num_stages, cutmode=:MultiCut, mccoun
           childnpaths = numberofpaths(child, t, num_stages)
           newpaths, paths = filter(childnpaths, paths)
           paths -= childnpaths
-          if t == 2 || length(newpaths) > 0 || cutmode == :AveragedCut
+          if t == 2 || length(newpaths) > 0 || parent.nlds.cutmode == :AveragedCut
             stats.setxtime += @mytime setchildx(parent, i, psol.x)
             stats.nsetx += 1
             stats.solvertime += @mytime childsol = loadAndSolve(child)
@@ -116,7 +116,7 @@ function iteration(root::SDDPNode, pathss, num_stages, cutmode=:MultiCut, mccoun
           end
         end
         if feasible
-          if cutmode == :MultiCut
+          if parent.nlds.cutmode == :MultiCut
             for i in 1:length(parent.children)
               if childsolved[i]
                 a, β = childocuts[i][1], childocuts[i][2]
@@ -126,7 +126,7 @@ function iteration(root::SDDPNode, pathss, num_stages, cutmode=:MultiCut, mccoun
                 end
               end
             end
-          elseif cutmode == :AveragedCut
+          elseif parent.nlds.cutmode == :AveragedCut
             if !isempty(parent.children)
               if isnull(parent.childT)
                 a = sum(map(i->childocuts[i][1]*parent.proba[i], 1:length(parent.children)))
@@ -154,7 +154,7 @@ function iteration(root::SDDPNode, pathss, num_stages, cutmode=:MultiCut, mccoun
   rootsol, stats
 end
 
-function SDDP(root::SDDPNode, num_stages, cutmode=:MultiCut, mccount=25, verbose=0, stopcrit::Function=(x,y)->false, TOL=1e-5)
+function SDDP(root::SDDPNode, num_stages, mccount=25, verbose=0, stopcrit::Function=(x,y)->false, TOL=1e-5)
   # If the graph is not a tree, this will loop if I don't use a num_stages limit
   npaths = numberofpaths(root, 1, num_stages)
   if mccount == :All
@@ -182,7 +182,7 @@ function SDDP(root::SDDPNode, num_stages, cutmode=:MultiCut, mccount=25, verbose
     else
       pathss = [(nothing, Float64[], sort(1+mod(rand(Int, mccount), npaths)))]
     end
-    itertime = @mytime rootsol, stats = iteration(root, pathss, num_stages, cutmode, mccount, verbose, TOL)
+    itertime = @mytime rootsol, stats = iteration(root, pathss, num_stages, mccount, verbose, TOL)
     totaltime  += itertime
     totalstats += stats
     if verbose >= 2

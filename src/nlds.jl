@@ -1,4 +1,4 @@
-export NLDS
+export NLDS, updatemaxncuts!
 
 # π, σ and ρ do not really make sense alone so only
 # their product will T, h, d, e is stored
@@ -92,6 +92,7 @@ type NLDS{S}
   localOC::CutStore{S}
   proba
   childT::Nullable{Vector{AbstractMatrix{S}}}
+  cutmode::Symbol
 
   nx
   nθ
@@ -129,7 +130,7 @@ type NLDS{S}
     else
       model = MathProgBase.LinearQuadraticModel(solver)
     end
-    nlds = new(W, h, T, K, C, c, nothing, nothing, S[], CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, nothing, nx, nθ, nπ, 0, 0, 1:nπ, nothing, nothing, model, false, false, false, false, nothing, newcut, maxncuts, Int[], Int[], Bool[], bettercut)
+    nlds = new(W, h, T, K, C, c, nothing, nothing, S[], CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, nothing, :NoOptimalityCut, nx, nθ, nπ, 0, 0, 1:nπ, nothing, nothing, model, false, false, false, false, nothing, newcut, maxncuts, Int[], Int[], Bool[], bettercut)
     addfollower(localFC, (nlds, (:Feasibility, 0)))
     addfollower(localOC, (nlds, (:Optimality, 0)))
     nlds
@@ -140,7 +141,8 @@ function (::Type{NLDS{S}}){S}(W::AbstractMatrix, h::AbstractVector, T::AbstractM
   NLDS{S}(AbstractMatrix{S}(W), AbstractVector{S}(h), AbstractMatrix{S}(T), K, C, AbstractVector{S}(c), solver, newcut, maxncuts, bettercut)
 end
 
-function setchildren!(nlds::NLDS, childFC, childOC, proba, cutmode, childT=nothing)
+function setchildren!(nlds::NLDS, childFC, childOC, proba, cutmode, childT)
+  nlds.cutmode = cutmode
   @assert length(childFC) == length(childOC) == length(proba)
   if cutmode == :MultiCut
     nlds.proba = proba
@@ -159,6 +161,42 @@ function setchildren!(nlds::NLDS, childFC, childOC, proba, cutmode, childT=nothi
     addfollower(childOC[i], (nlds, (:Optimality, i)))
   end
   nlds.childT = childT
+end
+
+function appendchildren!(nlds::NLDS, childFC, childOC, proba, childT)
+  @assert length(childFC) == length(childOC) == length(proba)
+  if nlds.cutmode == :MultiCut
+    append!(nlds.proba, proba)
+    nlds.nθ += length(proba)
+  end
+  for i in 1:length(childFC)
+    @assert length(childFC[i].b) == 0
+    addfollower(childFC[i], (nlds, (:Feasibility, length(nlds.childFC)+i)))
+  end
+  append!(nlds.childFC, childFC)
+  for i in 1:length(childOC)
+    @assert length(childFC[i].b) == 0
+    addfollower(childOC[i], (nlds, (:Optimality, length(nlds.childOC)+i)))
+  end
+  append!(nlds.childOC, childOC)
+  if childT === nothing
+    @assert isnull(nlds.childT)
+  else
+    # If there isn't any child yet, nlds.childT is null
+    if isnull(nlds.childT)
+      nlds.childT = childT
+    else
+      append!(get(nlds.childT), childT)
+    end
+  end
+  nlds.loaded = false
+  nlds.solved = false
+  nlds.cuts_DE = nothing
+  nlds.cuts_de = nothing
+end
+
+function updatemaxncuts!(nlds::NLDS, maxncuts)
+  nlds.maxncuts = maxncuts
 end
 
 # .=== doesn't work :(

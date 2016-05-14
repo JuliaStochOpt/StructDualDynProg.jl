@@ -1,6 +1,6 @@
 import MathProgBase
 
-export SDDPNode, setchildren!
+export SDDPNode, setchildren!, appendchildren!
 
 type SDDPNode{S}
   nlds::NLDS{S}
@@ -38,7 +38,30 @@ function setchildren!(node::SDDPNode, children, proba, cutmode, childT=nothing)
   childFC = map(child -> child.fcuts, children)
   childOC = map(child -> child.ocuts, children)
   node.childT = childT
+  empty!(node.npath)
   setchildren!(node.nlds, childFC, childOC, proba, cutmode, childT)
+end
+
+function appendchildren!(node::SDDPNode, children, proba, childT=nothing)
+  @assert length(children) == length(proba)
+  append!(node.children, children)
+  append!(node.proba, proba)
+  node.leaf = false
+  childFC = map(child -> child.fcuts, children)
+  childOC = map(child -> child.ocuts, children)
+  if childT === nothing
+    @assert isnull(node.childT)
+  else
+    # If there isn't any child yet, node.childT is null
+    if isnull(node.childT)
+      node.childT = childT
+    else
+      append!(get(node.childT), childT)
+    end
+  end
+  empty!(node.npath)
+  appendchildren!(node.nlds, childFC, childOC, proba, childT)
+  @assert length(node.nlds.childFC) == length(node.children)
 end
 
 function setchildx(node::SDDPNode, i, x)
