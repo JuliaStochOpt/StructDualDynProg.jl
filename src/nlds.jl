@@ -17,6 +17,8 @@ function defaultbettercut(nwitha, nuseda, mycuta, nwithb, nusedb, mycutb)
   # If they are equal, then since we are asked whether "a" is striclty better than "b", we return false.
   # The stability of the sorting algorithm will do the rest.
   # For this reason, only strict inequalities are used ">", "<"
+
+  # I use floating point arithmetic to avoid Int64 overflow
   if mycuta == mycutb
     if nwitha == 0 && nwithb == 0
       false
@@ -24,16 +26,16 @@ function defaultbettercut(nwitha, nuseda, mycuta, nwithb, nusedb, mycutb)
       if mycutb
         false
       else
-        nuseda // nwitha > 3//4
+        nuseda / nwitha > 3/4
       end
     elseif nwitha == 0 && nwithb > 0
       if mycuta
         true
       else
-        nusedb // nwithb < 3//4
+        nusedb / nwithb < 3/4
       end
     else # nwitha > 0 && nwithb > 0
-      nuseda // nwitha > nusedb // nwithb
+      nuseda / nwitha > nusedb / nwithb
     end
   elseif mycuta && !mycutb
     if nwitha == 0
@@ -41,10 +43,10 @@ function defaultbettercut(nwitha, nuseda, mycuta, nwithb, nusedb, mycutb)
     elseif nwithb == 0 # nwitha > 0
       # if the ratio of "a" is larger than 1//2,
       # then we want to keep it over a new cut not created by this NLDS
-      nuseda // nwitha > 1//2
+      nuseda / nwitha > 1/2
     else # nwitha > 0 && nwithb > 0
       # "a" gets a 1/4 bonus trust because it was created by this NLDS
-      nuseda // nwitha + 1//4 > nusedb // nwithb
+      nuseda / nwitha + 1/4 > nusedb / nwithb
     end
   else
     @assert mycutb && !mycuta
@@ -116,10 +118,13 @@ type NLDS{S}
   nwith::Vector{Int}
   nused::Vector{Int}
   mycut::Vector{Bool}
+  trust::Nullable{Vector{Float64}}
 
-  bettercut
+  newcuttrust::Float64
+  mycutbonus::Float64
+  bettercut::Nullable{Function}
 
-  function NLDS(W::AbstractMatrix{S}, h::AbstractVector{S}, T::AbstractMatrix{S}, K, C, c::AbstractVector{S}, solver, newcut::Symbol=:AddImmediately, maxncuts::Integer=-1, bettercut::Function=defaultbettercut)
+  function NLDS(W::AbstractMatrix{S}, h::AbstractVector{S}, T::AbstractMatrix{S}, K, C, c::AbstractVector{S}, solver, newcut::Symbol=:AddImmediately, maxncuts::Integer=-1, newcuttrust=3/4, mycutbonus=1/4, bettercut=nothing)
     nx = size(W, 2)
     nθ = 0
     nπ = length(h)
@@ -130,15 +135,15 @@ type NLDS{S}
     else
       model = MathProgBase.LinearQuadraticModel(solver)
     end
-    nlds = new(W, h, T, K, C, c, nothing, nothing, S[], CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, nothing, :NoOptimalityCut, nx, nθ, nπ, 0, 0, 1:nπ, Int[], Int[], model, false, false, false, false, nothing, newcut, maxncuts, Int[], Int[], Bool[], bettercut)
+    nlds = new(W, h, T, K, C, c, nothing, nothing, S[], CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, nothing, :NoOptimalityCut, nx, nθ, nπ, 0, 0, 1:nπ, Int[], Int[], model, false, false, false, false, nothing, newcut, maxncuts, Int[], Int[], Bool[], nothing, newcuttrust, mycutbonus, bettercut)
     addfollower(localFC, (nlds, (:Feasibility, 0)))
     addfollower(localOC, (nlds, (:Optimality, 0)))
     nlds
   end
 end
 
-function (::Type{NLDS{S}}){S}(W::AbstractMatrix, h::AbstractVector, T::AbstractMatrix, K, C, c::AbstractVector, solver, newcut::Symbol=:AddImmediately, maxncuts::Integer=-1, bettercut::Function=defaultbettercut)
-  NLDS{S}(AbstractMatrix{S}(W), AbstractVector{S}(h), AbstractMatrix{S}(T), K, C, AbstractVector{S}(c), solver, newcut, maxncuts, bettercut)
+function (::Type{NLDS{S}}){S}(W::AbstractMatrix, h::AbstractVector, T::AbstractMatrix, K, C, c::AbstractVector, solver, newcut::Symbol=:AddImmediately, maxncuts::Integer=-1, newcuttrust=3/4, mycutbonus=1/4, bettercut=nothing)
+  NLDS{S}(AbstractMatrix{S}(W), AbstractVector{S}(h), AbstractMatrix{S}(T), K, C, AbstractVector{S}(c), solver, newcut, maxncuts, newcuttrust, mycutbonus, bettercut)
 end
 
 function setchildren!(nlds::NLDS, childFC, childOC, proba, cutmode, childT)
@@ -236,10 +241,38 @@ function getoptimalitycuts{S}(nlds::NLDS{S})
   (cuts_E, cuts_e, mycut)
 end
 
+function gettrustof(nlds::NLDS, nwith, nused, mycut)
+  (nwith == 0 ? nlds.newcuttrust : nused / nwith) + (mycut ? nlds.mycutbonus : 0)
+end
+function updatetrust(nlds::NLDS, i::Int)
+  get(nlds.trust)[i] = gettrustof(nlds, nlds.nwith[i], nlds.nused[i], nlds.mycut[i])
+end
+function gettrust(nlds::NLDS)
+  if isnull(nlds.trust)
+    trust = nlds.nused ./ nlds.nwith
+    trust[nlds.nwith .== 0] = nlds.newcuttrust
+    trust[nlds.mycut] += nlds.mycutbonus
+    nlds.trust = trust
+  end
+  get(nlds.trust)
+end
+
+
 function choosecutstoremove(nlds::NLDS, num)
   # MergeSort is stable so in case of equality, the oldest cut loose
-  sorted = sort(collect(1:length(nlds.nwith)), alg=MergeSort, lt=(i,j)->nlds.bettercut(nlds.nwith[i], nlds.nused[i], nlds.mycut[i], nlds.nwith[j], nlds.nused[j], nlds.mycut[j]), rev=true)
-  sorted[1:num]
+  # However PartialQuickSort is a lot faster
+
+  trust = gettrust(nlds)
+  if num == 1
+    [indmin(trust)]                   # indmin selects the oldest cut in case of tie -> good :)
+  else
+    sortperm(trust, alg=PartialQuickSort(num))[1:num] # PartialQuickSort is unstable ->  bad :(
+  end
+
+# idx = collect(1:length(nlds.nwith))
+# sort!(idx, alg=PartialQuickSort(num), lt=(i,j)->nlds.bettercut(nlds.nwith[i], nlds.nused[i], nlds.mycut[i], nlds.nwith[j], nlds.nused[j], nlds.mycut[j]), rev=true)
+# idx[1:num]
+
 # isold = nlds.nwith .>= 1
 # if reduce(|, false, isold) # at least one old
 #   all = 1:length(nlds.nwith)
@@ -279,13 +312,15 @@ function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs, auth
     if nlds.maxncuts != -1 && length(nlds.nwith) >= nlds.maxncuts
       # Need to remove some cuts
       J = choosecutstoremove(nlds, length(nlds.nwith) - nlds.maxncuts + 1)
-      if nlds.bettercut(0, 0, mine, nlds.nwith[J[end]], nlds.nused[J[end]], nlds.mycut[J[end]])
+      #if nlds.trustnlds.bettercut(0, 0, mine, nlds.nwith[J[end]], nlds.nused[J[end]], nlds.mycut[J[end]])
+      if gettrustof(nlds, 0, 0, mine) >= gettrust(nlds)[J[end]]
         j = J[end]
         get(nlds.cuts_DE)[j,:] = sparse(A)
         get(nlds.cuts_de)[j] = β
         nlds.nwith[j] = 0
         nlds.nused[j] = 0
         nlds.mycut[j] = mine
+        gettrust(nlds)[j] = gettrustof(nlds, 0, 0, mine)
         cutadded = true
       else
         cutadded = false
@@ -312,6 +347,7 @@ function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs, auth
         nlds.nwith = nlds.nwith[keep]
         nlds.nused = nlds.nused[keep]
         nlds.mycut = nlds.mycut[keep]
+        nlds.trust = gettrust(nlds)[keep]
       end
       cutremoved = true
     else
@@ -328,6 +364,9 @@ function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs, auth
       push!(nlds.nwith, 0)
       push!(nlds.nused, 0)
       push!(nlds.mycut, mine)
+      if !isnull(nlds.trust)
+        push!(get(nlds.trust), gettrustof(nlds, 0, 0, mine))
+      end
       cutadded = true
       cutremoved = false
     end
@@ -428,6 +467,7 @@ function computecuts!{S}(nlds::NLDS{S})
     nlds.nwith = zeros(Int, nlds.nσ+nlds.nρ)
     nlds.nused = zeros(Int, nlds.nσ+nlds.nρ)
     nlds.mycut = [mycut_d; mycut_e]
+    nlds.trust = nothing
   end
 end
 
@@ -477,6 +517,7 @@ function solve!(nlds::NLDS)
     if !isempty(nlds.nwith)
       nlds.nwith += 1
       nlds.nused[dual[nlds.nπ+1:end] .> 1e-6] += 1
+      nlds.trust = nothing # need to be recomputed
     end
     π = dual[nlds.πs]
     σ = dual[nlds.σs]
