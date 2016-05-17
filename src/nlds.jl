@@ -108,8 +108,6 @@ type NLDS{S}
   model
   loaded
   solved
-  constrsadded
-  boundsupdated
   prevsol::Nullable{NLDSSolution}
 
   newcut::Symbol
@@ -135,7 +133,7 @@ type NLDS{S}
     else
       model = MathProgBase.LinearQuadraticModel(solver)
     end
-    nlds = new(W, h, T, K, C, c, nothing, nothing, S[], CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, nothing, :NoOptimalityCut, nx, nθ, nπ, 0, 0, 1:nπ, Int[], Int[], model, false, false, false, false, nothing, newcut, maxncuts, Int[], Int[], Bool[], nothing, newcuttrust, mycutbonus, bettercut)
+    nlds = new(W, h, T, K, C, c, nothing, nothing, S[], CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, nothing, :NoOptimalityCut, nx, nθ, nπ, 0, 0, 1:nπ, Int[], Int[], model, false, false, nothing, newcut, maxncuts, Int[], Int[], Bool[], nothing, newcuttrust, mycutbonus, bettercut)
     addfollower(localFC, (nlds, (:Feasibility, 0)))
     addfollower(localOC, (nlds, (:Optimality, 0)))
     nlds
@@ -384,10 +382,8 @@ function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs, auth
           end
           a = [a; one(S)]
         end
-        applyboundsupdates!(nlds)
         myaddconstr!(nlds.model, idx, a, β, :NonPos)
         #push!(nlds.cuts_de, β)
-        nlds.constrsadded = true
         nlds.solved = false
       else
         error("Invalid newcut option $(nlds.newcut)")
@@ -422,24 +418,8 @@ function setparentx(nlds::NLDS, x_a)
   nlds.x_a = x_a
   if nlds.loaded
     bigb, bigK = getrhs(nlds)
-    applyconstraintsaddition!(nlds)
     mysetconstrB!(nlds.model, bigb, bigK)
-    nlds.boundsupdated = true
     nlds.solved = false
-  end
-end
-
-function applyboundsupdates!(nlds::NLDS)
-  if nlds.boundsupdated
-    MathProgBase.updatemodel!(nlds.model)
-    nlds.boundsupdated = false
-  end
-end
-
-function applyconstraintsaddition!(nlds::NLDS)
-  if nlds.constrsadded
-    MathProgBase.updatemodel!(nlds.model)
-    nlds.constrsadded = false
   end
 end
 
@@ -504,9 +484,6 @@ end
 function solve!(nlds::NLDS)
   load!(nlds)
   if !nlds.solved
-    applyboundsupdates!(nlds)
-    # No need to call updatemodel!(model) for added constraints for Gurobi and only Gurobi needs model updates
-    nlds.constrsadded = false
     MathProgBase.optimize!(nlds.model)
     status = MathProgBase.status(nlds.model)
     objval = MathProgBase.getobjval(nlds.model)
