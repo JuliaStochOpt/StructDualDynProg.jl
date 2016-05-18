@@ -449,6 +449,15 @@ function computecuts!{S}(nlds::NLDS{S})
     nlds.nused = zeros(Int, nlds.nσ+nlds.nρ)
     nlds.mycut = [mycut_d; mycut_e]
     nlds.trust = nothing
+    # I will add the cuts in notifynewcuts! now
+    noneedstored!(nlds.localFC, nlds)
+    for store in nlds.childFC
+      noneedstored!(store, nlds)
+    end
+    noneedstored!(nlds.localOC, nlds)
+    for store in nlds.childOC
+      noneedstored!(store, nlds)
+    end
   end
 end
 
