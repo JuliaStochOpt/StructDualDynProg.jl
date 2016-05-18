@@ -43,9 +43,13 @@ function setchildren!(node::SDDPNode, children, proba, cutmode, childT=nothing)
 end
 
 function appendchildren!(node::SDDPNode, children, proba, childT=nothing)
-  @assert length(children) == length(proba)
   append!(node.children, children)
-  append!(node.proba, proba)
+  if length(proba) == length(children)
+    append!(node.proba, proba)
+  else
+    @assert length(proba) == length(node.children)
+    node.proba = proba
+  end
   node.leaf = false
   childFC = map(child -> child.fcuts, children)
   childOC = map(child -> child.ocuts, children)
@@ -60,7 +64,7 @@ function appendchildren!(node::SDDPNode, children, proba, childT=nothing)
     end
   end
   empty!(node.npath)
-  appendchildren!(node.nlds, childFC, childOC, proba, childT)
+  appendchildren!(node.nlds, childFC, childOC, node.proba, childT)
   @assert length(node.nlds.childFC) == length(node.children)
 end
 
@@ -71,6 +75,7 @@ function setchildx(node::SDDPNode, i, x)
   setparentx(node.children[i].nlds, x)
 end
 
+# If the graph is not a tree, this will loop if I don't use a num_stages limit
 function numberofpaths(node::SDDPNode, t, num_stages)
   if t == num_stages || isempty(node.children)
     1

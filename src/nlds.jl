@@ -167,10 +167,11 @@ function setchildren!(nlds::NLDS, childFC, childOC, proba, cutmode, childT)
 end
 
 function appendchildren!(nlds::NLDS, childFC, childOC, proba, childT)
-  @assert length(childFC) == length(childOC) == length(proba)
+  @assert length(childFC) == length(childOC)
+  @assert length(proba) == length(nlds.childOC) + length(childOC) == length(nlds.childFC) + length(childFC)
   if nlds.cutmode == :MultiCut
-    append!(nlds.proba, proba)
-    nlds.nθ += length(proba)
+    nlds.proba = proba
+    nlds.nθ = length(proba)
   end
   for i in 1:length(childFC)
     @assert length(childFC[i].b) == 0

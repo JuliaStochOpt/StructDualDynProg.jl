@@ -60,7 +60,35 @@ function Base.show(io::IO, stat::SDDPStats)
   @printf "                        | %s |" showtime(stat.solvertime+stat.fcutstime+stat.ocutstime+stat.setxtime)
 end
 
-function iteration(root::SDDPNode, pathss, num_stages, mccount=25, verbose=0, TOL=1e-5)
+function choosepaths(node::SDDPNode, mccount, pathsel, t, num_stages)
+  if mccount == :All
+    map(child->:All, node.children)
+  else
+    if pathsel == :nPaths
+      den = numberofpaths(node, t-1, num_stages)
+      pmf = map(child->numberofpaths(child, t, num_stages) / den, node.children)
+    else
+      pmf = node.proba
+    end
+    cmf = cumsum(pmf)
+    @assert abs(cmf[end] - 1) < 1e-6
+    cmf[end] = 1
+    samples = rand(Float64, mccount)
+    npaths = zeros(Int, length(node.children))
+    sort!(samples)
+    i = 1
+    for j in samples
+      while j >= cmf[i]
+        i += 1
+      end
+      npaths[i] += 1
+    end
+    npaths
+  end
+end
+
+function iteration{S}(root::SDDPNode{S}, totalmccount, num_stages, verbose, pathsel, TOL)
+  pathss = [(nothing, S[], totalmccount)]
   rootsol = nothing
 
   stats = SDDPStats()
@@ -70,12 +98,13 @@ function iteration(root::SDDPNode, pathss, num_stages, mccount=25, verbose=0, TO
     end
     # children are at t, parents are at t-1
     newpathss = []
-    for (parent, psol, paths) in pathss
-      if parent == nothing
-        rootsol = loadAndSolve(root)
-        push!(newpathss, (root, rootsol, paths))
-      else
-        curpathss = []
+    for (parent, psol, mccount) in pathss
+      if parent === nothing
+        rootsol = loadAndSolve(root) # FIXME treat this case outside the for loop
+        push!(newpathss, (root, rootsol, mccount))
+      elseif !isempty(parent.children)
+        npaths = choosepaths(parent, mccount, pathsel, t, num_stages)
+        curpathss = [] # FIXME could already be allocated looking the number of nonzeros elements of npaths
         childsolved = zeros(Bool, length(parent.children))
         feasible = true
         nnewfcuts = 0
@@ -83,10 +112,7 @@ function iteration(root::SDDPNode, pathss, num_stages, mccount=25, verbose=0, TO
         childocuts = Array{Any}(length(parent.children))
         for i in 1:length(parent.children)
           child = parent.children[i]
-          childnpaths = numberofpaths(child, t, num_stages)
-          newpaths, paths = filter(childnpaths, paths)
-          paths -= childnpaths
-          if t == 2 || length(newpaths) > 0 || parent.nlds.cutmode == :AveragedCut
+          if t == 2 || npaths[i] == :All || npaths[i] > 0 || parent.nlds.cutmode == :AveragedCut
             stats.setxtime += @mytime setchildx(parent, i, psol.x)
             stats.nsetx += 1
             stats.solvertime += @mytime childsol = loadAndSolve(child)
@@ -110,8 +136,8 @@ function iteration(root::SDDPNode, pathss, num_stages, mccount=25, verbose=0, TO
               rhs += childsol.ρe
               childocuts[i] = (coef, rhs)
             end
-            if length(newpaths) > 0
-              push!(curpathss, (child, childsol, newpaths))
+            if npaths[i] == :All || npaths[i] > 0
+              push!(curpathss, (child, childsol, npaths[i]))
             end
           end
         end
@@ -154,35 +180,21 @@ function iteration(root::SDDPNode, pathss, num_stages, mccount=25, verbose=0, TO
   rootsol, stats
 end
 
-function SDDP(root::SDDPNode, num_stages, mccount=25, verbose=0, stopcrit::Function=(x,y)->false, TOL=1e-5)
-  # If the graph is not a tree, this will loop if I don't use a num_stages limit
-  npaths = numberofpaths(root, 1, num_stages)
-  if mccount == :All
-    mccount = npaths
-  else
-    mccount = min(mccount, npaths)
+function SDDP(root::SDDPNode, num_stages, mccount=25, verbose=0, stopcrit::Function=(x,y)->false, pathsel::Symbol=:Proba, TOL=1e-5)
+  if !(pathsel in [:Proba, :nPaths])
+    error("Invalid pathsel")
   end
-
   cut_added = true
   niter = 0
   nfcuts = 0
   nocuts = 0
-  if verbose >= 2
-    @show npaths
-    @show mccount
-  end
   rootsol = nothing
   totaltime = 0
   totalstats = SDDPStats()
-  while (mccount < npaths || cut_added) && (rootsol === nothing || rootsol.status != :Infeasible) && (niter == 0 || !stopcrit(niter, rootsol.objval))
+  while (mccount != :All || cut_added) && (rootsol === nothing || rootsol.status != :Infeasible) && (niter == 0 || !stopcrit(niter, rootsol.objval))
     niter += 1
     cut_added = false
-    if mccount == npaths
-      pathss = [(nothing, Float64[], collect(1:npaths))]
-    else
-      pathss = [(nothing, Float64[], sort(1+mod(rand(Int, mccount), npaths)))]
-    end
-    itertime = @mytime rootsol, stats = iteration(root, pathss, num_stages, mccount, verbose, TOL)
+    itertime = @mytime rootsol, stats = iteration(root, mccount, num_stages, verbose, pathsel, TOL)
     totaltime  += itertime
     totalstats += stats
     if verbose >= 2

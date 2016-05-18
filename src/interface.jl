@@ -254,12 +254,6 @@ function getSDDPNode(allnodes, m::Model, t, num_stages, solver, parent, cutmode:
   get(nodes[t])
 end
 
-function filter(lim, a)
-  f = findfirst(x -> x > lim, a)
-  n = f == 0 ? length(a) : f-1
-  a[1:n], a[n+1:end]
-end
-
 function model2lattice(m::Model, num_stages, solver, cutmode::Symbol=:MultiCut, newcut::Symbol=:AddImmediately, maxncuts::Integer=-1)
   nodes = Vector{Vector{SDDPNode}}(num_stages)
   for i in 1:num_stages
