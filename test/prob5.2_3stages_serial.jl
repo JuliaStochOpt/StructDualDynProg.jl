@@ -19,7 +19,7 @@ end
 models[1] = model
 
 for s in 1:numScen
-  model = StructuredModel(parent=models[1], prob=p2[s], same_children_than=(s == 1 ? nothing : models[2]))
+  model = StructuredModel(parent=models[1], prob=p2[s], same_children_as=(s == 1 ? nothing : models[2]))
   @variable(model, y[1,s][1:n, 1:m] >= 0)
   @variable(model, x[2,s][1:n] >= 0)
   @variable(model, v[2,s][1:n] >= 0)
@@ -34,7 +34,7 @@ for s in 1:numScen
   end
 end
 for s in 1:numScen
-  model = StructuredModel(parent=models[2], prob=p2[s], same_children_than=(s == 1 ? nothing : models[3]))
+  model = StructuredModel(parent=models[2], prob=p2[s], same_children_as=(s == 1 ? nothing : models[3]))
   @variable(model, y[2,s][1:n, 1:m] >= 0)
   @constraints model begin
     demand[j=1:m], sum(y[2,s][:,j]) == D2[j,s]
