@@ -9,7 +9,7 @@ julia:
 notifications:
   email: false
 before_script:
-  - julia -e 'Pkg.clone("git://github.com/blegat/StructJuMP.jl.git")'
+  - julia -e 'Pkg.checkout("StructJuMP")'
   - julia -e 'Pkg.add("Clp")'
 # uncomment the following lines to override the default test script
 #script:
