@@ -8,10 +8,9 @@ The problem can either be provided using the [StructJuMP](https://github.com/joe
 This package is used by the [Entropic Cone](https://github.com/blegat/EntropicCone.jl) package.
 
 # Installation
-To use this package you will need Julia v0.5 or later and you currently need [this fork of StructJuMP](https://github.com/blegat/StructJuMP.jl).
-You also need to clone it since it is not registered yet.
+To use this package you will need Julia v0.5 and the latest version of [StructJuMP](https://github.com/joehuchette/StructJuMP.jl).
 
 ```
-> Pkg.clone("https://github.com/blegat/StructJuMP.jl")
+> Pkg.checkout("StructJuMP")
 > Pkg.clone("https://github.com/blegat/StochasticDualDynamicProgramming.jl")
 ```
