@@ -5,6 +5,7 @@ export NLDS, updatemaxncuts!
 type NLDSSolution
   status
   objval
+  objvalx
   x
   θ
   πT
@@ -75,11 +76,11 @@ end
 #     ρ >= 0
 type NLDS{S}
   W::AbstractMatrix{S}
-  h::Vector{S}
+  h::AbstractVector{S}
   T::AbstractMatrix{S}
   K
   C
-  c::Vector{S}
+  c::AbstractVector{S}
 
   # used to generate cuts
   cuts_DE::Nullable{AbstractMatrix{S}}
@@ -358,8 +359,9 @@ function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs, auth
         nlds.nρ += 1
         push!(nlds.ρs, nlds.nπ + nlds.nσ + nlds.nρ)
       end
+      # FIXME shouldn't do sparse
       nlds.cuts_DE = [get(nlds.cuts_DE); sparse(A')]
-      nlds.cuts_de = [get(nlds.cuts_de); sparsevec([β])]
+      nlds.cuts_de = myveccat(get(nlds.cuts_de), β)
       push!(nlds.nwith, 0)
       push!(nlds.nused, 0)
       push!(nlds.mycut, mine)
@@ -402,24 +404,27 @@ function checkconsistency(nlds)
 end
 
 function getrhs(nlds)
-  bigb = [nlds.h - nlds.T * nlds.x_a; get(nlds.cuts_de)]
-  # I do a copy since I am going to push!
-  bigK = copy(nlds.K)
-  if nlds.nσ > 0
-    push!(bigK, (:NonPos, nlds.σs))
+  bs = [nlds.h - nlds.T * nlds.x_a]
+  Ks = [nlds.K]
+  if !isempty(get(nlds.cuts_de))
+    push!(bs, get(nlds.cuts_de))
+    Kcut = []
+    if nlds.nσ > 0
+      push!(Kcut, (:NonPos, nlds.σs))
+    end
+    if nlds.nρ > 0
+      push!(Kcut, (:NonPos, nlds.ρs))
+    end
+    push!(Ks, Kcut)
   end
-  if nlds.nρ > 0
-    push!(bigK, (:NonPos, nlds.ρs))
-  end
-  @assert length(bigb) == nlds.nπ + nlds.nσ + nlds.nρ
-  bigb, bigK
+  bs, Ks
 end
 
 function setparentx(nlds::NLDS, x_a)
   nlds.x_a = x_a
   if nlds.loaded
-    bigb, bigK = getrhs(nlds)
-    mysetconstrB!(nlds.model, bigb, bigK)
+    bs, Ks = getrhs(nlds)
+    mysetconstrB!(nlds.model, bs, Ks)
     nlds.solved = false
   end
 end
@@ -484,9 +489,9 @@ function load!{S}(nlds::NLDS{S})
       end
     end
 
-    bigb, bigK = getrhs(nlds)
+    bs, Ks = getrhs(nlds)
 
-    myload!(nlds.model, bigc, bigA, bigb, bigK, bigC)
+    myload!(nlds.model, bigc, bigA, bs, Ks, bigC)
     nlds.loaded = true
   end
 end
@@ -511,7 +516,7 @@ function solve!(nlds::NLDS)
     ρ = dual[nlds.ρs]
     cuts_d = get(nlds.cuts_de)[nlds.σs-nlds.nπ]
     cuts_e = get(nlds.cuts_de)[nlds.ρs-nlds.nπ]
-    nlds.prevsol = NLDSSolution(status, objval, x, θ, vec(π' * nlds.T), vecdot(π, nlds.h), vecdot(σ, cuts_d), vecdot(ρ, cuts_e))
+    nlds.prevsol = NLDSSolution(status, objval, dot(nlds.c, x), x, θ, vec(π' * nlds.T), vecdot(π, nlds.h), vecdot(σ, cuts_d), vecdot(ρ, cuts_e))
   end
 end
 

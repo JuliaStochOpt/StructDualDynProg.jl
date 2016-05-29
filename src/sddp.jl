@@ -88,99 +88,111 @@ function choosepaths(node::SDDPNode, mccount, pathsel, t, num_stages)
 end
 
 function iteration{S}(root::SDDPNode{S}, totalmccount, num_stages, verbose, pathsel, TOL)
-  pathss = [(nothing, S[], totalmccount)]
-  rootsol = nothing
+  rootsol = loadAndSolve(root)
+  pathss = [(root, rootsol, rootsol.objvalx, 1., totalmccount)]
 
   stats = SDDPStats()
-  for t in 1:num_stages
+  infeasibility_detected = false
+  for t in 2:num_stages
     if verbose >= 3
       @show t
     end
     # children are at t, parents are at t-1
     newpathss = []
-    for (parent, psol, mccount) in pathss
-      if parent === nothing
-        rootsol = loadAndSolve(root) # FIXME treat this case outside the for loop
-        push!(newpathss, (root, rootsol, mccount))
-      elseif !isempty(parent.children)
-        npaths = choosepaths(parent, mccount, pathsel, t, num_stages)
-        curpathss = [] # FIXME could already be allocated looking the number of nonzeros elements of npaths
-        childsolved = zeros(Bool, length(parent.children))
-        feasible = true
-        nnewfcuts = 0
-        nnewocuts = 0
-        childocuts = Array{Any}(length(parent.children))
-        for i in 1:length(parent.children)
-          child = parent.children[i]
-          if t == 2 || npaths[i] == :All || npaths[i] > 0 || parent.nlds.cutmode == :AveragedCut
-            stats.setxtime += @mytime setchildx(parent, i, psol.x)
-            stats.nsetx += 1
-            stats.solvertime += @mytime childsol = loadAndSolve(child)
-            stats.nsolved += 1
-            childsolved[i] = true
+    for (parent, psol, z, prob, mccount) in pathss
+      npaths = choosepaths(parent, mccount, pathsel, t, num_stages)
+      curpathss = [] # FIXME could already be allocated looking the number of nonzeros elements of npaths
+      childsolved = zeros(Bool, length(parent.children))
+      feasible = true
+      nnewfcuts = 0
+      nnewocuts = 0
+      childocuts = Array{Any}(length(parent.children))
+      for i in 1:length(parent.children)
+        child = parent.children[i]
+        if t == 2 || npaths[i] == :All || npaths[i] > 0 || parent.nlds.cutmode == :AveragedCut
+          stats.setxtime += @mytime setchildx(parent, i, psol.x)
+          stats.nsetx += 1
+          stats.solvertime += @mytime childsol = loadAndSolve(child)
+          stats.nsolved += 1
+          childsolved[i] = true
 
-            # Feasibility cut
-            # D = π T
-            # d = π h + σ d
-            # Optimality cut
-            # E = π T
-            # e = π h + ρ e + σ d
-            coef = childsol.πT
-            rhs = childsol.πh + childsol.σd
-            if childsol.status == :Infeasible
-              feasible = false
-              nnewfcuts += 1
-              stats.fcutstime += @mytime pushfeasibilitycut!(child, coef, rhs, parent)
-              break
-            else
-              rhs += childsol.ρe
-              childocuts[i] = (coef, rhs)
-            end
-            if npaths[i] == :All || npaths[i] > 0
-              push!(curpathss, (child, childsol, npaths[i]))
-            end
+          # Feasibility cut
+          # D = π T
+          # d = π h + σ d
+          # Optimality cut
+          # E = π T
+          # e = π h + ρ e + σ d
+          coef = childsol.πT
+          rhs = childsol.πh + childsol.σd
+          if childsol.status == :Infeasible
+            infeasibility_detected = true
+            feasible = false
+            nnewfcuts += 1
+            stats.fcutstime += @mytime pushfeasibilitycut!(child, coef, rhs, parent)
+            break
+          else
+            rhs += childsol.ρe
+            childocuts[i] = (coef, rhs)
+          end
+          if npaths[i] == :All || npaths[i] > 0
+            push!(curpathss, (child, childsol, z + childsol.objvalx, prob * parent.proba[i], npaths[i]))
           end
         end
-        if feasible
-          if parent.nlds.cutmode == :MultiCut
-            for i in 1:length(parent.children)
-              if childsolved[i]
-                a, β = childocuts[i][1], childocuts[i][2]
-                if psol.θ[i] < (β - dot(a, psol.x)) - TOL
-                  stats.ocutstime += @mytime pushoptimalitycutforparent!(parent.children[i], a, β, parent)
-                  nnewocuts += 1
-                end
-              end
-            end
-          elseif parent.nlds.cutmode == :AveragedCut
-            if !isempty(parent.children)
-              if isnull(parent.childT)
-                a = sum(map(i->childocuts[i][1]*parent.proba[i], 1:length(parent.children)))
-              else
-                a = sum(map(i->get(parent.childT)[i]'*childocuts[i][1]*parent.proba[i], 1:length(parent.children)))
-              end
-              β = sum(map(i->childocuts[i][2]*parent.proba[i], 1:length(parent.children)))
-              if psol.θ[1] < (β - dot(a, psol.x)) - TOL
-                stats.ocutstime += @mytime pushoptimalitycut!(parent, a, β, parent)
+      end
+      if feasible
+        if parent.nlds.cutmode == :MultiCut
+          for i in 1:length(parent.children)
+            if childsolved[i]
+              a, β = childocuts[i][1], childocuts[i][2]
+              if psol.θ[i] < (β - dot(a, psol.x)) - TOL
+                stats.ocutstime += @mytime pushoptimalitycutforparent!(parent.children[i], a, β, parent)
                 nnewocuts += 1
               end
             end
           end
+        elseif parent.nlds.cutmode == :AveragedCut
+          if !isempty(parent.children)
+            if isnull(parent.childT)
+              a = sum(map(i->childocuts[i][1]*parent.proba[i], 1:length(parent.children)))
+            else
+              a = sum(map(i->get(parent.childT)[i]'*childocuts[i][1]*parent.proba[i], 1:length(parent.children)))
+            end
+            β = sum(map(i->childocuts[i][2]*parent.proba[i], 1:length(parent.children)))
+            if psol.θ[1] < (β - dot(a, psol.x)) - TOL
+              stats.ocutstime += @mytime pushoptimalitycut!(parent, a, β, parent)
+              nnewocuts += 1
+            end
+          end
         end
-        stats.nfcuts += nnewfcuts
-        stats.nocuts += nnewocuts
-        if feasible && !isempty(curpathss)
-          @assert nnewfcuts == 0
-          append!(newpathss, curpathss)
-        end
+      end
+      stats.nfcuts += nnewfcuts
+      stats.nocuts += nnewocuts
+      if feasible && !isempty(curpathss)
+        @assert nnewfcuts == 0
+        append!(newpathss, curpathss)
       end
     end
     pathss = newpathss
   end
-  rootsol, stats
+  if infeasibility_detected
+    z_UB = Inf # FIXME assumes minimization
+    σ = 0
+  else
+    z = Vector{Float64}(map(x->x[3], pathss))
+    if totalmccount == :All
+      prob = Vector{Float64}(map(x->x[4], pathss))
+    else
+      npathss = Vector{Int}(map(x->x[5], pathss))
+      @assert sum(npathss) == totalmccount
+      prob = npathss / totalmccount
+    end
+    z_UB = dot(prob, z)
+    σ = sqrt(dot(prob, (z - z_UB).^2))
+  end
+  rootsol, stats, z_UB, σ
 end
 
-function SDDP(root::SDDPNode, num_stages, mccount=25, verbose=0, stopcrit::Function=(x,y)->false, pathsel::Symbol=:Proba, TOL=1e-5)
+function SDDP(root::SDDPNode, num_stages, mccount=25, verbose=0, pereiracoef=2, stopcrit::Function=(x,y)->false, pathsel::Symbol=:Proba, TOL=1e-5)
   if !(pathsel in [:Proba, :nPaths])
     error("Invalid pathsel")
   end
@@ -191,17 +203,30 @@ function SDDP(root::SDDPNode, num_stages, mccount=25, verbose=0, stopcrit::Funct
   rootsol = nothing
   totaltime = 0
   totalstats = SDDPStats()
-  while (mccount != :All || cut_added) && (rootsol === nothing || rootsol.status != :Infeasible) && (niter == 0 || !stopcrit(niter, rootsol.objval))
+
+  z_LB = 0
+  z_UB = Inf
+  σ = 0
+  stdmccoef = 0.05
+
+  while (mccount != :All || cut_added) && (mccount == :All || z_LB < z_UB - pereiracoef * σ / sqrt(mccount) || σ / sqrt(mccount) > stdmccoef * z_LB) && (rootsol === nothing || rootsol.status != :Infeasible) && (niter == 0 || !stopcrit(niter, rootsol.objval))
     niter += 1
     cut_added = false
-    itertime = @mytime rootsol, stats = iteration(root, mccount, num_stages, verbose, pathsel, TOL)
+    itertime = @mytime rootsol, stats, z_UB, σ = iteration(root, mccount, num_stages, verbose, pathsel, TOL)
+    #Lower bound since θ >= 0
+    z_LB = rootsol.objval
+
     totaltime  += itertime
     totalstats += stats
     if verbose >= 2
       println("Iteration $niter completed in $itertime s (Total time is $totaltime)")
       println("Status: $(rootsol.status)")
-      println("Objective value: $(rootsol.objval)")
-      println(" Solution value: $(rootsol.x)")
+      println("z_UB: $(z_UB)")
+      println("z_LB: $(z_LB)")
+      if mccount != :All
+        println("pereira bound: $(z_UB - pereiracoef * σ / sqrt(mccount))")
+      end
+      #println(" Solution value: $(rootsol.x)")
       println("Stats for this iteration:")
       println(stats)
       println("Total stats:")
@@ -213,8 +238,13 @@ function SDDP(root::SDDPNode, num_stages, mccount=25, verbose=0, stopcrit::Funct
   if verbose >= 1
     println("SDDP completed in $niter iterations in $totaltime s")
     println("Status: $(rootsol.status)")
-    println("Objective value: $(rootsol.objval)")
-    println(" Solution value: $(rootsol.x)")
+    #println("Objective value: $(rootsol.objval)")
+    println("z_UB: $(z_UB)")
+    println("z_LB: $(z_LB)")
+    if mccount != :All
+      println("pereira bound: $(z_UB - pereiracoef * σ / sqrt(mccount))")
+    end
+    #println(" Solution value: $(rootsol.x)")
     println("Total stats:")
     println(totalstats)
   end

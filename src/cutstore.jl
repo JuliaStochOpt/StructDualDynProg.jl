@@ -1,3 +1,16 @@
+function myveccat{S}(b::AbstractVector{S}, β::S)
+  [b; β]
+end
+function myveccat{S}(b::AbstractSparseVector{S}, β::S)
+  if β == zero(S)
+    # If only homogeneous cuts, b stays sparse
+    [b; sparsevec([β])]
+  else
+    # At the first non-homogeneous cut, b stops being sparse
+    [b; β]
+  end
+end
+
 type CutStore{S}
   A::AbstractMatrix{S}
   b::AbstractVector{S}
@@ -15,8 +28,9 @@ end
 
 function addcut{S}(store::CutStore{S}, a::Vector{S}, β::S, author)
   if store.storecuts == :Yes || (store.storecuts != :No && reduce(|, false, store.needstored))
+    # FIXME shouldn't do sparse
     store.A = [store.A; sparse(a')]
-    store.b = [store.b; sparsevec([β])]
+    store.b = myveccat(store.b, β)
     push!(store.authors, author)
   end
 
