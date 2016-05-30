@@ -264,10 +264,10 @@ function model2lattice(m::Model, num_stages, solver, cutmode::Symbol=:MultiCut, 
 end
 
 function SDDPclear(m::Model)
-  for child in getStructure(m).children
-    SDDPclear(child)
-  end
   if :SDDP in keys(m.ext)
     pop!(m.ext, :SDDP)
+    for child in getStructure(m).children
+      SDDPclear(child)
+    end
   end
 end
