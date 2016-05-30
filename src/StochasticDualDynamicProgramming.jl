@@ -4,6 +4,7 @@ module StochasticDualDynamicProgramming
 
 using JuMP
 using StructJuMP
+import Base.show
 
 include("cutstore.jl")
 include("solver.jl")

@@ -30,6 +30,20 @@ end
 
 SDDPNode{S}(nlds::NLDS{S}, parent) = SDDPNode{S}(nlds, parent)
 
+function Base.show(io::IO, node::SDDPNode)
+  if node.root
+    print(io, "Root ")
+    if node.leaf
+      print(io, "and leaf ")
+    end
+    print(io, "n")
+  else
+    print(io, "N")
+  end
+  println(io, "ode of $(node.nvars) variables and outdegree of $(length(node.children)) with proba:")
+  println(io, node.proba)
+end
+
 function setchildren!(node::SDDPNode, children, proba, cutmode, childT=nothing)
   @assert length(children) == length(proba)
   node.children = children
