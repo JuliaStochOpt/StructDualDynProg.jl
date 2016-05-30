@@ -226,10 +226,13 @@ function getoptimalitycuts{S}(nlds::NLDS{S})
       E = E * get(nlds.childT)[i]
     end
     nrows = size(E, 1)
-    [E spzeros(S, nrows, i-1) ones(S, nrows, 1) spzeros(S, nrows, nlds.nθ-i)]
+    # If E is not sparse,
+    # myhcat(E, spzeros(S, nrows, i-1)) will not be sparse
+    # and ones(S, nrows) won't be sparsed
+    [myhcat(myhcat(E, spzeros(S, nrows, i-1)), ones(S, nrows, 1)) spzeros(S, nrows, nlds.nθ-i)]
   end
   if nlds.nθ == 1
-    cuts_E = [nlds.localOC.A ones(size(nlds.localOC.A, 1), 1)]
+    cuts_E = myhcat(nlds.localOC.A, ones(size(nlds.localOC.A, 1), 1))
   else
     cuts_E = spzeros(S, 0, nlds.nx + nlds.nθ)
   end
@@ -290,6 +293,14 @@ function choosecutstoremove(nlds::NLDS, num)
 # end
 end
 
+function isfc(nlds::NLDS, cut)
+  if length(nlds.σs) < length(nlds.ρs)
+    cut-nlds.nπ in nlds.σs
+  else
+    !(cut-nlds.nπ in nlds.ρs)
+  end
+end
+
 function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs, author)
   @assert attrs[1] in [:Feasibility, :Optimality]
   if !isnull(nlds.cuts_DE)
@@ -303,9 +314,9 @@ function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs, auth
       A = [a; spzeros(S, nlds.nθ)]
     else
       if i == 0
-        A = [a; one(S)]
+        A = myveccat(a, one(S), true)
       else
-        A = [a; spzeros(S, i-1); one(S); spzeros(S, nlds.nθ-i)]
+        A = [a; myveccat(spzeros(S, i-1), one(S), true); spzeros(S, nlds.nθ-i)]
       end
     end
     mine = author === nlds
@@ -315,20 +326,23 @@ function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs, auth
       #if nlds.trustnlds.bettercut(0, 0, mine, nlds.nwith[J[end]], nlds.nused[J[end]], nlds.mycut[J[end]])
       if gettrustof(nlds, 0, 0, mine) >= gettrust(nlds)[J[end]]
         j = J[end]
-        get(nlds.cuts_DE)[j,:] = sparse(A)
+        get(nlds.cuts_DE)[j,:] = A # FIXME why was I doing sparse(A) for entropic cone ?
         get(nlds.cuts_de)[j] = β
         nlds.nwith[j] = 0
         nlds.nused[j] = 0
         nlds.mycut[j] = mine
         gettrust(nlds)[j] = gettrustof(nlds, 0, 0, mine)
         cutadded = true
+        needupdate_σsρs = (attrs[1] == :Feasibility) $ isfc(nlds, j)
       else
         cutadded = false
+        needupdate_σsρs = false
       end
       J = J[1:end-1]
 
-      if length(J) > 1 || cutadded
-        keep = setdiff(1:length(get(nlds.cuts_de)), J)
+      if length(J) > 1 || needupdate_σsρs
+        keep = ones(Bool, length(get(nlds.cuts_de)))
+        keep[J] = false
         isσcut = zeros(Bool, length(nlds.nwith))
         isσcut[nlds.σs-nlds.nπ] = true
         if cutadded
@@ -359,8 +373,7 @@ function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs, auth
         nlds.nρ += 1
         push!(nlds.ρs, nlds.nπ + nlds.nσ + nlds.nρ)
       end
-      # FIXME shouldn't do sparse
-      nlds.cuts_DE = [get(nlds.cuts_DE); sparse(A')]
+      nlds.cuts_DE = mymatcat(get(nlds.cuts_DE), A)
       nlds.cuts_de = myveccat(get(nlds.cuts_de), β)
       push!(nlds.nwith, 0)
       push!(nlds.nused, 0)
@@ -383,7 +396,7 @@ function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs, auth
           else
             push!(idx, nlds.nx+i)
           end
-          a = [a; one(S)]
+          a = myveccat(a, one(S), true)
         end
         myaddconstr!(nlds.model, idx, a, β, :NonPos)
         #push!(nlds.cuts_de, β)

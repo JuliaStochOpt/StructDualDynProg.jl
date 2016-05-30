@@ -50,7 +50,7 @@ function myaddconstr!(m::MathProgBase.AbstractLinearQuadraticModel, idx, a, β, 
   if cone == :Zero || cone == :NonNeg
     ub = β
   end
-  MathProgBase.addconstr!(m, idx, a, lb, ub)
+  MathProgBase.addconstr!(m, idx, full(a), lb, ub)
 end
 
 function myload!(model::MathProgBase.AbstractConicModel, c, A, bs, Ks, C)

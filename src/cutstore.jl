@@ -1,14 +1,30 @@
-function myveccat{S}(b::AbstractVector{S}, β::S)
-  [b; β]
+function myveccat{S}(b::AbstractVector{S}, β::S, force=false)
+  push!(b, β)
+  b
 end
-function myveccat{S}(b::AbstractSparseVector{S}, β::S)
-  if β == zero(S)
+function myveccat{S}(b::AbstractSparseVector{S}, β::S, force=false)
+  if force || β == zero(S)
     # If only homogeneous cuts, b stays sparse
     [b; sparsevec([β])]
   else
     # At the first non-homogeneous cut, b stops being sparse
     [b; β]
   end
+end
+
+# see https://github.com/JuliaLang/julia/issues/16661
+function myhcat{S}(A::AbstractMatrix{S}, a::AbstractMatrix{S})
+  [A a]
+end
+function myhcat{S}(A::AbstractSparseMatrix{S}, a::AbstractMatrix{S})
+  [A sparse(a)]
+end
+
+function mymatcat{S}(A::AbstractMatrix{S}, a::AbstractVector{S})
+  [A; a']
+end
+function mymatcat{S}(A::AbstractSparseMatrix{S}, a::AbstractSparseVector{S})
+  [A; sparse(a')]
 end
 
 type CutStore{S}
@@ -26,10 +42,18 @@ type CutStore{S}
   end
 end
 
+function checksparseness(a::Vector)
+  if countnz(a) * 2 < length(a)
+    sparse(a)
+  else
+    a
+  end
+end
+
 function addcut{S}(store::CutStore{S}, a::Vector{S}, β::S, author)
+  a = checksparseness(a)
   if store.storecuts == :Yes || (store.storecuts != :No && reduce(|, false, store.needstored))
-    # FIXME shouldn't do sparse
-    store.A = [store.A; sparse(a')]
+    store.A = mymatcat(store.A, a)
     store.b = myveccat(store.b, β)
     push!(store.authors, author)
   end
