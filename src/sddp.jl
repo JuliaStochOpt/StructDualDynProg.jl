@@ -88,11 +88,17 @@ function choosepaths(node::SDDPNode, mccount, pathsel, t, num_stages)
 end
 
 function iteration{S}(root::SDDPNode{S}, totalmccount, num_stages, verbose, pathsel, TOL)
-  rootsol = loadAndSolve(root)
-  pathss = [(root, rootsol, rootsol.objvalx, 1., totalmccount)]
-
   stats = SDDPStats()
-  infeasibility_detected = false
+
+  stats.solvertime += @mytime rootsol = loadAndSolve(root)
+  stats.nsolved += 1
+  infeasibility_detected = rootsol.status == :Infeasible
+  if infeasibility_detected
+    pathss = []
+  else
+    pathss = [(root, rootsol, rootsol.objvalx, 1., totalmccount)]
+  end
+
   for t in 2:num_stages
     if verbose >= 3
       @show t
