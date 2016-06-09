@@ -12,13 +12,19 @@ solver = Clp.ClpSolver()
 #using GLPKMathProgInterface
 #solver = GLPKSolverLP()
 
-function fulltest(m, num_stages, objval, solval)
+function fulltest(m, num_stages, objval, solval, ws, wsσ)
   for mccount in [:All, 42]
     for maxncuts in [-1, 9]
       for newcut in [:AddImmediately, :InvalidateSolver]
         for cutmode in [:MultiCut, :AveragedCut]
           root = model2lattice(m, num_stages, solver, cutmode, newcut, maxncuts)
+          μ, σ = waitandsee(root, num_stages, solver, mccount)
+          @test abs(μ - ws) / ws < (mccount == :All ? 1e-6 : .03)
+          @test abs(σ - wsσ) / wsσ <= (mccount == :All ? 1e-6 : 1.)
           sol = SDDP(root, num_stages, mccount)
+          μ, σ = waitandsee(root, num_stages, solver, mccount)
+          @test abs(μ - ws) / ws < (mccount == :All ? 1e-6 : .03)
+          @test abs(σ - wsσ) / wsσ <= (mccount == :All ? 1e-6 : 1.)
 
           v11value = sol.sol[1:4]
           @test sol.status == :Optimal

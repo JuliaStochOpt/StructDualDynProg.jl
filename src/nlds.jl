@@ -61,16 +61,17 @@ end
 # min c x
 #     + θ           -> :AveragedCut
 #     + sum θ_i     -> :MultiCut
-#     Wx = h - Tx_a
+#     h - Tx_a - Wx in K
 #     Dx >= d (feasibility cuts)
 #     Ex + θ   >= e -> :AveragedCut
 #     Ex + θ_i >= e -> :MultiCut
-#     x in K
+#     x in C
 #     (θ >= 0)
 
 # Dual
 # max π (h - Tx_a) + σ d + ρ e
-#     c - (π W + σ D + ρ E) in K^*
+#     c - (π W + σ D + ρ E) in C^*
+#     π in K^*
 #     1'ρ = 1 (or <= 1 if θ >= 0)
 #     σ >= 0
 #     ρ >= 0
@@ -97,14 +98,14 @@ type NLDS{S}
   childT::Nullable{Vector{AbstractMatrix{S}}}
   cutmode::Symbol
 
-  nx
-  nθ
-  nπ
-  nσ
-  nρ
-  πs
-  σs
-  ρs
+  nx::Int
+  nθ::Int
+  nπ::Int
+  nσ::Int
+  nρ::Int
+  πs::Vector{Int}
+  σs::Vector{Int}
+  ρs::Vector{Int}
 
   model
   loaded
@@ -127,8 +128,8 @@ type NLDS{S}
     nx = size(W, 2)
     nθ = 0
     nπ = length(h)
-    localFC = CutStore{S}(size(W, 2))
-    localOC = CutStore{S}(size(W, 2))
+    localFC = CutStore{S}(nx)
+    localOC = CutStore{S}(nx)
     if false
       model = MathProgBase.ConicModel(solver)
     else
@@ -295,9 +296,9 @@ end
 
 function isfc(nlds::NLDS, cut)
   if length(nlds.σs) < length(nlds.ρs)
-    cut-nlds.nπ in nlds.σs
+    cut in nlds.σs
   else
-    !(cut-nlds.nπ in nlds.ρs)
+    !(cut in nlds.ρs)
   end
 end
 
@@ -344,13 +345,13 @@ function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs, auth
         keep = ones(Bool, length(get(nlds.cuts_de)))
         keep[J] = false
         isσcut = zeros(Bool, length(nlds.nwith))
-        isσcut[nlds.σs-nlds.nπ] = true
+        isσcut[nlds.σs] = true
         if cutadded
           isσcut[j] = attrs[1] == :Feasibility
         end
         isσcut = isσcut[keep]
-        nlds.σs = nlds.nπ + (1:length(isσcut))[isσcut]
-        nlds.ρs = nlds.nπ + (1:length(isσcut))[!isσcut]
+        nlds.σs = (1:length(isσcut))[isσcut]
+        nlds.ρs = (1:length(isσcut))[!isσcut]
         nlds.nσ = length(nlds.σs)
         nlds.nρ = length(nlds.ρs)
       end
@@ -368,10 +369,10 @@ function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs, auth
       # Just append cut
       if attrs[1] == :Feasibility
         nlds.nσ += 1
-        push!(nlds.σs, nlds.nπ + nlds.nσ + nlds.nρ)
+        push!(nlds.σs, nlds.nσ + nlds.nρ)
       else
         nlds.nρ += 1
-        push!(nlds.ρs, nlds.nπ + nlds.nσ + nlds.nρ)
+        push!(nlds.ρs, nlds.nσ + nlds.nρ)
       end
       nlds.cuts_DE = mymatcat(get(nlds.cuts_DE), A)
       nlds.cuts_de = myveccat(get(nlds.cuts_de), β)
@@ -413,7 +414,7 @@ function checkconsistency(nlds)
   @assert length(nlds.πs) == nlds.nπ
   @assert length(nlds.σs) == nlds.nσ
   @assert length(nlds.ρs) == nlds.nρ
-  @assert sort([nlds.πs; nlds.σs; nlds.ρs]) == collect(1:(nlds.nπ + nlds.nσ + nlds.nρ))
+  @assert sort([nlds.πs; nlds.nπ + nlds.σs; nlds.nπ + nlds.ρs]) == collect(1:(nlds.nπ + nlds.nσ + nlds.nρ))
 end
 
 function getrhs(nlds)
@@ -461,8 +462,8 @@ function computecuts!{S}(nlds::NLDS{S})
     nlds.cuts_DE = [cuts_D; cuts_E]
     nlds.cuts_de = [cuts_d; cuts_e]
     nlds.πs = collect(1:nlds.nπ)
-    nlds.σs = collect(nlds.nπ+(1:nlds.nσ))
-    nlds.ρs = collect(nlds.nπ+nlds.nσ+(1:nlds.nρ))
+    nlds.σs = collect(1:nlds.nσ)
+    nlds.ρs = collect(nlds.nσ+(1:nlds.nρ))
     nlds.nwith = zeros(Int, nlds.nσ+nlds.nρ)
     nlds.nused = zeros(Int, nlds.nσ+nlds.nρ)
     nlds.mycut = [mycut_d; mycut_e]
@@ -525,10 +526,10 @@ function solve!(nlds::NLDS)
       nlds.trust = nothing # need to be recomputed
     end
     π = dual[nlds.πs]
-    σ = dual[nlds.σs]
-    ρ = dual[nlds.ρs]
-    cuts_d = get(nlds.cuts_de)[nlds.σs-nlds.nπ]
-    cuts_e = get(nlds.cuts_de)[nlds.ρs-nlds.nπ]
+    σ = dual[nlds.nπ+nlds.σs]
+    ρ = dual[nlds.nπ+nlds.ρs]
+    cuts_d = get(nlds.cuts_de)[nlds.σs]
+    cuts_e = get(nlds.cuts_de)[nlds.ρs]
     nlds.prevsol = NLDSSolution(status, objval, dot(nlds.c, x), x, θ, vec(π' * nlds.T), vecdot(π, nlds.h), vecdot(σ, cuts_d), vecdot(ρ, cuts_e))
   end
 end

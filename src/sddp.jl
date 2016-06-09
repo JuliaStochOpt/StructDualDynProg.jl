@@ -60,6 +60,20 @@ function Base.show(io::IO, stat::SDDPStats)
   @printf "                        | %s |" showtime(stat.solvertime+stat.fcutstime+stat.ocutstime+stat.setxtime)
 end
 
+function meanstdpaths(paths, i, j, k, totalmccount)
+  z = Float64[x[i] for x in paths]
+  if totalmccount == :All
+    prob = Float64[x[j] for x in paths]
+  else
+    npaths = Int[x[k] for x in  paths]
+    @assert sum(npaths) == totalmccount
+    prob = npaths / totalmccount
+  end
+  μ = dot(prob, z)
+  σ = sqrt(dot(prob, (z - μ).^2))
+  μ, σ
+end
+
 function choosepaths(node::SDDPNode, mccount, pathsel, t, num_stages)
   if mccount == :All
     map(child->:All, node.children)
@@ -184,16 +198,7 @@ function iteration{S}(root::SDDPNode{S}, totalmccount, num_stages, verbose, path
     z_UB = Inf # FIXME assumes minimization
     σ = 0
   else
-    z = Vector{Float64}(map(x->x[3], pathss))
-    if totalmccount == :All
-      prob = Vector{Float64}(map(x->x[4], pathss))
-    else
-      npathss = Vector{Int}(map(x->x[5], pathss))
-      @assert sum(npathss) == totalmccount
-      prob = npathss / totalmccount
-    end
-    z_UB = dot(prob, z)
-    σ = sqrt(dot(prob, (z - z_UB).^2))
+    z_UB, σ = meanstdpaths(pathss, 3, 4, 5, totalmccount)
   end
   rootsol, stats, z_UB, σ
 end

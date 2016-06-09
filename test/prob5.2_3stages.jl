@@ -37,7 +37,7 @@ for s in 1:numScen
   end
 end
 
-fulltest(M, 3, 406712.49, [2986,0,7329,854])
+fulltest(M, 3, 406712.49, [2986,0,7329,854], 402593.71614, 17319.095064)
 # root = model2lattice(M, 3, solver, cutmode)
 # sol = SDDP(root, 3, cutmode, :All, verbose)
 #

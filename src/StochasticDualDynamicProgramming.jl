@@ -11,6 +11,7 @@ include("solver.jl")
 include("nlds.jl")
 include("node.jl")
 include("sddp.jl")
+include("waitandsee.jl")
 include("interface.jl")
 
 end # module

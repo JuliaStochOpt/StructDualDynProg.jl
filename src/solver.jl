@@ -14,19 +14,20 @@ function getLPconstrbounds(bs, Ks)
     for (cone, idx) in Ks[i]
       #if !(cone in [:Zero, :NonPos, :NonNeg])
       #  error("This cone is not supported")
-      #end # This line is a performance bottleneck when activated
+      #end
+      offidx = offset+idx
       if cone == :Zero || cone == :NonPos
-        lb[idx] = b[offset + idx]
+        lb[offidx] = b[idx]
       else
-        lb[idx] = -Inf
+        lb[offidx] = -Inf
       end
       if cone == :Zero || cone == :NonNeg
-        ub[idx] = b[offset + idx]
+        ub[offidx] = b[idx]
       else
-        ub[idx] = Inf
+        ub[offidx] = Inf
       end
     end
-    offset -= length(b)
+    offset += length(b)
   end
   lb, ub
 end
@@ -58,9 +59,9 @@ function myload!(model::MathProgBase.AbstractConicModel, c, A, bs, Ks, C)
 end
 
 function myload!(model::MathProgBase.AbstractLinearQuadraticModel, c, A, bs, Ks, C)
+  lb, ub = getLPconstrbounds(bs, Ks)
   l  = Vector{Float64}(size(A, 2))
   u  = Vector{Float64}(size(A, 2))
-  lb, ub = getLPconstrbounds(bs, Ks)
   for (cone, idx) in C
     if !(cone  in [:Free, :NonPos, :NonNeg])
       error("This cone is not supported")
