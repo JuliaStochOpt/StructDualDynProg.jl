@@ -43,7 +43,7 @@ type CutStore{S}
 end
 
 function checksparseness(a::Vector)
-  if countnz(a) * 2 < length(a)
+  if true || countnz(a) * 2 < length(a)
     sparse(a)
   else
     a

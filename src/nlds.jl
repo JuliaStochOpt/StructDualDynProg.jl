@@ -83,10 +83,6 @@ type NLDS{S}
   C
   c::AbstractVector{S}
 
-  # used to generate cuts
-  cuts_DE::Nullable{AbstractMatrix{S}}
-  cuts_de::Nullable{AbstractVector{S}}
-
   # parent solution
   x_a
 
@@ -101,11 +97,7 @@ type NLDS{S}
   nx::Int
   nθ::Int
   nπ::Int
-  nσ::Int
-  nρ::Int
   πs::Vector{Int}
-  σs::Vector{Int}
-  ρs::Vector{Int}
 
   model
   loaded
@@ -113,16 +105,6 @@ type NLDS{S}
   prevsol::Nullable{NLDSSolution}
 
   newcut::Symbol
-  maxncuts::Integer
-
-  nwith::Vector{Int}
-  nused::Vector{Int}
-  mycut::Vector{Bool}
-  trust::Nullable{Vector{Float64}}
-
-  newcuttrust::Float64
-  mycutbonus::Float64
-  bettercut::Nullable{Function}
 
   function NLDS(W::AbstractMatrix{S}, h::AbstractVector{S}, T::AbstractMatrix{S}, K, C, c::AbstractVector{S}, solver, newcut::Symbol=:AddImmediately, maxncuts::Integer=-1, newcuttrust=3/4, mycutbonus=1/4, bettercut=nothing)
     nx = size(W, 2)
@@ -135,7 +117,8 @@ type NLDS{S}
     else
       model = MathProgBase.LinearQuadraticModel(solver)
     end
-    nlds = new(W, h, T, K, C, c, nothing, nothing, S[], CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, nothing, :NoOptimalityCut, nx, nθ, nπ, 0, 0, 1:nπ, Int[], Int[], model, false, false, nothing, newcut, maxncuts, Int[], Int[], Bool[], nothing, newcuttrust, mycutbonus, bettercut)
+    cutmanager = CutManager(nothing, nothing, 0, 0, Int[], Int[])
+    nlds = new(W, h, T, K, C, c, S[], CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, nothing, :NoOptimalityCut, nx, nθ, nπ, 1:nπ, model, false, false, nothing, newcut, maxncuts, Int[], Int[], Bool[], nothing, newcuttrust, mycutbonus, bettercut)
     addfollower(localFC, (nlds, (:Feasibility, 0)))
     addfollower(localOC, (nlds, (:Optimality, 0)))
     nlds
@@ -336,6 +319,7 @@ function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs, auth
         cutadded = true
         needupdate_σsρs = (attrs[1] == :Feasibility) $ isfc(nlds, j)
       else
+        println("Cut not added $mine")
         cutadded = false
         needupdate_σsρs = false
       end
