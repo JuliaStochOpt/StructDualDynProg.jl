@@ -466,6 +466,8 @@ function computecuts!{S}(nlds::NLDS{S})
     nlds.ρs = collect(nlds.nσ+(1:nlds.nρ))
     nlds.nwith = zeros(Int, nlds.nσ+nlds.nρ)
     nlds.nused = zeros(Int, nlds.nσ+nlds.nρ)
+    @assert length(mycut_d) == nlds.nσ
+    @assert length(mycut_e) == nlds.nρ
     nlds.mycut = [mycut_d; mycut_e]
     nlds.trust = nothing
     # I will add the cuts in notifynewcuts! now

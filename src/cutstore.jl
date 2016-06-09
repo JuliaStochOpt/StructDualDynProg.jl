@@ -38,7 +38,7 @@ type CutStore{S}
   storecuts::Symbol
 
   function CutStore(nvars)
-    new(spzeros(S, 0, nvars), spzeros(S, 0), Vector{NLDS{S}}(0), Vector{Tuple{NLDS{S},Tuple{Symbol,Int64}}}(0), Vector{Bool}(0), :IfNeededElseDelete)
+    new(spzeros(S, 0, nvars), spzeros(S, 0), Vector{NLDS{S}}(), Vector{Tuple{NLDS{S},Tuple{Symbol,Int64}}}(0), Vector{Bool}(0), :IfNeededElseDelete)
   end
 end
 
@@ -73,8 +73,9 @@ function needstored!(store::CutStore, nlds)
 end
 function noneedstored!{S}(store::CutStore{S}, nlds)
   store.needstored[findfirst(f->f[1] === nlds, store.followers)] = false
-  if store.storecuts == :IfNeededElseDelete && reduce(|, false, store.needstored)
+  if store.storecuts == :IfNeededElseDelete && !reduce(|, false, store.needstored)
     store.A = spzeros(S, 0, size(store.A, 2))
     store.b = spzeros(S, 0)
+    store.authors = Vector{NLDS{S}}()
   end
 end
