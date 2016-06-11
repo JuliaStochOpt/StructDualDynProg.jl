@@ -53,10 +53,10 @@ end
 
 function Base.show(io::IO, stat::SDDPStats)
   println("                        |     Total time [s]      | Number | Average time [s]")
-  @printf "        Solving problem | %s | %6d | %s\n" showtime(stat.solvertime) stat.nsolved showtime(stat.solvertime / stat.nsolved)
-  @printf "Adding feasibility cuts | %s | %6d | %s\n" showtime(stat.fcutstime ) stat.nfcuts  showtime(stat.fcutstime  / stat.nfcuts )
-  @printf "Adding  optimality cuts | %s | %6d | %s\n" showtime(stat.ocutstime ) stat.nocuts  showtime(stat.ocutstime  / stat.nocuts )
-  @printf "Setting parent solution | %s | %6d | %s\n" showtime(stat.setxtime  ) stat.nsetx   showtime(stat.setxtime   / stat.nsetx  )
+  @printf "        Solving problem | %s | %7d | %s\n" showtime(stat.solvertime) stat.nsolved showtime(stat.solvertime / stat.nsolved)
+  @printf "Adding feasibility cuts | %s | %7d | %s\n" showtime(stat.fcutstime ) stat.nfcuts  showtime(stat.fcutstime  / stat.nfcuts )
+  @printf "Adding  optimality cuts | %s | %7d | %s\n" showtime(stat.ocutstime ) stat.nocuts  showtime(stat.ocutstime  / stat.nocuts )
+  @printf "Setting parent solution | %s | %7d | %s\n" showtime(stat.setxtime  ) stat.nsetx   showtime(stat.setxtime   / stat.nsetx  )
   @printf "                        | %s |" showtime(stat.solvertime+stat.fcutstime+stat.ocutstime+stat.setxtime)
 end
 
@@ -99,6 +99,11 @@ function choosepaths(node::SDDPNode, mccount, pathsel, t, num_stages)
     end
     npaths
   end
+end
+
+# Very Less Than
+function vlt(a, b, TOL)
+  a < b && abs(b-a) > TOL*max(abs(a),abs(b))
 end
 
 function iteration{S}(root::SDDPNode{S}, totalmccount, num_stages, verbose, pathsel, TOL)
@@ -164,7 +169,10 @@ function iteration{S}(root::SDDPNode{S}, totalmccount, num_stages, verbose, path
           for i in 1:length(parent.children)
             if childsolved[i]
               a, β = childocuts[i][1], childocuts[i][2]
-              if psol.θ[i] < (β - dot(a, psol.x)) - TOL
+              if vlt(β - dot(a, psol.x), .0, TOL)
+                error("The objectives are supposed to be nonnegative")
+              end
+              if vlt(psol.θ[i], β - dot(a, psol.x), TOL)
                 stats.ocutstime += @mytime pushoptimalitycutforparent!(parent.children[i], a, β, parent)
                 nnewocuts += 1
               end
@@ -178,7 +186,10 @@ function iteration{S}(root::SDDPNode{S}, totalmccount, num_stages, verbose, path
               a = sum(map(i->get(parent.childT)[i]'*childocuts[i][1]*parent.proba[i], 1:length(parent.children)))
             end
             β = sum(map(i->childocuts[i][2]*parent.proba[i], 1:length(parent.children)))
-            if psol.θ[1] < (β - dot(a, psol.x)) - TOL
+            if vlt(β - dot(a, psol.x), .0, TOL)
+              error("The objectives are supposed to be nonnegative")
+            end
+            if vlt(psol.θ[1], β - dot(a, psol.x), TOL)
               stats.ocutstime += @mytime pushoptimalitycut!(parent, a, β, parent)
               nnewocuts += 1
             end
