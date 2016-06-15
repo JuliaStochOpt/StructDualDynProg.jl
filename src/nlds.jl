@@ -105,8 +105,9 @@ type NLDS{S}
   prevsol::Nullable{NLDSSolution}
 
   newcut::Symbol
+  man::AbstractCutManager{S}
 
-  function NLDS(W::AbstractMatrix{S}, h::AbstractVector{S}, T::AbstractMatrix{S}, K, C, c::AbstractVector{S}, solver, newcut::Symbol=:AddImmediately, maxncuts::Integer=-1, newcuttrust=3/4, mycutbonus=1/4, bettercut=nothing)
+  function NLDS(W::AbstractMatrix{S}, h::AbstractVector{S}, T::AbstractMatrix{S}, K, C, c::AbstractVector{S}, solver, man::AbstractCutManager{S}, newcut::Symbol=:AddImmediately)
     nx = size(W, 2)
     nθ = 0
     nπ = length(h)
@@ -117,16 +118,15 @@ type NLDS{S}
     else
       model = MathProgBase.LinearQuadraticModel(solver)
     end
-    cutmanager = CutManager(nothing, nothing, 0, 0, Int[], Int[])
-    nlds = new(W, h, T, K, C, c, S[], CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, nothing, :NoOptimalityCut, nx, nθ, nπ, 1:nπ, model, false, false, nothing, newcut, maxncuts, Int[], Int[], Bool[], nothing, newcuttrust, mycutbonus, bettercut)
+    nlds = new(W, h, T, K, C, c, S[], CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, nothing, :NoOptimalityCut, nx, nθ, nπ, 1:nπ, model, false, false, nothing, newcut, man)
     addfollower(localFC, (nlds, (:Feasibility, 0)))
     addfollower(localOC, (nlds, (:Optimality, 0)))
     nlds
   end
 end
 
-function (::Type{NLDS{S}}){S}(W::AbstractMatrix, h::AbstractVector, T::AbstractMatrix, K, C, c::AbstractVector, solver, newcut::Symbol=:AddImmediately, maxncuts::Integer=-1, newcuttrust=3/4, mycutbonus=1/4, bettercut=nothing)
-  NLDS{S}(AbstractMatrix{S}(W), AbstractVector{S}(h), AbstractMatrix{S}(T), K, C, AbstractVector{S}(c), solver, newcut, maxncuts, newcuttrust, mycutbonus, bettercut)
+function (::Type{NLDS{S}}){S}(W::AbstractMatrix, h::AbstractVector, T::AbstractMatrix, K, C, c::AbstractVector, solver, man::AbstractCutManager{S}, newcut::Symbol=:AddImmediately)
+  NLDS{S}(AbstractMatrix{S}(W), AbstractVector{S}(h), AbstractMatrix{S}(T), K, C, AbstractVector{S}(c), solver, man, newcut)
 end
 
 function setchildren!(nlds::NLDS, childFC, childOC, proba, cutmode, childT)
@@ -228,73 +228,16 @@ function getoptimalitycuts{S}(nlds::NLDS{S})
   (cuts_E, cuts_e, mycut)
 end
 
-function gettrustof(nlds::NLDS, nwith, nused, mycut)
-  (nwith == 0 ? nlds.newcuttrust : nused / nwith) + (mycut ? nlds.mycutbonus : 0)
-end
-function updatetrust(nlds::NLDS, i::Int)
-  get(nlds.trust)[i] = gettrustof(nlds, nlds.nwith[i], nlds.nused[i], nlds.mycut[i])
-end
-function gettrust(nlds::NLDS)
-  if isnull(nlds.trust)
-    trust = nlds.nused ./ nlds.nwith
-    trust[nlds.nwith .== 0] = nlds.newcuttrust
-    trust[nlds.mycut] += nlds.mycutbonus
-    nlds.trust = trust
-  end
-  get(nlds.trust)
-end
-
-
-function choosecutstoremove(nlds::NLDS, num)
-  # MergeSort is stable so in case of equality, the oldest cut loose
-  # However PartialQuickSort is a lot faster
-
-  trust = gettrust(nlds)
-  if num == 1
-    [indmin(trust)]                   # indmin selects the oldest cut in case of tie -> good :)
-  else
-    sortperm(trust, alg=PartialQuickSort(num))[1:num] # PartialQuickSort is unstable ->  bad :(
-  end
-
-# idx = collect(1:length(nlds.nwith))
-# sort!(idx, alg=PartialQuickSort(num), lt=(i,j)->nlds.bettercut(nlds.nwith[i], nlds.nused[i], nlds.mycut[i], nlds.nwith[j], nlds.nused[j], nlds.mycut[j]), rev=true)
-# idx[1:num]
-
-# isold = nlds.nwith .>= 1
-# if reduce(|, false, isold) # at least one old
-#   all = 1:length(nlds.nwith)
-#   idx = all[isold]
-#   if length(idx) > num
-#     sorted = sort(idx, by=i->nlds.nused[i]/nlds.nwith[i])
-#     sorted[1:num]
-#   else
-#     new = all[!isold][1:(num-length(idx))]
-#     [idx; new]
-#   end
-# else
-#   # No cut has already been used, remove the oldest
-#   collect(1:num)
-# end
-end
-
-function isfc(nlds::NLDS, cut)
-  if length(nlds.σs) < length(nlds.ρs)
-    cut in nlds.σs
-  else
-    !(cut in nlds.ρs)
-  end
-end
 
 function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs, author)
   @assert attrs[1] in [:Feasibility, :Optimality]
-  if !isnull(nlds.cuts_DE)
-    @assert !isnull(nlds.cuts_de)
-    @assert length(nlds.nwith) == length(nlds.nused) == length(nlds.mycut) == length(get(nlds.cuts_de))
+  isfc = attrs[1] == :Feasibility
+  if isstarted(nlds.man)
     i = attrs[2]
     if i > 0 && !isnull(nlds.childT)
       a = get(nlds.childT)[i]' * a
     end
-    if attrs[1] == :Feasibility
+    if isfc
       A = [a; spzeros(S, nlds.nθ)]
     else
       if i == 0
@@ -304,78 +247,17 @@ function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs, auth
       end
     end
     mine = author === nlds
-    if nlds.maxncuts != -1 && length(nlds.nwith) >= nlds.maxncuts
-      # Need to remove some cuts
-      J = choosecutstoremove(nlds, length(nlds.nwith) - nlds.maxncuts + 1)
-      #if nlds.trustnlds.bettercut(0, 0, mine, nlds.nwith[J[end]], nlds.nused[J[end]], nlds.mycut[J[end]])
-      if gettrustof(nlds, 0, 0, mine) >= gettrust(nlds)[J[end]]
-        j = J[end]
-        get(nlds.cuts_DE)[j,:] = A # FIXME why was I doing sparse(A) for entropic cone ?
-        get(nlds.cuts_de)[j] = β
-        nlds.nwith[j] = 0
-        nlds.nused[j] = 0
-        nlds.mycut[j] = mine
-        gettrust(nlds)[j] = gettrustof(nlds, 0, 0, mine)
-        cutadded = true
-        needupdate_σsρs = (attrs[1] == :Feasibility) $ isfc(nlds, j)
-      else
-        println("Cut not added $mine")
-        cutadded = false
-        needupdate_σsρs = false
-      end
-      J = J[1:end-1]
-
-      if length(J) > 1 || needupdate_σsρs
-        keep = ones(Bool, length(get(nlds.cuts_de)))
-        keep[J] = false
-        isσcut = zeros(Bool, length(nlds.nwith))
-        isσcut[nlds.σs] = true
-        if cutadded
-          isσcut[j] = attrs[1] == :Feasibility
-        end
-        isσcut = isσcut[keep]
-        nlds.σs = (1:length(isσcut))[isσcut]
-        nlds.ρs = (1:length(isσcut))[!isσcut]
-        nlds.nσ = length(nlds.σs)
-        nlds.nρ = length(nlds.ρs)
-      end
-
-      if length(J) > 1
-        nlds.cuts_DE = get(nlds.cuts_DE)[keep,:]
-        nlds.cuts_de = get(nlds.cuts_de)[keep]
-        nlds.nwith = nlds.nwith[keep]
-        nlds.nused = nlds.nused[keep]
-        nlds.mycut = nlds.mycut[keep]
-        nlds.trust = gettrust(nlds)[keep]
-      end
-      cutremoved = true
-    else
-      # Just append cut
-      if attrs[1] == :Feasibility
-        nlds.nσ += 1
-        push!(nlds.σs, nlds.nσ + nlds.nρ)
-      else
-        nlds.nρ += 1
-        push!(nlds.ρs, nlds.nσ + nlds.nρ)
-      end
-      nlds.cuts_DE = mymatcat(get(nlds.cuts_DE), A)
-      nlds.cuts_de = myveccat(get(nlds.cuts_de), β)
-      push!(nlds.nwith, 0)
-      push!(nlds.nused, 0)
-      push!(nlds.mycut, mine)
-      if !isnull(nlds.trust)
-        push!(get(nlds.trust), gettrustof(nlds, 0, 0, mine))
-      end
-      cutadded = true
-      cutremoved = false
+    addstatus = addcut!(nlds.man, A, β, isfc, mine)
+    if addstatus == :Ignored
+      println("Cut not added $mine")
     end
     if nlds.loaded
-      if cutremoved || nlds.newcut == :InvalidateSolver
+      if addstatus != :Pushed || nlds.newcut == :InvalidateSolver
         nlds.loaded = false
         nlds.solved = false
       elseif nlds.newcut == :AddImmediately
         idx = collect(1:nlds.nx)
-        if attrs[1] == :Optimality
+        if !isfc
           if i == 0
             push!(idx, nlds.nx+1)
           else
@@ -394,24 +276,23 @@ function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs, auth
 end
 
 function checkconsistency(nlds)
-  @assert length(nlds.nwith) == length(nlds.nused) == length(nlds.mycut)
   @assert length(nlds.πs) == nlds.nπ
-  @assert length(nlds.σs) == nlds.nσ
-  @assert length(nlds.ρs) == nlds.nρ
-  @assert sort([nlds.πs; nlds.nπ + nlds.σs; nlds.nπ + nlds.ρs]) == collect(1:(nlds.nπ + nlds.nσ + nlds.nρ))
+  @assert length(nlds.man.σs) == nlds.man.nσ
+  @assert length(nlds.man.ρs) == nlds.man.nρ
+  @assert sort([nlds.πs; nlds.nπ + nlds.man.σs; nlds.nπ + nlds.man.ρs]) == collect(1:(nlds.nπ + nlds.man.nσ + nlds.man.nρ))
 end
 
 function getrhs(nlds)
   bs = [nlds.h - nlds.T * nlds.x_a]
   Ks = [nlds.K]
-  if !isempty(get(nlds.cuts_de))
-    push!(bs, get(nlds.cuts_de))
+  if ncuts(nlds.man) > 0
+    push!(bs, get(nlds.man.cuts_de))
     Kcut = []
-    if nlds.nσ > 0
-      push!(Kcut, (:NonPos, nlds.σs))
+    if nlds.man.nσ > 0
+      push!(Kcut, (:NonPos, nlds.man.σs))
     end
-    if nlds.nρ > 0
-      push!(Kcut, (:NonPos, nlds.ρs))
+    if nlds.man.nρ > 0
+      push!(Kcut, (:NonPos, nlds.man.ρs))
     end
     push!(Ks, Kcut)
   end
@@ -428,32 +309,15 @@ function setparentx(nlds::NLDS, x_a)
 end
 
 function computecuts!{S}(nlds::NLDS{S})
-  if isnull(nlds.cuts_DE)
-    @assert isnull(nlds.cuts_de)
+  if !isstarted(nlds.man)
     nlds.nπ = length(nlds.h)
+    nlds.πs = collect(1:nlds.nπ)
     cuts_D, cuts_d, mycut_d = getfeasibilitycuts(nlds)
-    nlds.nσ = length(cuts_d)
     if nlds.nθ > 0
       cuts_D = [cuts_D spzeros(S, length(cuts_d), nlds.nθ)]
     end
-    #if nlds.nθ > 0
-      cuts_E, cuts_e, mycut_e = getoptimalitycuts(nlds)
-      nlds.nρ = length(cuts_e)
-    #else
-    #  cuts_e = S[]
-    #  nlds.nρ = 0
-    #end
-    nlds.cuts_DE = [cuts_D; cuts_E]
-    nlds.cuts_de = [cuts_d; cuts_e]
-    nlds.πs = collect(1:nlds.nπ)
-    nlds.σs = collect(1:nlds.nσ)
-    nlds.ρs = collect(nlds.nσ+(1:nlds.nρ))
-    nlds.nwith = zeros(Int, nlds.nσ+nlds.nρ)
-    nlds.nused = zeros(Int, nlds.nσ+nlds.nρ)
-    @assert length(mycut_d) == nlds.nσ
-    @assert length(mycut_e) == nlds.nρ
-    nlds.mycut = [mycut_d; mycut_e]
-    nlds.trust = nothing
+    cuts_E, cuts_e, mycut_e = getoptimalitycuts(nlds)
+    start!(nlds.man, cuts_D, cuts_E, cuts_d, cuts_e, mycut_d, mycut_e)
     # I will add the cuts in notifynewcuts! now
     noneedstored!(nlds.localFC, nlds)
     for store in nlds.childFC
@@ -473,7 +337,7 @@ function load!{S}(nlds::NLDS{S})
       bigA = [bigA spzeros(size(bigA, 1), nlds.nθ)]
     end
     computecuts!(nlds)
-    bigA = [bigA; get(nlds.cuts_DE)]
+    bigA = [bigA; get(nlds.man.cuts_DE)]
 
     if nlds.nθ == 0
       bigC = nlds.C
@@ -501,22 +365,31 @@ function solve!(nlds::NLDS)
   if !nlds.solved
     MathProgBase.optimize!(nlds.model)
     status = MathProgBase.status(nlds.model)
-    objval = MathProgBase.getobjval(nlds.model)
-    primal = MathProgBase.getsolution(nlds.model)
-    dual   = mygetdual(nlds.model)
-    x = primal[1:end-nlds.nθ]
-    θ = primal[end-nlds.nθ+1:end]
-    if !isempty(nlds.nwith)
-      nlds.nwith += 1
-      nlds.nused[dual[nlds.nπ+1:end] .> 1e-6] += 1
-      nlds.trust = nothing # need to be recomputed
+    if status == :Error
+      error("The solver reported an error")
+    elseif status == :UserLimit
+      error("The solver reached iteration limit or timed out")
+    elseif status == :Unbounded
+      error("The problem is unbounded for some realization of the uncertainty")
+    else
+      objval = MathProgBase.getobjval(nlds.model)
+      primal = MathProgBase.getsolution(nlds.model)
+      dual   = mygetdual(nlds.model)
+      @assert length(dual) == nlds.nπ + ncuts(nlds.man)
+
+      x = primal[1:end-nlds.nθ]
+      θ = primal[end-nlds.nθ+1:end]
+      π = dual[nlds.πs]
+      σρ = dual[nlds.nπ+1:end]
+      σ = σρ[nlds.man.σs]
+      ρ = σρ[nlds.man.ρs]
+
+      cuts_d = get(nlds.man.cuts_de)[nlds.man.σs]
+      cuts_e = get(nlds.man.cuts_de)[nlds.man.ρs]
+      nlds.prevsol = NLDSSolution(status, objval, dot(nlds.c, x), x, θ, vec(π' * nlds.T), vecdot(π, nlds.h), vecdot(σ, cuts_d), vecdot(ρ, cuts_e))
+
+      updatestats!(nlds.man, σρ)
     end
-    π = dual[nlds.πs]
-    σ = dual[nlds.nπ+nlds.σs]
-    ρ = dual[nlds.nπ+nlds.ρs]
-    cuts_d = get(nlds.cuts_de)[nlds.σs]
-    cuts_e = get(nlds.cuts_de)[nlds.ρs]
-    nlds.prevsol = NLDSSolution(status, objval, dot(nlds.c, x), x, θ, vec(π' * nlds.T), vecdot(π, nlds.h), vecdot(σ, cuts_d), vecdot(ρ, cuts_e))
   end
 end
 

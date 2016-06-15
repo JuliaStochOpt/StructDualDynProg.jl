@@ -6,6 +6,9 @@ using JuMP
 using StructJuMP
 import Base.show
 
+include("cutmanager.jl")
+include("avgcutmanager.jl")
+
 include("cutstore.jl")
 include("solver.jl")
 include("nlds.jl")

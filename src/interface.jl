@@ -238,7 +238,7 @@ function getSDDPNode(allnodes, m::Model, t, num_stages, solver, parent, cutmode:
   nodes = m.ext[:SDDP].nodes
   if isnull(nodes[t])
     (c,T,W,h,C,K,v) = conicconstraintdata(m)
-    newnode = SDDPNode(NLDS{Float64}(W,h,T,K,C,c,solver,newcut,maxncuts), parent)
+    newnode = SDDPNode(NLDS{Float64}(W,h,T,K,C,c,solver,AvgCutManager{Float64}(maxncuts), newcut), parent)
     nodes[t] = newnode
     push!(allnodes[t], newnode)
     struct = getStructure(m)
