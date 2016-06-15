@@ -52,11 +52,11 @@ function showtime(t::Float64)
 end
 
 function Base.show(io::IO, stat::SDDPStats)
-  println("                        |     Total time [s]      | Number | Average time [s]")
-  @printf "        Solving problem | %s | %7d | %s\n" showtime(stat.solvertime) stat.nsolved showtime(stat.solvertime / stat.nsolved)
-  @printf "Adding feasibility cuts | %s | %7d | %s\n" showtime(stat.fcutstime ) stat.nfcuts  showtime(stat.fcutstime  / stat.nfcuts )
-  @printf "Adding  optimality cuts | %s | %7d | %s\n" showtime(stat.ocutstime ) stat.nocuts  showtime(stat.ocutstime  / stat.nocuts )
-  @printf "Setting parent solution | %s | %7d | %s\n" showtime(stat.setxtime  ) stat.nsetx   showtime(stat.setxtime   / stat.nsetx  )
+  println("                        |     Total time [s]      |  Number  | Average time [s]")
+  @printf "        Solving problem | %s | %8d | %s\n" showtime(stat.solvertime) stat.nsolved showtime(stat.solvertime / stat.nsolved)
+  @printf "Adding feasibility cuts | %s | %8d | %s\n" showtime(stat.fcutstime ) stat.nfcuts  showtime(stat.fcutstime  / stat.nfcuts )
+  @printf "Adding  optimality cuts | %s | %8d | %s\n" showtime(stat.ocutstime ) stat.nocuts  showtime(stat.ocutstime  / stat.nocuts )
+  @printf "Setting parent solution | %s | %8d | %s\n" showtime(stat.setxtime  ) stat.nsetx   showtime(stat.setxtime   / stat.nsetx  )
   @printf "                        | %s |" showtime(stat.solvertime+stat.fcutstime+stat.ocutstime+stat.setxtime)
 end
 
@@ -125,82 +125,86 @@ function iteration{S}(root::SDDPNode{S}, totalmccount, num_stages, verbose, path
     # children are at t, parents are at t-1
     newpathss = []
     for (parent, psol, z, prob, mccount) in pathss
-      npaths = choosepaths(parent, mccount, pathsel, t, num_stages)
-      curpathss = [] # FIXME could already be allocated looking the number of nonzeros elements of npaths
-      childsolved = zeros(Bool, length(parent.children))
-      feasible = true
-      nnewfcuts = 0
-      nnewocuts = 0
-      childocuts = Array{Any}(length(parent.children))
-      for i in 1:length(parent.children)
-        child = parent.children[i]
-        if t == 2 || npaths[i] == :All || npaths[i] > 0 || parent.nlds.cutmode == :AveragedCut
-          stats.setxtime += @mytime setchildx(parent, i, psol.x)
-          stats.nsetx += 1
-          stats.solvertime += @mytime childsol = loadAndSolve(child)
-          stats.nsolved += 1
-          childsolved[i] = true
+      if isempty(parent.children)
+        push!(newpathss, (parent, psol, z, prob, mccount))
+      else
+        npaths = choosepaths(parent, mccount, pathsel, t, num_stages)
+        curpathss = [] # FIXME could already be allocated looking the number of nonzeros elements of npaths
+        childsolved = zeros(Bool, length(parent.children))
+        feasible = true
+        nnewfcuts = 0
+        nnewocuts = 0
+        childocuts = Array{Any}(length(parent.children))
+        for i in 1:length(parent.children)
+          child = parent.children[i]
+          if t == 2 || npaths[i] == :All || npaths[i] > 0 || parent.nlds.cutmode == :AveragedCut
+            stats.setxtime += @mytime setchildx(parent, i, psol.x)
+            stats.nsetx += 1
+            stats.solvertime += @mytime childsol = loadAndSolve(child)
+            stats.nsolved += 1
+            childsolved[i] = true
 
-          # Feasibility cut
-          # D = π T
-          # d = π h + σ d
-          # Optimality cut
-          # E = π T
-          # e = π h + ρ e + σ d
-          coef = childsol.πT
-          rhs = childsol.πh + childsol.σd
-          if childsol.status == :Infeasible
-            infeasibility_detected = true
-            feasible = false
-            nnewfcuts += 1
-            stats.fcutstime += @mytime pushfeasibilitycut!(child, coef, rhs, parent)
-            break
-          else
-            rhs += childsol.ρe
-            childocuts[i] = (coef, rhs)
-          end
-          if npaths[i] == :All || npaths[i] > 0
-            push!(curpathss, (child, childsol, z + childsol.objvalx, prob * parent.proba[i], npaths[i]))
+            # Feasibility cut
+            # D = π T
+            # d = π h + σ d
+            # Optimality cut
+            # E = π T
+            # e = π h + ρ e + σ d
+            coef = childsol.πT
+            rhs = childsol.πh + childsol.σd
+            if childsol.status == :Infeasible
+              infeasibility_detected = true
+              feasible = false
+              nnewfcuts += 1
+              stats.fcutstime += @mytime pushfeasibilitycut!(child, coef, rhs, parent)
+              break
+            else
+              rhs += childsol.ρe
+              childocuts[i] = (coef, rhs)
+            end
+            if npaths[i] == :All || npaths[i] > 0
+              push!(curpathss, (child, childsol, z + childsol.objvalx, prob * parent.proba[i], npaths[i]))
+            end
           end
         end
-      end
-      if feasible
-        if parent.nlds.cutmode == :MultiCut
-          for i in 1:length(parent.children)
-            if childsolved[i]
-              a, β = childocuts[i][1], childocuts[i][2]
+        if feasible
+          if parent.nlds.cutmode == :MultiCut
+            for i in 1:length(parent.children)
+              if childsolved[i]
+                a, β = childocuts[i][1], childocuts[i][2]
+                if vlt(β - dot(a, psol.x), .0, TOL)
+                  error("The objectives are supposed to be nonnegative")
+                end
+                if vlt(psol.θ[i], β - dot(a, psol.x), TOL)
+                  stats.ocutstime += @mytime pushoptimalitycutforparent!(parent.children[i], a, β, parent)
+                  nnewocuts += 1
+                end
+              end
+            end
+          elseif parent.nlds.cutmode == :AveragedCut
+            if !isempty(parent.children)
+              if isnull(parent.childT)
+                a = sum(map(i->childocuts[i][1]*parent.proba[i], 1:length(parent.children)))
+              else
+                a = sum(map(i->get(parent.childT)[i]'*childocuts[i][1]*parent.proba[i], 1:length(parent.children)))
+              end
+              β = sum(map(i->childocuts[i][2]*parent.proba[i], 1:length(parent.children)))
               if vlt(β - dot(a, psol.x), .0, TOL)
                 error("The objectives are supposed to be nonnegative")
               end
-              if vlt(psol.θ[i], β - dot(a, psol.x), TOL)
-                stats.ocutstime += @mytime pushoptimalitycutforparent!(parent.children[i], a, β, parent)
+              if vlt(psol.θ[1], β - dot(a, psol.x), TOL)
+                stats.ocutstime += @mytime pushoptimalitycut!(parent, a, β, parent)
                 nnewocuts += 1
               end
             end
           end
-        elseif parent.nlds.cutmode == :AveragedCut
-          if !isempty(parent.children)
-            if isnull(parent.childT)
-              a = sum(map(i->childocuts[i][1]*parent.proba[i], 1:length(parent.children)))
-            else
-              a = sum(map(i->get(parent.childT)[i]'*childocuts[i][1]*parent.proba[i], 1:length(parent.children)))
-            end
-            β = sum(map(i->childocuts[i][2]*parent.proba[i], 1:length(parent.children)))
-            if vlt(β - dot(a, psol.x), .0, TOL)
-              error("The objectives are supposed to be nonnegative")
-            end
-            if vlt(psol.θ[1], β - dot(a, psol.x), TOL)
-              stats.ocutstime += @mytime pushoptimalitycut!(parent, a, β, parent)
-              nnewocuts += 1
-            end
-          end
         end
-      end
-      stats.nfcuts += nnewfcuts
-      stats.nocuts += nnewocuts
-      if feasible && !isempty(curpathss)
-        @assert nnewfcuts == 0
-        append!(newpathss, curpathss)
+        stats.nfcuts += nnewfcuts
+        stats.nocuts += nnewocuts
+        if feasible && !isempty(curpathss)
+          @assert nnewfcuts == 0
+          append!(newpathss, curpathss)
+        end
       end
     end
     pathss = newpathss
