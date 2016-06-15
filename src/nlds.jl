@@ -249,6 +249,7 @@ function notifynewcut{S}(nlds::NLDS{S}, a::AbstractVector{S}, β::S, attrs, auth
     mine = author === nlds
     addstatus = addcut!(nlds.man, A, β, isfc, mine)
     if addstatus == :Ignored
+      @show gettrust(nlds.man)
       println("Cut not added $mine")
     end
     if nlds.loaded
@@ -375,6 +376,9 @@ function solve!(nlds::NLDS)
       objval = MathProgBase.getobjval(nlds.model)
       primal = MathProgBase.getsolution(nlds.model)
       dual   = mygetdual(nlds.model)
+      if length(dual) == 0
+        error("Dual vector returned by the solver is empty while the status is $status")
+      end
       @assert length(dual) == nlds.nπ + ncuts(nlds.man)
 
       x = primal[1:end-nlds.nθ]

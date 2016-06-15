@@ -8,6 +8,7 @@ import Base.show
 
 include("cutmanager.jl")
 include("avgcutmanager.jl")
+include("decaycutmanager.jl")
 
 include("cutstore.jl")
 include("solver.jl")

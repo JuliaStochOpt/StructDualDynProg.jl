@@ -1,3 +1,5 @@
+export AbstractCutManager
+
 abstract AbstractCutManager{S}
 
 function ncuts(man::AbstractCutManager)
@@ -10,6 +12,11 @@ function isfeasibilitycut(man::AbstractCutManager, cut)
   else
     !(cut in man.ρs)
   end
+end
+
+function init!(man::AbstractCutManager, mycut_d, mycut_e)
+  mycut = [mycut_d; mycut_e]
+  man.trust = Float64[initialtrust(man, mc) for mc in mycut]
 end
 
 function start!(man::AbstractCutManager, cuts_D, cuts_E, cuts_d, cuts_e, mycut_d, mycut_e)
@@ -27,6 +34,9 @@ function isstarted(man::AbstractCutManager)
   !isnull(man.cuts_DE)
 end
 
+# COMPARISON
+gettrust(man::AbstractCutManager) = man.trust
+
 function choosecutstoremove(man::AbstractCutManager, num)
   # MergeSort is stable so in case of equality, the oldest cut loose
   # However PartialQuickSort is a lot faster
@@ -40,6 +50,8 @@ function choosecutstoremove(man::AbstractCutManager, num)
 end
 
 isbetter(man::AbstractCutManager, i::Int, mycut::Bool) = gettrust(man)[i] > initialtrust(man, mycut)
+
+# CHANGE
 
 # Add cut ax >= β
 # If fc then it is a feasibility cut, otherwise it is an optimality cut
@@ -100,4 +112,16 @@ function addcut!{S}(man::AbstractCutManager{S}, a::AbstractVector{S}, β::S, isf
     pushcut!(man, mycut)
     :Pushed
   end
+end
+
+function keeponly!(man::AbstractCutManager, K::Vector{Int})
+  man.trust = man.trust[K]
+end
+
+function replacecut!(man::AbstractCutManager, j::Int, mycut::Bool)
+  man.trust[j] = initialtrust(man, mycut)
+end
+
+function pushcut!(man::AbstractCutManager, mycut::Bool)
+  push!(man.trust, initialtrust(man, mycut))
 end

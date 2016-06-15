@@ -229,7 +229,7 @@ type SDDPModelData
   nodes::Vector{Nullable{SDDPNode}}
 end
 
-function getSDDPNode(allnodes, m::Model, t, num_stages, solver, parent, cutmode::Symbol, newcut::Symbol, maxncuts::Integer)
+function getSDDPNode(allnodes, m::Model, t, num_stages, solver, parent, cutmanager::AbstractCutManager, cutmode::Symbol, newcut::Symbol)
   if !(:SDDP in keys(m.ext))
     nodes = Vector{Nullable{SDDPNode}}(num_stages)
     fill!(nodes, nothing)
@@ -238,7 +238,7 @@ function getSDDPNode(allnodes, m::Model, t, num_stages, solver, parent, cutmode:
   nodes = m.ext[:SDDP].nodes
   if isnull(nodes[t])
     (c,T,W,h,C,K,v) = conicconstraintdata(m)
-    newnode = SDDPNode(NLDS{Float64}(W,h,T,K,C,c,solver,AvgCutManager{Float64}(maxncuts), newcut), parent)
+    newnode = SDDPNode(NLDS{Float64}(W,h,T,K,C,c,solver,clone(cutmanager), newcut), parent)
     nodes[t] = newnode
     push!(allnodes[t], newnode)
     struct = getStructure(m)
@@ -246,7 +246,7 @@ function getSDDPNode(allnodes, m::Model, t, num_stages, solver, parent, cutmode:
       num_scen = length(struct.children)
       children = Vector{SDDPNode{Float64}}(num_scen)
       for i in 1:num_scen
-        children[i] = getSDDPNode(allnodes, struct.children[i], t+1, num_stages, solver, newnode, cutmode, newcut, maxncuts)
+        children[i] = getSDDPNode(allnodes, struct.children[i], t+1, num_stages, solver, newnode, cutmanager, cutmode, newcut)
       end
       setchildren!(newnode, children, struct.probability, cutmode)
     end
@@ -254,13 +254,13 @@ function getSDDPNode(allnodes, m::Model, t, num_stages, solver, parent, cutmode:
   get(nodes[t])
 end
 
-function model2lattice(m::Model, num_stages, solver, cutmode::Symbol=:MultiCut, newcut::Symbol=:AddImmediately, maxncuts::Integer=-1)
+function model2lattice(m::Model, num_stages, solver, cutmanager::AbstractCutManager, cutmode::Symbol=:MultiCut, newcut::Symbol=:AddImmediately)
   nodes = Vector{Vector{SDDPNode}}(num_stages)
   for i in 1:num_stages
     nodes[i] = SDDPNode[]
   end
 
-  root = getSDDPNode(nodes, m, 1, num_stages, solver, nothing, cutmode, newcut, maxncuts)
+  root = getSDDPNode(nodes, m, 1, num_stages, solver, nothing, cutmanager, cutmode, newcut)
 end
 
 function SDDPclear(m::Model)
