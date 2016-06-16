@@ -60,12 +60,8 @@ function Base.show(io::IO, stat::SDDPStats)
   @printf "                        | %s |" showtime(stat.solvertime+stat.fcutstime+stat.ocutstime+stat.setxtime)
 end
 
-function meanstdpaths(paths, totalmccount)
-  z = Float64[x.z for x in paths]
-  if totalmccount == -1
-    proba = Float64[x.proba for x in paths]
-  else
-    npaths = Int[x.mccount for x in  paths]
+function meanstdpaths(z::Vector{Float64}, proba::Vector{Float64}, npaths::Vector{Float64}, totalmccount)
+  if totalmccount != -1
     @assert sum(npaths) == totalmccount
     proba = npaths / totalmccount
   end
@@ -74,7 +70,7 @@ function meanstdpaths(paths, totalmccount)
   μ, σ
 end
 
-function choosepaths(node::SDDPNode, mccount, pathsel, t, num_stages)
+function choosepaths(node::SDDPNode, mccount::Int, pathsel, t, num_stages)
   if mccount == -1
     map(child->-1, node.children)
   else
@@ -101,11 +97,22 @@ function choosepaths(node::SDDPNode, mccount, pathsel, t, num_stages)
   end
 end
 
+function choosepaths(node::SDDPNode, mccount::Vector{Int}, pathsel, t, num_stages)
+  npathss = Vector{Int}[similar(mccount) for i in 1:length(node.children)]
+  for i in 1:length(mccount)
+    npaths = choosepaths(node, mccount[i], pathsel, t, num_stages)
+    for c in 1:length(node.children)
+      npathss[c][i] = npaths[c]
+    end
+  end
+  npathss
+end
+
 type SDDPPath
   sol::NLDSSolution
-  z::Float64
-  proba::Float64
-  mccount::Int
+  z::Vector{Float64}
+  proba::Vector{Float64}
+  mccount::Vector{Int}
   feasible::Bool
   childsols::Vector{Nullable{NLDSSolution}}
 
@@ -115,19 +122,26 @@ type SDDPPath
   end
 end
 
-#function SDDPPath(sol::NLDSSolution, z::Float64, proba::Float64, mccount::Int)
-#  SDDPPath(sol, z, proba, mccount, nothing)
+function meanstdpaths(paths::Vector{SDDPPath}, totalmccount)
+  z = reduce(append!, Float64[], Vector{Float64}[x.z for x in paths])
+  proba = reduce(append!, Float64[], Vector{Float64}[x.proba for x in paths])
+  npaths = reduce(append!, Float64[], Vector{Float64}[x.mccount for x in paths])
+  meanstdpaths(z, proba, npaths, totalmccount)
+end
+
+
+#function merge!(p::SDDPPath, q::SDDPPath)
 #end
 
 type SDDPJob
   sol::Nullable{NLDSSolution}
-  proba::Float64
-  mccount::Int
+  proba::Vector{Float64}
+  mccount::Vector{Int}
   parentnode::SDDPNode
   parent::SDDPPath
   i::Int
 
-  function SDDPJob(proba::Float64, mccount::Int, parentnode::SDDPNode, parent::SDDPPath, i::Int)
+  function SDDPJob(proba::Vector{Float64}, mccount::Vector{Int}, parentnode::SDDPNode, parent::SDDPPath, i::Int)
     new(nothing, proba, mccount, parentnode, parent, i::Int)
   end
 end
@@ -145,14 +159,6 @@ function addjob!(jobsd::Dict{SDDPNode, Vector{SDDPJob}}, node::SDDPNode, job::SD
   end
 end
 
-#function Base.isless(p::SDDPPath, q::SDDPPath)
-#  @assert length(p.sol.x) == length(q.sol.x)
-#  norm(p.sol.x) < norm(q.sol.x)
-#end
-
-#                         trial   cost z    proba   mccount
-#typealias SDDPPath Tuple{NLDSSolution, Float64, Float64, Int}
-
 function iteration(root::SDDPNode, totalmccount::Int, num_stages, verbose, pathsel, ztol)
   stats = SDDPStats()
 
@@ -162,7 +168,7 @@ function iteration(root::SDDPNode, totalmccount::Int, num_stages, verbose, paths
   if infeasibility_detected
     pathsd = Dict{SDDPNode, Vector{SDDPPath}}()
   else
-    pathsd = Dict{SDDPNode, Vector{SDDPPath}}(root => [SDDPPath(rootsol, rootsol.objvalx, 1., totalmccount, length(root.children))])
+    pathsd = Dict{SDDPNode, Vector{SDDPPath}}(root => [SDDPPath(rootsol, [rootsol.objvalx], [1.], [totalmccount], length(root.children))])
   end
   endedpaths = SDDPPath[]
 
@@ -182,7 +188,7 @@ function iteration(root::SDDPNode, totalmccount::Int, num_stages, verbose, paths
           npaths = choosepaths(parent, path.mccount, pathsel, t, num_stages)
           childocuts = Array{Any}(length(parent.children))
           for i in 1:length(parent.children)
-            if t == 2 || npaths[i] == -1 || npaths[i] > 0 || parent.nlds.cutmode == :AveragedCut
+            if t == 2 || npaths[i][1] != 0 || parent.nlds.cutmode == :AveragedCut
               addjob!(jobsd, parent.children[i], SDDPJob(path.proba * parent.proba[i], npaths[i], parent, path, i))
             end
           end
@@ -265,13 +271,12 @@ function iteration(root::SDDPNode, totalmccount::Int, num_stages, verbose, paths
     end
 
     # Jobs -> Paths
-    #empty!(pathsd)
+    #empty!(pathsd) # FIXME
     newpathsd = Dict{SDDPNode, Vector{SDDPPath}}()
     for (node, jobs) in jobsd
-      # mccount == -1 and mccount > 0 are ok
-      keep = Bool[job.parent.feasible && job.mccount != 0 for job in jobs]
-      jobs = jobs[keep]
-      paths = SDDPPath[SDDPPath(get(job.sol), job.parent.z+get(job.sol).objvalx, job.proba, job.mccount, length(node.children)) for job in jobs]
+      K = [find(job.mccount .!= 0) for job in jobs]
+      keep = Bool[jobs[i].parent.feasible && !isempty(K[i]) for i in 1:length(jobs)]
+      paths = SDDPPath[SDDPPath(get(jobs[i].sol), jobs[i].parent.z[K[i]]+get(jobs[i].sol).objvalx, jobs[i].proba[K[i]], jobs[i].mccount[K[i]], length(node.children)) for i in find(keep)]
       newpathsd[node] = paths
     end
     pathsd = newpathsd

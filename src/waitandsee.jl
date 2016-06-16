@@ -8,6 +8,13 @@ type WSPath
   mccount::Int
 end
 
+function meanstdpaths(paths::Vector{WSPath}, totalmccount)
+  z = Float64[x.z for x in paths]
+  proba = Float64[x.proba for x in paths]
+  npaths = Float64[x.mccount for x in paths]
+  meanstdpaths(z, proba, npaths, totalmccount)
+end
+
 function waitandsee(root::SDDPNode, num_stages, solver, totalmccount=25, verbose=0)
   paths = WSPath[WSPath(root, NLDS[root.nlds], .0, 1., totalmccount)]
   for t in 2:num_stages
