@@ -118,7 +118,7 @@ type NLDS{S}
     else
       model = MathProgBase.LinearQuadraticModel(solver)
     end
-    nlds = new(W, h, T, K, C, c, S[], CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, nothing, :NoOptimalityCut, nx, nθ, nπ, 1:nπ, model, false, false, nothing, newcut, man)
+    nlds = new(W, h, T, K, C, c, S[], CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, nothing, :NoOptimalityCut, nx, nθ, nπ, 1:nπ, model, false, false, nothing, newcut, clone(man))
     addfollower(localFC, (nlds, (:Feasibility, 0)))
     addfollower(localOC, (nlds, (:Optimality, 0)))
     nlds
@@ -181,7 +181,7 @@ function appendchildren!(nlds::NLDS, childFC, childOC, proba, childT)
 end
 
 function updatemaxncuts!(nlds::NLDS, maxncuts)
-  nlds.maxncuts = maxncuts
+  nlds.man.maxncuts = maxncuts
 end
 
 # .=== doesn't work :(
