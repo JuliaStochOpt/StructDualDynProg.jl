@@ -60,23 +60,23 @@ function Base.show(io::IO, stat::SDDPStats)
   @printf "                        | %s |" showtime(stat.solvertime+stat.fcutstime+stat.ocutstime+stat.setxtime)
 end
 
-function meanstdpaths(paths, i, j, k, totalmccount)
-  z = Float64[x[i] for x in paths]
-  if totalmccount == :All
-    prob = Float64[x[j] for x in paths]
+function meanstdpaths(paths, totalmccount)
+  z = Float64[x.z for x in paths]
+  if totalmccount == -1
+    proba = Float64[x.proba for x in paths]
   else
-    npaths = Int[x[k] for x in  paths]
+    npaths = Int[x.mccount for x in  paths]
     @assert sum(npaths) == totalmccount
-    prob = npaths / totalmccount
+    proba = npaths / totalmccount
   end
-  μ = dot(prob, z)
-  σ = sqrt(dot(prob, (z - μ).^2))
+  μ = dot(proba, z)
+  σ = sqrt(dot(proba, (z - μ).^2))
   μ, σ
 end
 
 function choosepaths(node::SDDPNode, mccount, pathsel, t, num_stages)
-  if mccount == :All
-    map(child->:All, node.children)
+  if mccount == -1
+    map(child->-1, node.children)
   else
     if pathsel == :nPaths
       den = numberofpaths(node, t-1, num_stages)
@@ -101,124 +101,195 @@ function choosepaths(node::SDDPNode, mccount, pathsel, t, num_stages)
   end
 end
 
-# Very Less Than
-function vlt(a, b, TOL)
-  a < b && abs(b-a) > TOL*max(abs(a),abs(b))
+type SDDPPath
+  sol::NLDSSolution
+  z::Float64
+  proba::Float64
+  mccount::Int
+  feasible::Bool
+  childsols::Vector{Nullable{NLDSSolution}}
+
+  function SDDPPath(sol, z, proba, mccount, nchilds)
+    childsols = Nullable{NLDSSolution}[nothing for i in 1:nchilds]
+    new(sol, z, proba, mccount, true, childsols)
+  end
 end
 
-function iteration{S}(root::SDDPNode{S}, totalmccount, num_stages, verbose, pathsel, TOL)
+#function SDDPPath(sol::NLDSSolution, z::Float64, proba::Float64, mccount::Int)
+#  SDDPPath(sol, z, proba, mccount, nothing)
+#end
+
+type SDDPJob
+  sol::Nullable{NLDSSolution}
+  proba::Float64
+  mccount::Int
+  parentnode::SDDPNode
+  parent::SDDPPath
+  i::Int
+
+  function SDDPJob(proba::Float64, mccount::Int, parentnode::SDDPNode, parent::SDDPPath, i::Int)
+    new(nothing, proba, mccount, parentnode, parent, i::Int)
+  end
+end
+
+
+function Base.isapprox(p::SDDPPath, q::SDDPPath)
+  Base.isapprox(p.sol.x, q.sol.x)
+end
+
+function addjob!(jobsd::Dict{SDDPNode, Vector{SDDPJob}}, node::SDDPNode, job::SDDPJob)
+  if node in keys(jobsd)
+    push!(jobsd[node], job)
+  else
+    jobsd[node] = [job]
+  end
+end
+
+#function Base.isless(p::SDDPPath, q::SDDPPath)
+#  @assert length(p.sol.x) == length(q.sol.x)
+#  norm(p.sol.x) < norm(q.sol.x)
+#end
+
+#                         trial   cost z    proba   mccount
+#typealias SDDPPath Tuple{NLDSSolution, Float64, Float64, Int}
+
+function iteration(root::SDDPNode, totalmccount::Int, num_stages, verbose, pathsel, ztol)
   stats = SDDPStats()
 
   stats.solvertime += @mytime rootsol = loadAndSolve(root)
   stats.nsolved += 1
   infeasibility_detected = rootsol.status == :Infeasible
   if infeasibility_detected
-    pathss = []
+    pathsd = Dict{SDDPNode, Vector{SDDPPath}}()
   else
-    pathss = [(root, rootsol, rootsol.objvalx, 1., totalmccount)]
+    pathsd = Dict{SDDPNode, Vector{SDDPPath}}(root => [SDDPPath(rootsol, rootsol.objvalx, 1., totalmccount, length(root.children))])
   end
+  endedpaths = SDDPPath[]
 
   for t in 2:num_stages
     if verbose >= 3
       @show t
     end
-    # children are at t, parents are at t-1
-    newpathss = []
-    for (parent, psol, z, prob, mccount) in pathss
-      if isempty(parent.children)
-        push!(newpathss, (parent, psol, z, prob, mccount))
-      else
-        npaths = choosepaths(parent, mccount, pathsel, t, num_stages)
-        curpathss = [] # FIXME could already be allocated looking the number of nonzeros elements of npaths
-        childsolved = zeros(Bool, length(parent.children))
-        feasible = true
-        nnewfcuts = 0
-        nnewocuts = 0
-        childocuts = Array{Any}(length(parent.children))
-        for i in 1:length(parent.children)
-          child = parent.children[i]
-          if t == 2 || npaths[i] == :All || npaths[i] > 0 || parent.nlds.cutmode == :AveragedCut
-            stats.setxtime += @mytime setchildx(parent, i, psol.x)
-            stats.nsetx += 1
-            stats.solvertime += @mytime childsol = loadAndSolve(child)
-            stats.nsolved += 1
-            childsolved[i] = true
 
-            # Feasibility cut
-            # D = π T
-            # d = π h + σ d
-            # Optimality cut
-            # E = π T
-            # e = π h + ρ e + σ d
-            coef = childsol.πT
-            rhs = childsol.πh + childsol.σd
-            if childsol.status == :Infeasible
-              infeasibility_detected = true
-              feasible = false
-              nnewfcuts += 1
-              stats.fcutstime += @mytime pushfeasibilitycut!(child, coef, rhs, parent)
-              break
-            else
-              rhs += childsol.ρe
-              childocuts[i] = (coef, rhs)
-            end
-            if npaths[i] == :All || npaths[i] > 0
-              push!(curpathss, (child, childsol, z + childsol.objvalx, prob * parent.proba[i], npaths[i]))
+    # Make jobs
+    jobsd = Dict{SDDPNode, Vector{SDDPJob}}()
+    for (parent, paths) in pathsd
+      if isempty(parent.children)
+        append!(endedpaths, paths)
+      else
+        for path in paths
+          # Adding Jobs
+          npaths = choosepaths(parent, path.mccount, pathsel, t, num_stages)
+          childocuts = Array{Any}(length(parent.children))
+          for i in 1:length(parent.children)
+            if t == 2 || npaths[i] == -1 || npaths[i] > 0 || parent.nlds.cutmode == :AveragedCut
+              addjob!(jobsd, parent.children[i], SDDPJob(path.proba * parent.proba[i], npaths[i], parent, path, i))
             end
           end
-        end
-        if feasible
-          if parent.nlds.cutmode == :MultiCut
-            for i in 1:length(parent.children)
-              if childsolved[i]
-                a, β = childocuts[i][1], childocuts[i][2]
-                if vlt(β - dot(a, psol.x), .0, TOL)
-                  error("The objectives are supposed to be nonnegative")
-                end
-                if vlt(psol.θ[i], β - dot(a, psol.x), TOL)
-                  stats.ocutstime += @mytime pushoptimalitycutforparent!(parent.children[i], a, β, parent)
-                  nnewocuts += 1
-                end
-              end
-            end
-          elseif parent.nlds.cutmode == :AveragedCut
-            if !isempty(parent.children)
-              if isnull(parent.childT)
-                a = sum(map(i->childocuts[i][1]*parent.proba[i], 1:length(parent.children)))
-              else
-                a = sum(map(i->get(parent.childT)[i]'*childocuts[i][1]*parent.proba[i], 1:length(parent.children)))
-              end
-              β = sum(map(i->childocuts[i][2]*parent.proba[i], 1:length(parent.children)))
-              if vlt(β - dot(a, psol.x), .0, TOL)
-                error("The objectives are supposed to be nonnegative")
-              end
-              if vlt(psol.θ[1], β - dot(a, psol.x), TOL)
-                stats.ocutstime += @mytime pushoptimalitycut!(parent, a, β, parent)
-                nnewocuts += 1
-              end
-            end
-          end
-        end
-        stats.nfcuts += nnewfcuts
-        stats.nocuts += nnewocuts
-        if feasible && !isempty(curpathss)
-          @assert nnewfcuts == 0
-          append!(newpathss, curpathss)
         end
       end
     end
-    pathss = newpathss
+
+    # Solving Jobs (paralellism possible here)
+    for (node, jobs) in jobsd
+      for job in jobs
+        if job.parent.feasible
+          stats.setxtime += @mytime setchildx(job.parentnode, job.i, job.parent.sol.x)
+          stats.nsetx += 1
+          stats.solvertime += @mytime job.sol = loadAndSolve(node)
+          job.parent.childsols[job.i] = job.sol
+          stats.nsolved += 1
+          if get(job.sol).status == :Infeasible
+            job.parent.feasible = false
+          end
+        end
+      end
+    end
+
+    # Add cuts
+    # Feasibility cut
+    # D = π T
+    # d = π h + σ d
+    # Optimality cut
+    # E = π T
+    # e = π h + ρ e + σ d
+    for (parent, paths) in pathsd
+      for path in paths
+        if parent.nlds.cutmode == :AveragedCut && path.feasible
+          avga = zeros(parent.nlds.nx)
+          avgβ = 0
+        end
+        for i in 1:length(parent.children)
+          if isnull(path.childsols[i])
+            @assert !path.feasible || parent.nlds.cutmode != :AveragedCut
+          else
+            childsol = get(path.childsols[i])
+            a = childsol.πT
+            β = childsol.πh + childsol.σd
+            if !path.feasible
+              if childsol.status == :Infeasible
+                infeasibility_detected = true
+                stats.nfcuts += 1
+                stats.fcutstime += @mytime pushfeasibilitycut!(parent.children[i], a, β, parent)
+              end
+            else
+              @assert childsol.status == :Optimal
+              if isnull(parent.childT)
+                aT = a
+              else
+                aT = get(parent.childT)[i]' * a
+              end
+              β += childsol.ρe
+              if mylt(β - dot(aT, path.sol.x), .0, ztol)
+                error("The objectives are supposed to be nonnegative")
+              end
+              if parent.nlds.cutmode == :MultiCut
+                if mylt(path.sol.θ[i], β - dot(aT, path.sol.x), ztol)
+                  stats.ocutstime += @mytime pushoptimalitycutforparent!(parent.children[i], a, β, parent)
+                  stats.nocuts += 1
+                end
+              elseif parent.nlds.cutmode == :AveragedCut
+                avga += parent.proba[i] * aT
+                avgβ += parent.proba[i] * β
+              end
+            end
+          end
+        end
+        if parent.nlds.cutmode == :AveragedCut && path.feasible
+          if mylt(path.sol.θ[1], avgβ - dot(avga, path.sol.x), ztol)
+            stats.ocutstime += @mytime pushoptimalitycut!(parent, avga, avgβ, parent)
+            stats.nocuts += 1
+          end
+        end
+      end
+    end
+
+    # Jobs -> Paths
+    #empty!(pathsd)
+    newpathsd = Dict{SDDPNode, Vector{SDDPPath}}()
+    for (node, jobs) in jobsd
+      # mccount == -1 and mccount > 0 are ok
+      keep = Bool[job.parent.feasible && job.mccount != 0 for job in jobs]
+      jobs = jobs[keep]
+      paths = SDDPPath[SDDPPath(get(job.sol), job.parent.z+get(job.sol).objvalx, job.proba, job.mccount, length(node.children)) for job in jobs]
+      newpathsd[node] = paths
+    end
+    pathsd = newpathsd
   end
+
   if infeasibility_detected
     z_UB = Inf # FIXME assumes minimization
     σ = 0
   else
-    z_UB, σ = meanstdpaths(pathss, 3, 4, 5, totalmccount)
+    for (node, paths) in pathsd
+      append!(endedpaths, paths)
+    end
+    z_UB, σ = meanstdpaths(endedpaths, totalmccount)
   end
   rootsol, stats, z_UB, σ
 end
 
-function SDDP(root::SDDPNode, num_stages, mccount=25, verbose=0, pereiracoef=2, stopcrit::Function=(x,y)->false, pathsel::Symbol=:Proba, TOL=1e-5)
+function SDDP(root::SDDPNode, num_stages, mccount=25, verbose=0, pereiracoef=2, stopcrit::Function=(x,y)->false, pathsel::Symbol=:Proba, ztol=1e-5)
   if !(pathsel in [:Proba, :nPaths])
     error("Invalid pathsel")
   end
@@ -235,10 +306,10 @@ function SDDP(root::SDDPNode, num_stages, mccount=25, verbose=0, pereiracoef=2, 
   σ = 0
   stdmccoef = 0.05
 
-  while (mccount != :All || cut_added) && (mccount == :All || z_LB < z_UB - pereiracoef * σ / sqrt(mccount) || σ / sqrt(mccount) > stdmccoef * z_LB) && (rootsol === nothing || rootsol.status != :Infeasible) && (niter == 0 || !stopcrit(niter, rootsol.objval))
+  while (mccount != -1 || cut_added) && (mccount == -1 || z_LB < z_UB - pereiracoef * σ / sqrt(mccount) || σ / sqrt(mccount) > stdmccoef * z_LB) && (rootsol === nothing || rootsol.status != :Infeasible) && (niter == 0 || !stopcrit(niter, rootsol.objval))
     niter += 1
     cut_added = false
-    itertime = @mytime rootsol, stats, z_UB, σ = iteration(root, mccount, num_stages, verbose, pathsel, TOL)
+    itertime = @mytime rootsol, stats, z_UB, σ = iteration(root, mccount, num_stages, verbose, pathsel, ztol)
     #Lower bound since θ >= 0
     z_LB = rootsol.objval
 
@@ -249,7 +320,7 @@ function SDDP(root::SDDPNode, num_stages, mccount=25, verbose=0, pereiracoef=2, 
       println("Status: $(rootsol.status)")
       println("z_UB: $(z_UB)")
       println("z_LB: $(z_LB)")
-      if mccount != :All
+      if mccount != -1
         println("pereira bound: $(z_UB - pereiracoef * σ / sqrt(mccount))")
       end
       #println(" Solution value: $(rootsol.x)")
@@ -267,7 +338,7 @@ function SDDP(root::SDDPNode, num_stages, mccount=25, verbose=0, pereiracoef=2, 
     #println("Objective value: $(rootsol.objval)")
     println("z_UB: $(z_UB)")
     println("z_LB: $(z_LB)")
-    if mccount != :All
+    if mccount != -1
       println("pereira bound: $(z_UB - pereiracoef * σ / sqrt(mccount))")
     end
     #println(" Solution value: $(rootsol.x)")

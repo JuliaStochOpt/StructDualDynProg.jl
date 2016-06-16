@@ -13,7 +13,7 @@ solver = Clp.ClpSolver()
 #solver = GLPKSolverLP()
 
 function fulltest(m, num_stages, objval, solval, ws, wsσ)
-  for mccount in [:All, 42]
+  for mccount in [-1, 42]
     for maxncuts in [-1, 7]
       for newcut in [:AddImmediately, :InvalidateSolver]
         for cutmode in [:MultiCut, :AveragedCut]
@@ -22,18 +22,18 @@ function fulltest(m, num_stages, objval, solval, ws, wsσ)
             #root = model2lattice(m, num_stages, solver, AvgCutManager(maxncuts), cutmode, newcut)
 
             μ, σ = waitandsee(root, num_stages, solver, mccount)
-            @test abs(μ - ws) / ws < (mccount == :All ? 1e-6 : .03)
-            @test abs(σ - wsσ) / wsσ <= (mccount == :All ? 1e-6 : 1.)
+            @test abs(μ - ws) / ws < (mccount == -1 ? 1e-6 : .03)
+            @test abs(σ - wsσ) / wsσ <= (mccount == -1 ? 1e-6 : 1.)
 
-            sol = SDDP(root, num_stages, mccount, 1)
+            sol = SDDP(root, num_stages, mccount)
             v11value = sol.sol[1:4]
             @test sol.status == :Optimal
-            @test abs(sol.objval - objval) / objval < (mccount == :All ? 1e-6 : .03)
-            @test norm(v11value - solval) / norm(solval) < (mccount == :All ? 1e-6 : .3)
+            @test abs(sol.objval - objval) / objval < (mccount == -1 ? 1e-6 : .03)
+            @test norm(v11value - solval) / norm(solval) < (mccount == -1 ? 1e-6 : .3)
 
             μ, σ = waitandsee(root, num_stages, solver, mccount)
-            @test abs(μ - ws) / ws < (mccount == :All ? 1e-6 : .03)
-            @test abs(σ - wsσ) / wsσ <= (mccount == :All ? 1e-6 : 1.)
+            @test abs(μ - ws) / ws < (mccount == -1 ? 1e-6 : .03)
+            @test abs(σ - wsσ) / wsσ <= (mccount == -1 ? 1e-6 : 1.)
 
             SDDPclear(m)
           end

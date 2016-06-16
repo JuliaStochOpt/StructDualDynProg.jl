@@ -4,7 +4,9 @@ module StochasticDualDynamicProgramming
 
 using JuMP
 using StructJuMP
-import Base.show
+import Base.show, Base.isless
+
+include("mycomp.jl")
 
 include("cutmanager.jl")
 include("avgcutmanager.jl")

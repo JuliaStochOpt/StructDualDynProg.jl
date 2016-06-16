@@ -1,18 +1,24 @@
 export waitandsee
-import Gurobi
+
+type WSPath
+  node::SDDPNode
+  nlds::Vector{NLDS}
+  z::Float64
+  proba::Float64
+  mccount::Int
+end
 
 function waitandsee(root::SDDPNode, num_stages, solver, totalmccount=25, verbose=0)
-  typealias Path Tuple{SDDPNode, Vector{NLDS}, Float64, Float64, typeof(totalmccount)}
-  paths = Path[(root, NLDS[root.nlds], .0, 1., totalmccount)]
+  paths = WSPath[WSPath(root, NLDS[root.nlds], .0, 1., totalmccount)]
   for t in 2:num_stages
-    newpaths = Path[]
-    for (parent, nldspath, z, prob, mccount) in paths
-      if isempty(parent.children)
-        push!(newpaths, (parent, nldspath, z, prob, mccount))
+    newpaths = WSPath[]
+    for path in paths
+      if isempty(path.node.children)
+        push!(newpaths, path)
       else
-        npaths = choosepaths(parent, mccount, :Proba, t, num_stages)
-        childs = totalmccount == :All ? (1:length(parent.children)) : find(npaths .> 0)
-        curpaths = Path[(parent.children[i], [nldspath; parent.children[i].nlds], z, prob*parent.proba[i], npaths[i]) for i in childs]
+        npaths = choosepaths(path.node, path.mccount, :Proba, t, num_stages)
+        childs = totalmccount == -1 ? (1:length(path.node.children)) : find(npaths .> 0)
+        curpaths = WSPath[WSPath(path.node.children[i], [path.nlds; path.node.children[i].nlds], path.z, path.proba * path.node.proba[i], npaths[i]) for i in childs]
         append!(newpaths, curpaths)
       end
     end
@@ -20,21 +26,21 @@ function waitandsee(root::SDDPNode, num_stages, solver, totalmccount=25, verbose
   end
 
   sumz = 0
-  newpaths = Path[]
-  for (last, nldspath, z, prob, mccount) in paths
-    nvars = cumsum(Int[nlds.nx for nlds in nldspath])
-    ncons = cumsum(Int[nlds.nπ for nlds in nldspath])
+  newpaths = WSPath[]
+  for path in paths
+    nvars = cumsum(Int[nlds.nx for nlds in path.nlds])
+    ncons = cumsum(Int[nlds.nπ for nlds in path.nlds])
     # b - Ax in K_1
     # x \in K_2
     A = spzeros(ncons[end], nvars[end])
-    bs = Vector{Vector}(length(nldspath))
+    bs = Vector{Vector}(length(path.nlds))
     Ks = []
     C = []
     c = similar(root.nlds.c, nvars[end])
-    for i in 1:length(nldspath)
+    for i in 1:length(path.nlds)
       offsetnvars = i == 1 ? 0 : nvars[i-1]
       offsetncons = i == 1 ? 0 : ncons[i-1]
-      nlds = nldspath[i]
+      nlds = path.nlds[i]
       c[offsetnvars+1:nvars[i]] = nlds.c
       bs[i] = nlds.h
       A[offsetncons+1:ncons[i], offsetnvars+1:nvars[i]] = nlds.W
@@ -60,8 +66,8 @@ function waitandsee(root::SDDPNode, num_stages, solver, totalmccount=25, verbose
     else
       @assert status == :Optimal
       objval = MathProgBase.getobjval(model)
-      push!(newpaths, (last, nldspath, objval, prob, mccount))
+      push!(newpaths, WSPath(path.node, path.nlds, objval, path.proba, path.mccount))
     end
   end
-  meanstdpaths(newpaths, 3, 4, 5, totalmccount)
+  meanstdpaths(newpaths, totalmccount)
 end

@@ -45,7 +45,7 @@ function initialtrust(man::DecayCutManager, mycut)
   end
 end
 
-function isbetter(man::AbstractCutManager, i::Int, mycut::Bool)
+function isbetter(man::DecayCutManager, i::Int, mycut::Bool)
   if mycut
     # If the cut has been generated, that means it is usefull
     false
