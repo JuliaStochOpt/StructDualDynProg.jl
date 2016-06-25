@@ -31,6 +31,9 @@ type CutStore{S}
   A::AbstractMatrix{S}
   b::AbstractVector{S}
   authors::Vector
+  Anew::AbstractMatrix{S}
+  bnew::AbstractVector{S}
+  authorsnew::Vector
 
   followers::Vector
   needstored::Vector{Bool}
@@ -38,7 +41,7 @@ type CutStore{S}
   storecuts::Symbol
 
   function CutStore(nvars)
-    new(spzeros(S, 0, nvars), spzeros(S, 0), Vector{NLDS{S}}(), Vector{Tuple{NLDS{S},Tuple{Symbol,Int64}}}(0), Vector{Bool}(0), :IfNeededElseDelete)
+    new(spzeros(S, 0, nvars), spzeros(S, 0), NLDS{S}[], spzeros(S, 0, nvars), spzeros(S, 0), NLDS{S}[], Vector{Tuple{NLDS{S},Tuple{Symbol,Int64}}}(0), Vector{Bool}(0), :IfNeededElseDelete)
   end
 end
 
@@ -53,13 +56,24 @@ end
 function addcut{S}(store::CutStore{S}, a::Vector{S}, β::S, author)
   a = checksparseness(a)
   if store.storecuts == :Yes || (store.storecuts != :No && reduce(|, false, store.needstored))
-    store.A = mymatcat(store.A, a)
-    store.b = myveccat(store.b, β)
-    push!(store.authors, author)
+    store.Anew = mymatcat(store.Anew, a)
+    store.bnew = myveccat(store.bnew, β)
+    push!(store.authorsnew, author)
   end
+end
+
+function apply!{S}(store::CutStore{S})
+  if store.storecuts == :Yes || (store.storecuts != :No && reduce(|, false, store.needstored))
+    store.A = [store.A; store.Anew]
+    store.b = [store.b; store.bnew]
+    append!(store.authors, store.authorsnew)
+  end
+  store.Anew = spzeros(S, 0, size(store.A, 2))
+  store.bnew = spzeros(S, 0)
+  store.authorsnew = NLDS{S}[]
 
   for follower in store.followers
-    notifynewcut(follower[1], a, β, follower[2], author)
+    notifynewcuts(follower[1], store.Anew, store.bnew, follower[2], store.authorsnew)
   end
 end
 
@@ -76,6 +90,6 @@ function noneedstored!{S}(store::CutStore{S}, nlds)
   if store.storecuts == :IfNeededElseDelete && !reduce(|, false, store.needstored)
     store.A = spzeros(S, 0, size(store.A, 2))
     store.b = spzeros(S, 0)
-    store.authors = Vector{NLDS{S}}()
+    store.authors = NLDS{S}[]
   end
 end
