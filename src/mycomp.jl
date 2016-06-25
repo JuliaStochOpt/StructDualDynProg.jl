@@ -9,6 +9,7 @@ myeq{T<:Real}(x::T, y::T) = x == y
 # but isapprox(1e-100, 2e-100) should be false
 myeq{T<:AbstractFloat}(x::T, y::T, ztol) = (x == zero(T) ? myeqzero(y, ztol) : (y == zero(T) ? myeqzero(x, ztol) : isapprox(x, y)))
 myeq{T<:Real, S<:Real}(x::T, y::S) = myeq(promote(x, y)...)
+myeq{T<:AbstractFloat}(x::Vector{T}, y::Vector{T}, ztol) = (x == zero(x) ? myeqzero(y, ztol) : (y == zero(y) ? myeqzero(x, ztol) : isapprox(x, y)))
 
 mylt{T<:Real}(x::T, y::T, ztol) = x < y
 mylt{T<:AbstractFloat}(x::T, y::T, ztol) = x < y && !myeq(x, y, ztol)

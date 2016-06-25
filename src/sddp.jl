@@ -17,6 +17,8 @@ end
 type SDDPStats
   nsolved::Int
   solvertime::Float64
+  nmerged::Int
+  mergetime::Float64
   nfcuts::Int
   fcutstime::Float64
   nocuts::Int
@@ -25,12 +27,13 @@ type SDDPStats
   setxtime::Float64
 end
 
-SDDPStats() = SDDPStats(0,.0,0,.0,0,.0,0,.0)
+SDDPStats() = SDDPStats(0,.0,0,.0,0,.0,0,.0,0,.0)
 
 import Base: +, show
 
 function +(a::SDDPStats, b::SDDPStats)
   SDDPStats(a.nsolved + b.nsolved, a.solvertime + b.solvertime,
+            a.nmerged + b.nmerged, a.mergetime  + b.mergetime,
             a.nfcuts  + b.nfcuts , a.fcutstime  + b.fcutstime,
             a.nocuts  + b.nocuts , a.ocutstime  + b.ocutstime,
             a.nsetx   + b.nsetx  , a.setxtime   + b.setxtime)
@@ -54,13 +57,14 @@ end
 function Base.show(io::IO, stat::SDDPStats)
   println("                        |     Total time [s]      |  Number  | Average time [s]")
   @printf "        Solving problem | %s | %8d | %s\n" showtime(stat.solvertime) stat.nsolved showtime(stat.solvertime / stat.nsolved)
+  @printf "          Merging paths | %s | %8d | %s\n" showtime(stat.mergetime ) stat.nmerged showtime(stat.mergetime  / stat.nmerged)
   @printf "Adding feasibility cuts | %s | %8d | %s\n" showtime(stat.fcutstime ) stat.nfcuts  showtime(stat.fcutstime  / stat.nfcuts )
   @printf "Adding  optimality cuts | %s | %8d | %s\n" showtime(stat.ocutstime ) stat.nocuts  showtime(stat.ocutstime  / stat.nocuts )
   @printf "Setting parent solution | %s | %8d | %s\n" showtime(stat.setxtime  ) stat.nsetx   showtime(stat.setxtime   / stat.nsetx  )
   @printf "                        | %s |" showtime(stat.solvertime+stat.fcutstime+stat.ocutstime+stat.setxtime)
 end
 
-function meanstdpaths(z::Vector{Float64}, proba::Vector{Float64}, npaths::Vector{Float64}, totalmccount)
+function meanstdpaths(z::Vector{Float64}, proba::Vector{Float64}, npaths::Vector{Int}, totalmccount)
   if totalmccount != -1
     @assert sum(npaths) == totalmccount
     proba = npaths / totalmccount
@@ -125,13 +129,20 @@ end
 function meanstdpaths(paths::Vector{SDDPPath}, totalmccount)
   z = reduce(append!, Float64[], Vector{Float64}[x.z for x in paths])
   proba = reduce(append!, Float64[], Vector{Float64}[x.proba for x in paths])
-  npaths = reduce(append!, Float64[], Vector{Float64}[x.mccount for x in paths])
+  npaths = reduce(append!, Int[], Vector{Int}[x.mccount for x in paths])
   meanstdpaths(z, proba, npaths, totalmccount)
 end
 
+function canmerge(p::SDDPPath, q::SDDPPath, ztol)
+  myeq(p.sol.x, q.sol.x, ztol)
+end
 
-#function merge!(p::SDDPPath, q::SDDPPath)
-#end
+function merge!(p::SDDPPath, q::SDDPPath)
+  @assert p.feasible == q.feasible
+  append!(p.z, q.z)
+  append!(p.proba, q.proba)
+  append!(p.mccount, q.mccount)
+end
 
 type SDDPJob
   sol::Nullable{NLDSSolution}
@@ -177,6 +188,33 @@ function iteration(root::SDDPNode, totalmccount::Int, num_stages, verbose, paths
       @show t
     end
 
+    # Merge paths
+    if true
+      before = sum([sum([sum(path.mccount) for path in paths]) for (node, paths) in pathsd])
+      stats.mergetime += @mytime for (node, paths) in pathsd
+        keep = ones(Bool, length(paths))
+        merged = false
+        for i in 1:length(paths)
+          for j in 1:(i-1)
+            if keep[j] && canmerge(paths[i], paths[j], ztol)
+              #@show paths[i].sol.x
+              #@show paths[j].sol.x
+              #@show paths[j].sol.x - paths[i].sol.x
+              @show maximum(abs(paths[j].sol.x - paths[i].sol.x))
+              merge!(paths[i], paths[j])
+              keep[j] = false
+              merged = true
+              stats.nmerged += 1
+              break
+            end
+          end
+        end
+        pathsd[node] = paths[keep]
+      end
+      after = sum([sum([sum(path.mccount) for path in paths]) for (node, paths) in pathsd])
+      @assert before == after
+    end
+
     # Make jobs
     jobsd = Dict{SDDPNode, Vector{SDDPJob}}()
     for (parent, paths) in pathsd
@@ -188,7 +226,7 @@ function iteration(root::SDDPNode, totalmccount::Int, num_stages, verbose, paths
           npaths = choosepaths(parent, path.mccount, pathsel, t, num_stages)
           childocuts = Array{Any}(length(parent.children))
           for i in 1:length(parent.children)
-            if t == 2 || npaths[i][1] != 0 || parent.nlds.cutmode == :AveragedCut
+            if t == 2 || sum(npaths[i]) != 0 || parent.nlds.cutmode == :AveragedCut
               addjob!(jobsd, parent.children[i], SDDPJob(path.proba * parent.proba[i], npaths[i], parent, path, i))
             end
           end
@@ -271,15 +309,15 @@ function iteration(root::SDDPNode, totalmccount::Int, num_stages, verbose, paths
     end
 
     # Jobs -> Paths
-    #empty!(pathsd) # FIXME
-    newpathsd = Dict{SDDPNode, Vector{SDDPPath}}()
+    empty!(pathsd)
     for (node, jobs) in jobsd
       K = [find(job.mccount .!= 0) for job in jobs]
-      keep = Bool[jobs[i].parent.feasible && !isempty(K[i]) for i in 1:length(jobs)]
-      paths = SDDPPath[SDDPPath(get(jobs[i].sol), jobs[i].parent.z[K[i]]+get(jobs[i].sol).objvalx, jobs[i].proba[K[i]], jobs[i].mccount[K[i]], length(node.children)) for i in find(keep)]
-      newpathsd[node] = paths
+      keep = find(Bool[jobs[i].parent.feasible && !isempty(K[i]) for i in 1:length(jobs)])
+      if !isempty(keep)
+        paths = SDDPPath[SDDPPath(get(jobs[i].sol), jobs[i].parent.z[K[i]]+get(jobs[i].sol).objvalx, jobs[i].proba[K[i]], jobs[i].mccount[K[i]], length(node.children)) for i in keep]
+        pathsd[node] = paths
+      end
     end
-    pathsd = newpathsd
   end
 
   if infeasibility_detected
@@ -294,7 +332,7 @@ function iteration(root::SDDPNode, totalmccount::Int, num_stages, verbose, paths
   rootsol, stats, z_UB, σ
 end
 
-function SDDP(root::SDDPNode, num_stages, mccount=25, verbose=0, pereiracoef=2, stopcrit::Function=(x,y)->false, pathsel::Symbol=:Proba, ztol=1e-5)
+function SDDP(root::SDDPNode, num_stages, mccount::Int=25, verbose=0, pereiracoef=2, stopcrit::Function=(x,y)->false, pathsel::Symbol=:Proba, ztol=1e-10)
   if !(pathsel in [:Proba, :nPaths])
     error("Invalid pathsel")
   end

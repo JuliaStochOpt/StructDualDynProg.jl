@@ -11,7 +11,7 @@ end
 function meanstdpaths(paths::Vector{WSPath}, totalmccount)
   z = Float64[x.z for x in paths]
   proba = Float64[x.proba for x in paths]
-  npaths = Float64[x.mccount for x in paths]
+  npaths = Int[x.mccount for x in paths]
   meanstdpaths(z, proba, npaths, totalmccount)
 end
 
