@@ -8,9 +8,15 @@ julia:
   - nightly
 notifications:
   email: false
+env:
+# - MPI_IMPL=mpich
+  - MPI_IMPL=openmpi
 before_script:
   - julia -e 'Pkg.clone("https://github.com/joehuchette/StructJuMP.jl")'
   - julia -e 'Pkg.add("Clp")'
+before_install:
+  - sh ./conf/travis-install-mpi.sh $MPI_IMPL
+  - export PATH=$HOME/OpenMPI/bin:$PATH
 # uncomment the following lines to override the default test script
 #script:
 #  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
