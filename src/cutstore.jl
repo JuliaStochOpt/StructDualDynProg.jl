@@ -11,7 +11,7 @@ function myveccat{S}(b::AbstractSparseVector{S}, β::S, force=false)
     [b; β]
   end
 end
-
+β
 # see https://github.com/JuliaLang/julia/issues/16661
 function myhcat{S}(A::AbstractMatrix{S}, a::AbstractMatrix{S})
   [A a]
@@ -55,25 +55,26 @@ end
 
 function addcut{S}(store::CutStore{S}, a::Vector{S}, β::S, author)
   a = checksparseness(a)
-  if store.storecuts == :Yes || (store.storecuts != :No && reduce(|, false, store.needstored))
-    store.Anew = mymatcat(store.Anew, a)
-    store.bnew = myveccat(store.bnew, β)
-    push!(store.authorsnew, author)
-  end
+  store.Anew = mymatcat(store.Anew, a)
+  store.bnew = myveccat(store.bnew, β)
+  push!(store.authorsnew, author)
 end
 
 function apply!{S}(store::CutStore{S})
-  if store.storecuts == :Yes || (store.storecuts != :No && reduce(|, false, store.needstored))
-    store.A = [store.A; store.Anew]
-    store.b = [store.b; store.bnew]
-    append!(store.authors, store.authorsnew)
-  end
-  store.Anew = spzeros(S, 0, size(store.A, 2))
-  store.bnew = spzeros(S, 0)
-  store.authorsnew = NLDS{S}[]
+  if !isempty(store.bnew)
+    if store.storecuts == :Yes || (store.storecuts != :No && reduce(|, false, store.needstored))
+      store.A = [store.A; store.Anew]
+      store.b = [store.b; store.bnew]
+      append!(store.authors, store.authorsnew)
+    end
 
-  for follower in store.followers
-    notifynewcuts(follower[1], store.Anew, store.bnew, follower[2], store.authorsnew)
+    for follower in store.followers
+      notifynewcuts(follower[1], store.Anew, store.bnew, follower[2], store.authorsnew)
+    end
+
+    store.Anew = spzeros(S, 0, size(store.A, 2))
+    store.bnew = spzeros(S, 0)
+    store.authorsnew = NLDS{S}[]
   end
 end
 

@@ -242,26 +242,27 @@ function notifynewcuts{S}(nlds::NLDS{S}, A::AbstractMatrix{S}, b::AbstractVector
       B = [A spzeros(S, ncuts, nlds.nθ)]
     else
       if i == 0
-        B = myhcat(A, ones(S, ncuts))
+        B = myhcat(A, ones(S, ncuts, 1))
       else
-        B = [A myhcat(spzeros(S, ncuts, i-1), ones(S, ncuts)) spzeros(S, ncuts, nlds.nθ-i)]
+        B = [A myhcat(spzeros(S, ncuts, i-1), ones(S, ncuts, 1)) spzeros(S, ncuts, nlds.nθ-i)]
       end
     end
     # No .=== :(
     mine = [authors[i] === nlds for i in 1:length(authors)]
     addstatus = addcuts!(nlds.man, B, b, isfc, mine)
-    for i in 1:ncuts
-      if addstatus[i] == :Ignored
+    for j in 1:ncuts
+      if addstatus[j] == :Ignored
         @show gettrust(nlds.man)
         println("Cut not added $mine")
       end
       if nlds.loaded
-        if addstatus[i] != :Pushed || nlds.newcut == :InvalidateSolver
+        if addstatus[j] != :Pushed || nlds.newcut == :InvalidateSolver
           nlds.loaded = false
           nlds.solved = false
         elseif nlds.newcut == :AddImmediately
+          println("Add now")
           idx = collect(1:nlds.nx)
-          a = A[i,:]
+          a = A[j,:]
           if !isfc
             if i == 0
               push!(idx, nlds.nx+1)
@@ -270,7 +271,7 @@ function notifynewcuts{S}(nlds::NLDS{S}, A::AbstractMatrix{S}, b::AbstractVector
             end
             a = myveccat(a, one(S), true)
           end
-          myaddconstr!(nlds.model, idx, a, b[i], :NonPos)
+          myaddconstr!(nlds.model, idx, a, b[j], :NonPos)
           nlds.solved = false
         else
           error("Invalid newcut option $(nlds.newcut)")
@@ -386,7 +387,11 @@ function solve!(nlds::NLDS)
       @assert length(dual) == nlds.nπ + ncuts(nlds.man)
 
       x = primal[1:end-nlds.nθ]
+      @show objval
+      @show x
+      @show dot(nlds.c, x)
       θ = primal[end-nlds.nθ+1:end]
+      @show θ
       π = dual[nlds.πs]
       σρ = dual[nlds.nπ+1:end]
       σ = σρ[nlds.man.σs]

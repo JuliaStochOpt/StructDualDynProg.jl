@@ -122,6 +122,16 @@ function pushoptimalitycutforparent!(node, coef, rhs, author)
   addcut(node.ocuts, coef, rhs, author.nlds)
 end
 
+function applyfeasibilitycut!(node)
+  apply!(node.fcuts)
+end
+function applyoptimalitycut!(node)
+  apply!(node.nlds.localOC)
+end
+function applyoptimalitycutforparent!(node)
+  apply!(node.ocuts)
+end
+
 function loadAndSolve(node::SDDPNode)
   getsolution(node.nlds)
 end

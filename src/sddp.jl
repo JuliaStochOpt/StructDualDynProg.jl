@@ -170,7 +170,7 @@ function addjob!(jobsd::Dict{SDDPNode, Vector{SDDPJob}}, node::SDDPNode, job::SD
   end
 end
 
-function iteration(root::SDDPNode, totalmccount::Int, num_stages, verbose, pathsel, ztol)
+function iteration{S}(root::SDDPNode{S}, totalmccount::Int, num_stages, verbose, pathsel, ztol)
   stats = SDDPStats()
 
   stats.solvertime += @mytime rootsol = loadAndSolve(root)
@@ -234,7 +234,7 @@ function iteration(root::SDDPNode, totalmccount::Int, num_stages, verbose, paths
       end
     end
 
-    # Solving Jobs (paralellism possible here)
+    # Solve Jobs (paralellism possible here)
     for (node, jobs) in jobsd
       for job in jobs
         if job.parent.feasible
@@ -289,6 +289,8 @@ function iteration(root::SDDPNode, totalmccount::Int, num_stages, verbose, paths
               end
               if parent.nlds.cutmode == :MultiCut
                 if mylt(path.sol.θ[i], β - dot(aT, path.sol.x), ztol)
+                  @show path.sol.θ[i]
+                  @show β - dot(aT, path.sol.x)
                   stats.ocutstime += @mytime pushoptimalitycutforparent!(parent.children[i], a, β, parent)
                   stats.nocuts += 1
                 end
@@ -305,6 +307,20 @@ function iteration(root::SDDPNode, totalmccount::Int, num_stages, verbose, paths
             stats.nocuts += 1
           end
         end
+      end
+    end
+
+    # Apply cut addition
+    for (parent, paths) in pathsd
+      for child in parent.children
+        applyfeasibilitycut!(child)
+      end
+      if parent.nlds.cutmode == :MultiCut
+        for child in parent.children
+          applyoptimalitycutforparent!(child)
+        end
+      elseif parent.nlds.cutmode == :AveragedCut
+        applyoptimalitycut!(parent)
       end
     end
 
@@ -332,7 +348,7 @@ function iteration(root::SDDPNode, totalmccount::Int, num_stages, verbose, paths
   rootsol, stats, z_UB, σ
 end
 
-function SDDP(root::SDDPNode, num_stages, mccount::Int=25, verbose=0, pereiracoef=2, stopcrit::Function=(x,y)->false, pathsel::Symbol=:Proba, ztol=1e-10)
+function SDDP(root::SDDPNode, num_stages, mccount::Int=25, verbose=0, pereiracoef=2, stopcrit::Function=(x,y)->false, pathsel::Symbol=:Proba, ztol=1e-6)
   if !(pathsel in [:Proba, :nPaths])
     error("Invalid pathsel")
   end
