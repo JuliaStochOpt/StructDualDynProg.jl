@@ -268,7 +268,7 @@ end
 function SDDPclear(m::Model)
   if :SDDP in keys(m.ext)
     pop!(m.ext, :SDDP)
-    for child in getStructure(m).children
+    for (id, child) in getStructure(m).children
       SDDPclear(child)
     end
   end

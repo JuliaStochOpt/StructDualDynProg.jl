@@ -72,18 +72,18 @@ function keeponly!(man::AvgCutManager, K::Vector{Int})
   man.trust = gettrust(man)[K]
 end
 
-function replacecut!(man::AvgCutManager, j::Int, mycut::Bool)
-  man.nwith[j] = 0
-  man.nused[j] = 0
-  man.mycut[j] = mycut
-  gettrust(man)[j] = initialtrust(man, mycut)
+function replacecuts!(man::AvgCutManager, js::AbstractVector{Int}, mycut::Vector{Bool})
+  man.nwith[js] = 0
+  man.nused[js] = 0
+  man.mycut[js] = mycut
+  gettrust(man)[js] = initialtrusts(man, mycut)
 end
 
-function pushcut!(man::AvgCutManager, mycut::Bool)
-  push!(man.nwith, 0)
-  push!(man.nused, 0)
-  push!(man.mycut, mycut)
+function pushcuts!(man::AvgCutManager, mycut::Vector{Bool})
+  append!(man.nwith, zeros(length(mycut)))
+  append!(man.nused, zeros(length(mycut)))
+  append!(man.mycut, mycut)
   if !isnull(man.trust)
-    push!(get(man.trust), initialtrust(man, mycut))
+    append!(get(man.trust), initialtrusts(man, mycut))
   end
 end

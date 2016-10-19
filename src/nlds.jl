@@ -232,36 +232,35 @@ end
 function notifynewcuts{S}(nlds::NLDS{S}, A::AbstractMatrix{S}, b::AbstractVector{S}, attrs, authors::Vector{NLDS{S}})
   @assert attrs[1] in [:Feasibility, :Optimality]
   isfc = attrs[1] == :Feasibility
-  ncuts = size(A, 1)
+  nnewcuts = size(A, 1)
   if isstarted(nlds.man)
     i = attrs[2]
     if i > 0 && !isnull(nlds.childT)
       A = A * get(nlds.childT)[i]
     end
     if isfc
-      B = [A spzeros(S, ncuts, nlds.nθ)]
+      B = [A spzeros(S, nnewcuts, nlds.nθ)]
     else
       if i == 0
-        B = myhcat(A, ones(S, ncuts))
+        B = myhcat(A, ones(S, nnewcuts, 1))
       else
-        B = [A myhcat(spzeros(S, ncuts, i-1), ones(S, ncuts)) spzeros(S, ncuts, nlds.nθ-i)]
+        B = [A myhcat(spzeros(S, nnewcuts, i-1), ones(S, nnewcuts, 1)) spzeros(S, nnewcuts, nlds.nθ-i)]
       end
     end
     # No .=== :(
     mine = [authors[i] === nlds for i in 1:length(authors)]
     addstatus = addcuts!(nlds.man, B, b, isfc, mine)
-    for i in 1:ncuts
-      if addstatus[i] == :Ignored
+    for j in 1:nnewcuts
+      if addstatus[j] == :Ignored
         @show gettrust(nlds.man)
-        println("Cut not added $mine")
       end
       if nlds.loaded
-        if addstatus[i] != :Pushed || nlds.newcut == :InvalidateSolver
+        if addstatus[j] != :Pushed || nlds.newcut == :InvalidateSolver
           nlds.loaded = false
           nlds.solved = false
         elseif nlds.newcut == :AddImmediately
           idx = collect(1:nlds.nx)
-          a = A[i,:]
+          a = A[j,:]
           if !isfc
             if i == 0
               push!(idx, nlds.nx+1)
@@ -270,7 +269,7 @@ function notifynewcuts{S}(nlds::NLDS{S}, A::AbstractMatrix{S}, b::AbstractVector
             end
             a = myveccat(a, one(S), true)
           end
-          myaddconstr!(nlds.model, idx, a, b[i], :NonPos)
+          myaddconstr!(nlds.model, idx, a, b[j], :NonPos)
           nlds.solved = false
         else
           error("Invalid newcut option $(nlds.newcut)")

@@ -8,8 +8,8 @@
     v = Vector{Vector{JuMP.Variable}}(2)
     y = Vector{Matrix{JuMP.Variable}}(2)
 
-    @variable M x[1][1:n] >= 0
-    @variable M v[1][1:n] >= 0
+    x[1] = @variable(M, [1:n], lowerbound=0)
+    v[1] = @variable(M, [1:n], lowerbound=0)
     @constraints M begin
       x[1] .== v[1]
     end
@@ -17,10 +17,10 @@
 
 
     for s in 1:numScen
-      M2 = StructuredModel(parent=M, prob=p2[s])
-      @variable(M2, y[1][1:n, 1:m] >= 0)
-      @variable(M2, x[2][1:n] >= 0)
-      @variable(M2, v[2][1:n] >= 0)
+      M2 = StructuredModel(parent=M, prob=p2[s], id=s)
+      y[1] = @variable(M2, [1:n, 1:m], lowerbound=0)
+      x[2] = @variable(M2, [1:n], lowerbound=0)
+      v[2] = @variable(M2, [1:n], lowerbound=0)
       @constraints M2 begin
         x[2] .== x[1] + v[2]
         demand[j=1:m], sum(y[1][:,j]) == D2[j,s]
@@ -28,8 +28,8 @@
       end
       @objective(M2, Min, dot(ic, v[2]) + dot(C, y[1] * T))
       for S in 1:numScen
-        M3 = StructuredModel(parent=M2, prob=p2[S])
-        @variable(M3, y[2][1:n, 1:m] >= 0)
+        M3 = StructuredModel(parent=M2, prob=p2[S], id=S)
+        y[2] = @variable(M3, [1:n, 1:m], lowerbound=0)
         @constraints M3 begin
           demand[j=1:m], sum(y[2][:,j]) == D2[j,S]
           ylim[i=1:n], sum(y[2][i,:]) <= x[2][i]

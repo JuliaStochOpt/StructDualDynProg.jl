@@ -170,7 +170,7 @@ function addjob!(jobsd::Dict{SDDPNode, Vector{SDDPJob}}, node::SDDPNode, job::SD
   end
 end
 
-function iteration(root::SDDPNode, totalmccount::Int, num_stages, verbose, pathsel, ztol)
+function iteration{S}(root::SDDPNode{S}, totalmccount::Int, num_stages, verbose, pathsel, ztol)
   stats = SDDPStats()
 
   stats.solvertime += @mytime rootsol = loadAndSolve(root)
@@ -197,9 +197,6 @@ function iteration(root::SDDPNode, totalmccount::Int, num_stages, verbose, paths
         for i in 1:length(paths)
           for j in 1:(i-1)
             if keep[j] && canmerge(paths[i], paths[j], ztol)
-              #@show paths[i].sol.x
-              #@show paths[j].sol.x
-              #@show paths[j].sol.x - paths[i].sol.x
               @show maximum(abs(paths[j].sol.x - paths[i].sol.x))
               merge!(paths[i], paths[j])
               keep[j] = false
@@ -234,7 +231,7 @@ function iteration(root::SDDPNode, totalmccount::Int, num_stages, verbose, paths
       end
     end
 
-    # Solving Jobs (paralellism possible here)
+    # Solve Jobs (paralellism possible here)
     for (node, jobs) in jobsd
       for job in jobs
         if job.parent.feasible
@@ -346,7 +343,7 @@ function iteration(root::SDDPNode, totalmccount::Int, num_stages, verbose, paths
   rootsol, stats, z_UB, σ
 end
 
-function SDDP(root::SDDPNode, num_stages; mccount::Int=25, verbose=0, pereiracoef=2, stopcrit::Function=(x,y)->false, pathsel::Symbol=:Proba, ztol=1e-10)
+function SDDP(root::SDDPNode, num_stages; mccount::Int=25, verbose=0, pereiracoef=2, stopcrit::Function=(x,y)->false, pathsel::Symbol=:Proba, ztol=1e-6)
   if !(pathsel in [:Proba, :nPaths])
     error("Invalid pathsel")
   end
