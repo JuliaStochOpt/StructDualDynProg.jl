@@ -308,6 +308,20 @@ function iteration(root::SDDPNode, totalmccount::Int, num_stages, verbose, paths
       end
     end
 
+    # Apply cut addition
+    for (parent, paths) in pathsd
+      for child in parent.children
+        applyfeasibilitycut!(child)
+      end
+      if parent.nlds.cutmode == :MultiCut
+        for child in parent.children
+          applyoptimalitycutforparent!(child)
+        end
+      elseif parent.nlds.cutmode == :AveragedCut
+        applyoptimalitycut!(parent)
+      end
+    end
+
     # Jobs -> Paths
     empty!(pathsd)
     for (node, jobs) in jobsd
@@ -332,7 +346,7 @@ function iteration(root::SDDPNode, totalmccount::Int, num_stages, verbose, paths
   rootsol, stats, z_UB, σ
 end
 
-function SDDP(root::SDDPNode, num_stages, mccount::Int=25, verbose=0, pereiracoef=2, stopcrit::Function=(x,y)->false, pathsel::Symbol=:Proba, ztol=1e-10)
+function SDDP(root::SDDPNode, num_stages; mccount::Int=25, verbose=0, pereiracoef=2, stopcrit::Function=(x,y)->false, pathsel::Symbol=:Proba, ztol=1e-10)
   if !(pathsel in [:Proba, :nPaths])
     error("Invalid pathsel")
   end

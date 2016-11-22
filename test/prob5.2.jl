@@ -9,10 +9,10 @@
     @constraints M1 begin
       x1 .== v1
     end
-    @objective(M1, Min, dot(I, v1))
+    @objective(M1, Min, dot(ic, v1))
 
     for s in 1:numScen
-        M2 = StructuredModel(parent=M1, prob=p2[s])
+        M2 = StructuredModel(parent=M1, prob=p2[s], id=s)
         @variable(M2, y2[1:n, 1:m] >= 0)
         @constraints M2 begin
           demand[j=1:m], sum(y2[:,j]) == D2[j,s]

@@ -22,9 +22,9 @@ if false
   @constraints M1 begin
     x1 .== v1
   end
-  @objective(M1, Min, dot(I, v1))
+  @objective(M1, Min, dot(ic, v1))
 else
-  @objective(M1, Min, dot(I, x1))
+  @objective(M1, Min, dot(ic, x1))
 end
 
 for s in 1:numScen

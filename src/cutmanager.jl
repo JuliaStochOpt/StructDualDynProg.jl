@@ -120,8 +120,8 @@ function addcuts!{S}(man::AbstractCutManager{S}, A::AbstractMatrix{S}, b::Abstra
       append!(man.ρs, man.nσ + man.nρ + (1:ncuts))
       man.nρ += ncuts
     end
-    man.cuts_DE = [man.cuts_DE; A]
-    man.cuts_de = [man.cuts_de; b]
+    man.cuts_DE = [get(man.cuts_DE); A]
+    man.cuts_de = [get(man.cuts_de); b]
     pushcut!(man, mycut)
     Symbol[:Pushed for i in 1:ncuts]
   end

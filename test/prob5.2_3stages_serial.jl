@@ -15,7 +15,7 @@
     @constraints model begin
       x[1,1] .== v[1,1]
     end
-    @objective(model, Min, dot(I, v[1]))
+    @objective(model, Min, dot(ic, v[1]))
 
     models[1] = model
 
@@ -29,7 +29,7 @@
         demand[j=1:m], sum(y[1,s][:,j]) == D2[j,s]
         ylim[i=1:n], sum(y[1,s][i,:]) <= x[1,1][i]
       end
-      @objective(model, Min, dot(I, v[2,s]) + dot(C, y[1,s] * T))
+      @objective(model, Min, dot(ic, v[2,s]) + dot(C, y[1,s] * T))
       if s == 1
         models[2] = model
       end

@@ -13,7 +13,7 @@
     @constraints M begin
       x[1] .== v[1]
     end
-    @objective(M, Min, dot(I, v[1]))
+    @objective(M, Min, dot(ic, v[1]))
 
 
     for s in 1:numScen
@@ -26,7 +26,7 @@
         demand[j=1:m], sum(y[1][:,j]) == D2[j,s]
         ylim[i=1:n], sum(y[1][i,:]) <= x[1][i]
       end
-      @objective(M2, Min, dot(I, v[2]) + dot(C, y[1] * T))
+      @objective(M2, Min, dot(ic, v[2]) + dot(C, y[1] * T))
       for S in 1:numScen
         M3 = StructuredModel(parent=M2, prob=p2[S])
         @variable(M3, y[2][1:n, 1:m] >= 0)

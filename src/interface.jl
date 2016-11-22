@@ -245,10 +245,12 @@ function getSDDPNode(allnodes, m::Model, t, num_stages, solver, parent, cutmanag
     if t < num_stages
       num_scen = length(struct.children)
       children = Vector{SDDPNode{Float64}}(num_scen)
-      for i in 1:num_scen
-        children[i] = getSDDPNode(allnodes, struct.children[i], t+1, num_stages, solver, newnode, cutmanager, cutmode, newcut)
+      probability = Vector{Float64}(num_scen)
+      for (i, id) in enumerate(keys(struct.children))
+        children[i] = getSDDPNode(allnodes, struct.children[id], t+1, num_stages, solver, newnode, cutmanager, cutmode, newcut)
+        probability[i] = struct.probability[id]
       end
-      setchildren!(newnode, children, struct.probability, cutmode)
+      setchildren!(newnode, children, probability, cutmode)
     end
   end
   get(nodes[t])
