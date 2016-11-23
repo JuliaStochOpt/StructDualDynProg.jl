@@ -11,31 +11,31 @@
     x[1] = @variable(M, [1:n], lowerbound=0)
     v[1] = @variable(M, [1:n], lowerbound=0)
     @constraints M begin
-      x[1] .== v[1]
+        x[1] .== v[1]
     end
     @objective(M, Min, dot(ic, v[1]))
 
 
     for s in 1:numScen
-      M2 = StructuredModel(parent=M, prob=p2[s], id=s)
-      y[1] = @variable(M2, [1:n, 1:m], lowerbound=0)
-      x[2] = @variable(M2, [1:n], lowerbound=0)
-      v[2] = @variable(M2, [1:n], lowerbound=0)
-      @constraints M2 begin
-        x[2] .== x[1] + v[2]
-        demand[j=1:m], sum(y[1][:,j]) == D2[j,s]
-        ylim[i=1:n], sum(y[1][i,:]) <= x[1][i]
-      end
-      @objective(M2, Min, dot(ic, v[2]) + dot(C, y[1] * T))
-      for S in 1:numScen
-        M3 = StructuredModel(parent=M2, prob=p2[S], id=S)
-        y[2] = @variable(M3, [1:n, 1:m], lowerbound=0)
-        @constraints M3 begin
-          demand[j=1:m], sum(y[2][:,j]) == D2[j,S]
-          ylim[i=1:n], sum(y[2][i,:]) <= x[2][i]
+        M2 = StructuredModel(parent=M, prob=p2[s], id=s)
+        y[1] = @variable(M2, [1:n, 1:m], lowerbound=0)
+        x[2] = @variable(M2, [1:n], lowerbound=0)
+        v[2] = @variable(M2, [1:n], lowerbound=0)
+        @constraints M2 begin
+            x[2] .== x[1] + v[2]
+            demand[j=1:m], sum(y[1][:,j]) == D2[j,s]
+            ylim[i=1:n], sum(y[1][i,:]) <= x[1][i]
         end
-        @objective(M3, Min, dot(C, y[2] * T))
-      end
+        @objective(M2, Min, dot(ic, v[2]) + dot(C, y[1] * T))
+        for S in 1:numScen
+            M3 = StructuredModel(parent=M2, prob=p2[S], id=S)
+            y[2] = @variable(M3, [1:n, 1:m], lowerbound=0)
+            @constraints M3 begin
+                demand[j=1:m], sum(y[2][:,j]) == D2[j,S]
+                ylim[i=1:n], sum(y[2][i,:]) <= x[2][i]
+            end
+            @objective(M3, Min, dot(C, y[2] * T))
+        end
     end
 
     fulltest(M, 3, 406712.49, [2986,0,7329,854], 402593.71614, 17319.095064)
