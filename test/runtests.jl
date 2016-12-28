@@ -11,4 +11,5 @@ solver = Clp.ClpSolver()
 #solver = Gurobi.GurobiSolver(OutputFlag=0)
 #using GLPKMathProgInterface
 #solver = GLPKSolverLP()
-include("prob5.2.jl")
+include("optimize_stock.jl")
+#include("prob5.2.jl")

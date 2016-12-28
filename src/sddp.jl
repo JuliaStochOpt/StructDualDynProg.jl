@@ -117,12 +117,13 @@ type SDDPPath
     z::Vector{Float64}
     proba::Vector{Float64}
     mccount::Vector{Int}
-    feasible::Bool
+    childs_feasible::Bool
+    childs_bounded::Bool
     childsols::Vector{Nullable{NLDSSolution}}
 
     function SDDPPath(sol, z, proba, mccount, nchilds)
         childsols = Nullable{NLDSSolution}[nothing for i in 1:nchilds]
-        new(sol, z, proba, mccount, true, childsols)
+        new(sol, z, proba, mccount, true, true, childsols)
     end
 end
 
@@ -138,7 +139,7 @@ function canmerge(p::SDDPPath, q::SDDPPath, ztol)
 end
 
 function merge!(p::SDDPPath, q::SDDPPath)
-    @assert p.feasible == q.feasible
+    @assert p.childs_feasible == q.childs_feasible
     append!(p.z, q.z)
     append!(p.proba, q.proba)
     append!(p.mccount, q.mccount)
@@ -231,17 +232,19 @@ function iteration{S}(root::SDDPNode{S}, totalmccount::Int, num_stages, verbose,
             end
         end
 
-        # Solve Jobs (paralellism possible here)
+        # Solve Jobs (parallelism possible here)
         for (node, jobs) in jobsd
             for job in jobs
-                if job.parent.feasible
+                if job.parent.childs_feasible
                     stats.setxtime += @mytime setchildx(job.parentnode, job.i, job.parent.sol.x)
                     stats.nsetx += 1
                     stats.solvertime += @mytime job.sol = loadAndSolve(node)
                     job.parent.childsols[job.i] = job.sol
                     stats.nsolved += 1
                     if get(job.sol).status == :Infeasible
-                        job.parent.feasible = false
+                        job.parent.childs_feasible = false
+                    elseif get(job.sol).status == :Unbounded
+                        job.parent.childs_bounded = false
                     end
                 end
             end
@@ -256,24 +259,24 @@ function iteration{S}(root::SDDPNode{S}, totalmccount::Int, num_stages, verbose,
         # e = π h + ρ e + σ d
         for (parent, paths) in pathsd
             for path in paths
-                if parent.nlds.cutmode == :AveragedCut && path.feasible
+                if parent.nlds.cutmode == :AveragedCut && path.childs_feasible && path.childs_bounded
                     avga = zeros(parent.nlds.nx)
                     avgβ = 0
                 end
                 for i in 1:length(parent.children)
                     if isnull(path.childsols[i])
-                        @assert !path.feasible || parent.nlds.cutmode != :AveragedCut
-                    else
+                        @assert !path.childs_feasible || parent.nlds.cutmode != :AveragedCut
+                    elseif get(path.childsols[i]).status != :Unbounded
                         childsol = get(path.childsols[i])
                         a = childsol.πT
                         β = childsol.πh + childsol.σd
-                        if !path.feasible
+                        if !path.childs_feasible
                             if childsol.status == :Infeasible
                                 infeasibility_detected = true
                                 stats.nfcuts += 1
                                 stats.fcutstime += @mytime pushfeasibilitycut!(parent.children[i], a, β, parent)
                             end
-                        else
+                        elseif !(parent.nlds.cutmode == :AveragedCut && (!path.childs_bounded || !path.childs_feasible))
                             @assert childsol.status == :Optimal
                             if isnull(parent.childT)
                                 aT = a
@@ -281,11 +284,12 @@ function iteration{S}(root::SDDPNode{S}, totalmccount::Int, num_stages, verbose,
                                 aT = get(parent.childT)[i]' * a
                             end
                             β += childsol.ρe
-                            if mylt(β - dot(aT, path.sol.x), .0, ztol)
-                                error("The objectives are supposed to be nonnegative")
-                            end
+                            # This assumption is dropped now
+                           #if mylt(β - dot(aT, path.sol.x), .0, ztol)
+                           #    error("The objectives are supposed to be nonnegative")
+                           #end
                             if parent.nlds.cutmode == :MultiCut
-                                if mylt(path.sol.θ[i], β - dot(aT, path.sol.x), ztol)
+                                if path.sol.status == :Unbounded || mylt(path.sol.θ[i], β - dot(aT, path.sol.x), ztol)
                                     stats.ocutstime += @mytime pushoptimalitycutforparent!(parent.children[i], a, β, parent)
                                     stats.nocuts += 1
                                 end
@@ -296,8 +300,8 @@ function iteration{S}(root::SDDPNode{S}, totalmccount::Int, num_stages, verbose,
                         end
                     end
                 end
-                if parent.nlds.cutmode == :AveragedCut && path.feasible
-                    if mylt(path.sol.θ[1], avgβ - dot(avga, path.sol.x), ztol)
+                if parent.nlds.cutmode == :AveragedCut && path.childs_feasible && path.childs_bounded
+                    if path.sol.status == :Unbounded || mylt(path.sol.θ[1], avgβ - dot(avga, path.sol.x), ztol)
                         stats.ocutstime += @mytime pushoptimalitycut!(parent, avga, avgβ, parent)
                         stats.nocuts += 1
                     end
@@ -323,7 +327,7 @@ function iteration{S}(root::SDDPNode{S}, totalmccount::Int, num_stages, verbose,
         empty!(pathsd)
         for (node, jobs) in jobsd
             K = [find(job.mccount .!= 0) for job in jobs]
-            keep = find(Bool[jobs[i].parent.feasible && !isempty(K[i]) for i in 1:length(jobs)])
+            keep = find(Bool[jobs[i].parent.childs_feasible && !isempty(K[i]) for i in 1:length(jobs)])
             if !isempty(keep)
                 paths = SDDPPath[SDDPPath(get(jobs[i].sol), jobs[i].parent.z[K[i]]+get(jobs[i].sol).objvalx, jobs[i].proba[K[i]], jobs[i].mccount[K[i]], length(node.children)) for i in keep]
                 pathsd[node] = paths

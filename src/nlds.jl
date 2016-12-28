@@ -3,7 +3,7 @@ export NLDS, updatemaxncuts!
 # π, σ and ρ do not really make sense alone so only
 # their product will T, h, d, e is stored
 type NLDSSolution
-    status
+    status::Symbol
     objval
     objvalx
     x
@@ -66,7 +66,8 @@ end
 #     Ex + θ   >= e -> :AveragedCut
 #     Ex + θ_i >= e -> :MultiCut
 #     x in C
-#     (θ >= 0)
+
+# Note that we do not have θ >= 0
 
 # Dual
 # max π (h - Tx_a) + σ d + ρ e
@@ -344,7 +345,7 @@ function load!{S}(nlds::NLDS{S})
             bigC = nlds.C
             bigc = nlds.c
         else
-            bigC = [nlds.C; (:NonNeg, collect(nlds.nx+(1:nlds.nθ)))]
+            bigC = [nlds.C; (:Free, collect(nlds.nx+(1:nlds.nθ)))]
             bigc = nlds.c
             if nlds.proba === nothing
                 @assert nlds.nθ == 1
@@ -370,19 +371,18 @@ function solve!(nlds::NLDS)
             error("The solver reported an error")
         elseif status == :UserLimit
             error("The solver reached iteration limit or timed out")
-        elseif status == :Unbounded
-            error("The problem is unbounded for some realization of the uncertainty")
+        else
+            if status == :Unbounded
+                objval = -Inf
+                πT = πh = σd = ρe = nothing
             else
-            objval = MathProgBase.getobjval(nlds.model)
-            primal = MathProgBase.getsolution(nlds.model)
-            dual   = mygetdual(nlds.model)
-            if length(dual) == 0
-                error("Dual vector returned by the solver is empty while the status is $status")
+                objval = MathProgBase.getobjval(nlds.model)
+                dual   = mygetdual(nlds.model)
+                if length(dual) == 0
+                    error("Dual vector returned by the solver is empty while the status is $status")
                 end
                 @assert length(dual) == nlds.nπ + ncuts(nlds.man)
 
-                x = primal[1:end-nlds.nθ]
-                θ = primal[end-nlds.nθ+1:end]
                 π = dual[nlds.πs]
                 σρ = dual[nlds.nπ+1:end]
                 σ = σρ[nlds.man.σs]
@@ -390,14 +390,24 @@ function solve!(nlds::NLDS)
 
                 cuts_d = get(nlds.man.cuts_de)[nlds.man.σs]
                 cuts_e = get(nlds.man.cuts_de)[nlds.man.ρs]
-                nlds.prevsol = NLDSSolution(status, objval, dot(nlds.c, x), x, θ, vec(π' * nlds.T), vecdot(π, nlds.h), vecdot(σ, cuts_d), vecdot(ρ, cuts_e))
+
+                πT = vec(π' * nlds.T)
+                πh = vecdot(π, nlds.h)
+                σd = vecdot(σ, cuts_d)
+                ρe = vecdot(ρ, cuts_e)
 
                 updatestats!(nlds.man, σρ)
             end
+            primal = MathProgBase.getsolution(nlds.model)
+            x = primal[1:end-nlds.nθ]
+            θ = primal[end-nlds.nθ+1:end]
+
+            nlds.prevsol = NLDSSolution(status, objval, dot(nlds.c, x), x, θ, πT, πh, σd, ρe)
         end
     end
+end
 
-    function getsolution(nlds::NLDS)
-        solve!(nlds)
-        get(nlds.prevsol)
-    end
+function getsolution(nlds::NLDS)
+    solve!(nlds)
+    get(nlds.prevsol)
+end

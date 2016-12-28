@@ -19,6 +19,7 @@ function conicconstraintdata(m::Model)
         coeff = m.obj.aff.coeffs[i]
         obj_coeff[var.col] = coeff
     end
+    m.objSense == :Max && scale!(obj_coeff, -1.0)
 
     var_cones = Any[cone for cone in m.varCones]
     con_cones = Any[]
