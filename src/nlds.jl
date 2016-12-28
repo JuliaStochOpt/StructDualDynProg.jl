@@ -251,9 +251,6 @@ function notifynewcuts{S}(nlds::NLDS{S}, A::AbstractMatrix{S}, b::AbstractVector
         mine = [authors[i] === nlds for i in 1:length(authors)]
         addstatus = addcuts!(nlds.man, B, b, isfc, mine)
         for j in 1:nnewcuts
-            if addstatus[j] == :Ignored
-                @show gettrust(nlds.man)
-            end
             if nlds.loaded
                 if addstatus[j] != :Pushed || nlds.newcut == :InvalidateSolver
                     nlds.loaded = false
