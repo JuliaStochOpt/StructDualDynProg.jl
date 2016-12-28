@@ -1,5 +1,5 @@
 @testset "2 stages" begin
-    include("data.jl")
+    include("prob5.2_data.jl")
 
     numScen = 2
     M = StructuredModel(num_scenarios=numScen)

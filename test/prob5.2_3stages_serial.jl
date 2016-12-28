@@ -1,5 +1,5 @@
 @testset "3 stages serial" begin
-    include("data.jl")
+    include("prob5.2_data.jl")
 
     numScen = 2
 
