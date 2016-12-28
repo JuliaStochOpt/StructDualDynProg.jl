@@ -5,8 +5,8 @@ os:
   - linux
   - osx
 julia:
-# - release
-  - nightly
+  - release
+# - nightly
 notifications:
   email: false
 before_script:
