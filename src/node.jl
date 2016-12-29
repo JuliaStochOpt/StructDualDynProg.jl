@@ -82,11 +82,17 @@ function appendchildren!(node::SDDPNode, children, proba, childT=nothing)
     @assert length(node.nlds.childFC) == length(node.children)
 end
 
-function setchildx(node::SDDPNode, i, x)
+function setchildx(node::SDDPNode, i::Int, sol::NLDSSolution)
     if !isnull(node.childT)
-        x = get(node.childT)[i] * x
+        x = get(node.childT)[i] * sol.x
+        if sol.xuray !== nothing
+            xuray = get(node.childT)[i] * sol.xuray
+        end
+    else
+        x = sol.x
+        xuray = sol.xuray
     end
-    setparentx(node.children[i].nlds, x)
+    setparentx(node.children[i].nlds, x, xuray, sol.objvalxuray)
 end
 
 # If the graph is not a tree, this will loop if I don't use a num_stages limit
@@ -108,11 +114,7 @@ function pushfeasibilitycut!(node, coef, rhs, author)
     # Hence coef might have very large coefficients and alter
     # the numerial accuracy of the master's solver.
     # We scale it to avoid this issue
-    scaling = abs(rhs)
-    if scaling == 0
-        scaling = maximum(abs(coef))
-    end
-
+    scaling = max(abs(rhs), maximum(abs(coef)))
     addcut(node.fcuts, coef/scaling, sign(rhs), author.nlds)
 end
 function pushoptimalitycut!(node, coef, rhs, author)

@@ -10,7 +10,7 @@ function fulltest(m, num_stages, objval, solval, ws, wsσ)
                         @test abs(μ - ws) / ws < (mccount == -1 ? 1e-6 : .03)
                         @test abs(σ - wsσ) / wsσ <= (mccount == -1 ? 1e-6 : 1.)
 
-                        sol = SDDP(root, num_stages, mccount=mccount, verbose=0)
+                        sol = SDDP(root, num_stages, mccount=mccount, verbose=0, stopcrit=(x,y)->x>100)
                         v11value = sol.sol[1:4]
                         @test sol.status == :Optimal
                         @test abs(sol.objval - objval) / objval < (mccount == -1 ? 1e-6 : .03)
@@ -30,6 +30,6 @@ end
 
 @testset "Problem 5.2" begin
     include("prob5.2_2stages.jl")
-    include("prob5.2_3stages.jl")
-    include("prob5.2_3stages_serial.jl")
+    #include("prob5.2_3stages.jl")
+    #include("prob5.2_3stages_serial.jl")
 end

@@ -38,11 +38,11 @@ function mysetconstrB!(m::MathProgBase.AbstractLinearQuadraticModel, bs, Ks)
     MathProgBase.setconstrUB!(m, ub)
 end
 
-function myaddconstr!(m::MathProgBase.AbstractConicModel, idx, a, β, cone)
+function _addconstr!(m::MathProgBase.AbstractConicModel, idx, a, β, cone)
     error("Not supported")
 end
 
-function myaddconstr!(m::MathProgBase.AbstractLinearQuadraticModel, idx, a, β, cone)
+function _addconstr!(m::MathProgBase.AbstractLinearQuadraticModel, idx, a, β, cone)
     lb = -Inf
     ub = Inf
     if cone == :Zero || cone == :NonPos
@@ -55,7 +55,7 @@ function myaddconstr!(m::MathProgBase.AbstractLinearQuadraticModel, idx, a, β, 
 end
 
 function myload!(model::MathProgBase.AbstractConicModel, c, A, bs, Ks, C)
-    MathProgBase.loadproblem!(nlds.model, c, A, reduce(vcat, Float64[], bs), reduce(vcat, [], Ks), C)
+    MathProgBase.loadproblem!(model, c, A, reduce(vcat, Float64[], bs), reduce(vcat, [], Ks), C)
 end
 
 function myload!(model::MathProgBase.AbstractLinearQuadraticModel, c, A, bs, Ks, C)
@@ -81,13 +81,34 @@ function myload!(model::MathProgBase.AbstractLinearQuadraticModel, c, A, bs, Ks,
     MathProgBase.loadproblem!(model, A, l, u, full(c), lb, ub, :Min)
 end
 
-function mygetdual(model::MathProgBase.AbstractConicModel)
+function _getdual(model::MathProgBase.AbstractConicModel)
     -MathProgBase.getdual(model)
 end
-function mygetdual(model::MathProgBase.AbstractLinearQuadraticModel)
+function _getdual(model::MathProgBase.AbstractLinearQuadraticModel)
     if MathProgBase.status(model) == :Infeasible
         MathProgBase.getinfeasibilityray(model)
     else
         MathProgBase.getconstrduals(model)
+    end
+end
+function _getsolution(model)
+    MathProgBase.getsolution(model)
+end
+function _getunboundedray(model::MathProgBase.AbstractConicModel)
+    error("Unbounded Ray retrieval is unsupported for conic model")
+end
+function _getunboundedray(model::MathProgBase.AbstractLinearQuadraticModel)
+    MathProgBase.getunboundedray(model)
+end
+function _getobjval(model)
+    # We never know, a solver could return something else
+    # when it is :Unbounded or :Infeasible, thinking that
+    # objval should only be called when the status is :Optimal
+    if MathProgBase.status(model) == :Unbounded
+        -Inf
+    elseif MathProgBase.status(model) == :Infeasible
+        Inf
+    else
+        MathProgBase.getobjval(model)
     end
 end

@@ -13,13 +13,6 @@ function myveccat{S}(b::AbstractSparseVector{S}, β::S, force=false)
 end
 
 # see https://github.com/JuliaLang/julia/issues/16661
-function myhcat{S}(A::AbstractMatrix{S}, a::AbstractMatrix{S})
-    [A a]
-end
-function myhcat{S}(A::AbstractSparseMatrix{S}, a::AbstractMatrix{S})
-    [A sparse(a)]
-end
-
 function mymatcat{S}(A::AbstractMatrix{S}, a::AbstractVector{S})
     [A; a']
 end

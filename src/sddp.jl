@@ -236,7 +236,7 @@ function iteration{S}(root::SDDPNode{S}, totalmccount::Int, num_stages, verbose,
         for (node, jobs) in jobsd
             for job in jobs
                 if job.parent.childs_feasible
-                    stats.setxtime += @mytime setchildx(job.parentnode, job.i, job.parent.sol.x)
+                    stats.setxtime += @mytime setchildx(job.parentnode, job.i, job.parent.sol)
                     stats.nsetx += 1
                     stats.solvertime += @mytime job.sol = loadAndSolve(node)
                     job.parent.childsols[job.i] = job.sol
