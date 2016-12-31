@@ -9,6 +9,10 @@ julia:
 # - nightly
 notifications:
   email: false
+# Add GMP for GLPK
+addons:
+  apt_packages:
+  - libgmp-dev
 before_script:
   - julia -e 'Pkg.clone("https://github.com/joehuchette/StructJuMP.jl")'
 # uncomment the following lines to override the default test script
