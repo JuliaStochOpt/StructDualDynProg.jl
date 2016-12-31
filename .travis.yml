@@ -11,7 +11,6 @@ notifications:
   email: false
 before_script:
   - julia -e 'Pkg.clone("https://github.com/joehuchette/StructJuMP.jl")'
-  - julia -e 'Pkg.add("Clp")'
 # uncomment the following lines to override the default test script
 #script:
 #  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
