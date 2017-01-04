@@ -6,6 +6,9 @@ end
 
 function getLPconstrbounds(bs, Ks)
     sumlen = sum(map(length, bs))
+    for i in 1:length(bs)
+        @assert IntSet(1:length(bs[i])) == reduce(∪, IntSet(), map(c -> IntSet(c[2]), Ks[i]))
+    end
     lb = Vector{Float64}(sumlen)
     ub = Vector{Float64}(sumlen)
     offset = 0
@@ -62,6 +65,7 @@ function myload!(model::MathProgBase.AbstractLinearQuadraticModel, c, A, bs, Ks,
     lb, ub = getLPconstrbounds(bs, Ks)
     l  = Vector{Float64}(size(A, 2))
     u  = Vector{Float64}(size(A, 2))
+    @assert IntSet(1:size(A, 2)) == reduce(∪, IntSet(), map(c -> IntSet(c[2]), C))
     for (cone, idx) in C
         if !(cone  in [:Free, :NonPos, :NonNeg])
             error("This cone is not supported")

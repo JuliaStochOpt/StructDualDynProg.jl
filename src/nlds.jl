@@ -403,12 +403,10 @@ function load!{S}(nlds::NLDS{S})
         end
         bigA = [bigA; cuts_DE]
 
-        if nlds.nθ == 0
-            bigC = nlds.C
-            bigc = nlds.c
-        else
-            bigC = [nlds.C; (:Free, collect(nlds.nx+(1:nlds.nθ)))]
-            bigc = nlds.c
+        bigC = nlds.C
+        bigc = nlds.c
+        if nlds.nθ > 0
+            bigC = [bigC; (:Free, collect(nlds.nx+(1:nlds.nθ)))]
             if nlds.proba === nothing
                 @assert nlds.nθ == 1
                 bigc = [bigc; 1]
@@ -417,7 +415,7 @@ function load!{S}(nlds::NLDS{S})
             end
         end
         if !isnull(nlds.xuray_a)
-            bigC = [nlds.C; (:NonNeg, [nlds.nx+nlds.nθ+1])]
+            bigC = [bigC; (:NonNeg, [nlds.nx+nlds.nθ+1])]
             bigc = [bigc; get(nlds.objvalxuray_a)]
         end
 
