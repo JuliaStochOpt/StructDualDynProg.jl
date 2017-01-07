@@ -257,6 +257,11 @@ function getSDDPNode(allnodes, m::Model, t, num_stages, solver, parent, cutmanag
     get(nodes[t])
 end
 
+"""
+    model2lattice(m, num_stages, solver, cutmanager, cutmode, newcut)
+
+Transforms a [StructJuMP](https://github.com/StructJuMP/StructJuMP.jl) model `m` into a lattice that can be used by the SDDP algorithm.
+"""
 function model2lattice(m::Model, num_stages, solver, cutmanager::AbstractCutManager, cutmode::Symbol=:MultiCut, newcut::Symbol=:AddImmediately)
     nodes = Vector{Vector{SDDPNode}}(num_stages)
     for i in 1:num_stages

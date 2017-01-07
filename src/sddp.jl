@@ -347,6 +347,11 @@ function iteration{S}(root::SDDPNode{S}, totalmccount::Int, num_stages, verbose,
     rootsol, stats, z_UB, σ
 end
 
+"""
+    SDDP(root, num_stages; mccount, verbose, pereiracoef, stopcrit, pathsel, ztol)
+
+Runs the SDDP algorithms on the lattice given by `root`.
+"""
 function SDDP(root::SDDPNode, num_stages; mccount::Int=25, verbose=0, pereiracoef=2, stopcrit::Function=(x,y)->false, pathsel::Symbol=:Proba, ztol=1e-6)
     if !(pathsel in [:Proba, :nPaths])
         error("Invalid pathsel")
