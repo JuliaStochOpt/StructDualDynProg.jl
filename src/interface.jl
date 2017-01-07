@@ -258,7 +258,7 @@ function getSDDPNode(allnodes, m::Model, t, num_stages, solver, parent, cutmanag
 end
 
 """
-    model2lattice(m, num_stages, solver, cutmanager, cutmode, newcut)
+$(SIGNATURES)
 
 Transforms a [StructJuMP](https://github.com/StructJuMP/StructJuMP.jl) model `m` into a lattice that can be used by the SDDP algorithm.
 """

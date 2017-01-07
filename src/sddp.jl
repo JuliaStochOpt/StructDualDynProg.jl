@@ -348,7 +348,7 @@ function iteration{S}(root::SDDPNode{S}, totalmccount::Int, num_stages, verbose,
 end
 
 """
-    SDDP(root, num_stages; mccount, verbose, pereiracoef, stopcrit, pathsel, ztol)
+$(SIGNATURES)
 
 Runs the SDDP algorithms on the lattice given by `root`.
 """
