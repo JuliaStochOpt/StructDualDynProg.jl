@@ -16,12 +16,14 @@ type AvgCutManager{S} <: AbstractCutManager{S}
     nused::Vector{Int}
     mycut::Vector{Bool}
     trust::Nullable{Vector{Float64}}
+    ids::Vector{Int} # small id means old
+    id::Int # current id
 
     newcuttrust::Float64
     mycutbonus::Float64
 
     function AvgCutManager(maxncuts::Int, newcuttrust=3/4, mycutbonus=1/4)
-        new(nothing, nothing, 0, 0, Int[], Int[], maxncuts, Int[], Int[], Bool[], nothing, newcuttrust, mycutbonus)
+        new(nothing, nothing, 0, 0, Int[], Int[], maxncuts, Int[], Int[], Bool[], nothing, Int[], 0, newcuttrust, mycutbonus)
     end
 end
 
@@ -32,10 +34,12 @@ function clone{S}(man::AvgCutManager{S})
 end
 
 function init!(man::AvgCutManager, mycut_d, mycut_e)
-    man.nwith = zeros(Int, man.nσ+man.nρ)
-    man.nused = zeros(Int, man.nσ+man.nρ)
+    n = man.nσ+man.nρ
+    man.nwith = zeros(Int, n)
+    man.nused = zeros(Int, n)
     man.mycut = [mycut_d; mycut_e]
     man.trust = nothing
+    man.ids = newids(man, n)
 end
 
 # COMPARISON
@@ -77,13 +81,16 @@ function replacecuts!(man::AvgCutManager, js::AbstractVector{Int}, mycut::Vector
     man.nused[js] = 0
     man.mycut[js] = mycut
     gettrust(man)[js] = initialtrusts(man, mycut)
+    man.ids[js] = newids(man, length(js))
 end
 
 function pushcuts!(man::AvgCutManager, mycut::Vector{Bool})
-    append!(man.nwith, zeros(length(mycut)))
-    append!(man.nused, zeros(length(mycut)))
+    n = length(mycut)
+    append!(man.nwith, zeros(n))
+    append!(man.nused, zeros(n))
     append!(man.mycut, mycut)
     if !isnull(man.trust)
         append!(get(man.trust), initialtrusts(man, mycut))
     end
+    append!(man.ids, newids(man, n))
 end

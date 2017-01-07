@@ -1,4 +1,4 @@
-@testset "2 stages" begin
+@testset "3 stages" begin
     include("prob5.2_data.jl")
 
     numScen = 2

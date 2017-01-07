@@ -13,13 +13,15 @@ type DecayCutManager{S} <: AbstractCutManager{S}
     maxncuts::Int
 
     trust::Vector{Float64}
+    ids::Vector{Int}
+    id::Int
 
     λ::Float64
     newcuttrust::Float64
     mycutbonus::Float64
 
     function DecayCutManager(maxncuts::Int, λ=0.9, newcuttrust=0.8, mycutbonus=1)#newcuttrust=(1/(1/0.9-1))/2, mycutbonus=(1/(1/0.9-1))/2)
-        new(nothing, nothing, 0, 0, Int[], Int[], maxncuts, Float64[], λ, newcuttrust, mycutbonus)
+        new(nothing, nothing, 0, 0, Int[], Int[], maxncuts, Float64[], Int[], 0, λ, newcuttrust, mycutbonus)
     end
 end
 
@@ -47,7 +49,7 @@ end
 
 function isbetter(man::DecayCutManager, i::Int, mycut::Bool)
     if mycut
-        # If the cut has been generated, that means it is usefull
+        # If the cut has been generated, that means it is useful
         false
     else
         # The new cut has initial trust initialtrust(man, false)
@@ -55,6 +57,6 @@ function isbetter(man::DecayCutManager, i::Int, mycut::Bool)
         # as we advantage the new cut if mycut == true,
         # we advantage this cut by taking initialtrust(man, true)
         # with true instead of false
-        man.trust[i] > initialtrust(man, true)
+        man.trust[i] > initialtrust(man, mycut)
     end
 end

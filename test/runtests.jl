@@ -3,13 +3,12 @@ using StructJuMP
 using StochasticDualDynamicProgramming
 using Base.Test
 
-#using ECOS
-#solver = ECOS.ECOSSolver(verbose=false)
-#using Clp
-#solver = Clp.ClpSolver()
-#using Gurobi
-#solver = Gurobi.GurobiSolver(OutputFlag=0)
-using GLPKMathProgInterface
-solver = GLPKSolverLP()
+# solver independent tests
+include("cutmanager.jl")
+
+# load a solver
+include("solvers.jl")
+
+# solver dependent tests
 include("optimize_stock.jl")
 include("prob5.2.jl")

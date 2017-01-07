@@ -1,4 +1,4 @@
-export AbstractCutManager
+export AbstractCutManager, addcuts!, start!, isstarted
 
 abstract AbstractCutManager{S}
 
@@ -17,9 +17,14 @@ end
 function init!(man::AbstractCutManager, mycut_d, mycut_e)
     mycut = [mycut_d; mycut_e]
     man.trust = Float64[initialtrust(man, mc) for mc in mycut]
+    man.ids = newids(man, length(mycut))
 end
 
-function start!(man::AbstractCutManager, cuts_D, cuts_E, cuts_d, cuts_e, mycut_d, mycut_e)
+function start!{S}(man::AbstractCutManager{S}, ncols::Integer)
+    start!(man, Matrix{S}(0, ncols), Matrix{S}(0, ncols), S[], S[], Bool[], Bool[])
+end
+
+function start!{S}(man::AbstractCutManager{S}, cuts_D::AbstractMatrix{S}, cuts_E::AbstractMatrix{S}, cuts_d::AbstractVector{S}, cuts_e::AbstractVector{S}, mycut_d::AbstractVector{Bool}, mycut_e::AbstractVector{Bool})
     man.nσ = length(cuts_d)
     man.nρ = length(cuts_e)
     man.cuts_DE = [cuts_D; cuts_E]
@@ -37,15 +42,33 @@ end
 # COMPARISON
 gettrust(man::AbstractCutManager) = man.trust
 
+function _indmin(a::Vector, tiebreaker::Vector)
+    imin = 1
+    for i in 2:length(a)
+        if a[i] < a[imin] || (a[i] == a[imin] && tiebreaker[i] < tiebreaker[imin])
+            imin = i
+        end
+    end
+    imin
+end
+
 function choosecutstoremove(man::AbstractCutManager, num)
     # MergeSort is stable so in case of equality, the oldest cut loose
     # However PartialQuickSort is a lot faster
 
     trust = gettrust(man)
     if num == 1
-        [indmin(trust)]                   # indmin selects the oldest cut in case of tie -> good :)
+        [_indmin(trust, man.ids)]
     else
-        sortperm(trust, alg=PartialQuickSort(num))[1:num] # PartialQuickSort is unstable ->  bad :(
+        # /!\ PartialQuickSort is unstable, here it does not matter
+        function _lt(i, j)
+            if trust[i] == trust[j]
+                man.ids[i] < man.ids[j]
+            else
+                trust[i] < trust[j]
+            end
+        end
+        sort(1:length(trust), alg=PartialQuickSort(num), lt=_lt)[1:num]
     end
 end
 
@@ -196,8 +219,14 @@ end
 
 function replacecuts!(man::AbstractCutManager, js::AbstractVector{Int}, mycut::Vector{Bool})
     man.trust[js] = initialtrusts(man, mycut)
+    man.ids[js] = newids(man, length(js))
 end
 
 function pushcuts!(man::AbstractCutManager, mycut::Vector{Bool})
     append!(man.trust, initialtrusts(man, mycut))
+    append!(man.ids, newids(man, length(mycut)))
+end
+
+function newids(man::AbstractCutManager, n::Int)
+    (man.id+1):(man.id += n)
 end
