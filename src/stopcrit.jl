@@ -4,7 +4,7 @@ export stop, AbstractStoppingCriterion, OrStoppingCriterion, AndStoppingCriterio
 abstract AbstractStoppingCriterion
 
 """
-stop(stopcrit, iter, nfcuts, nocuts, K, z_LB, z_UB, σ)
+`stop(stopcrit, iter, nfcuts, nocuts, K, z_LB, z_UB, σ)`
 
 Returns whether the SDDP algorithm should stop.
 If `iter` is 0, no iteration has already been done, otherwise, the `iter`th iteration has just finished.
