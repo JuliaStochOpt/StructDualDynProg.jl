@@ -120,14 +120,14 @@
 <h2 id="functions">Functions</h2>
 <p><a id='StochasticDualDynamicProgramming.model2lattice-Tuple{JuMP.Model,Any,Any,StochasticDualDynamicProgramming.AbstractCutManager,Symbol,Symbol}' href='#StochasticDualDynamicProgramming.model2lattice-Tuple{JuMP.Model,Any,Any,StochasticDualDynamicProgramming.AbstractCutManager,Symbol,Symbol}'>#</a>
 <strong><code>StochasticDualDynamicProgramming.model2lattice</code></strong> &mdash; <em>Method</em>.</p>
-<pre><code class="julia">model2lattice(m, num_stages, solver, cutmanager, cutmode)
+<pre><code class="julia">model2lattice(m, num_stages, solver, cutmanager)
+model2lattice(m, num_stages, solver, cutmanager, cutmode)
 model2lattice(m, num_stages, solver, cutmanager, cutmode, newcut)
-model2lattice(m, num_stages, solver, cutmanager)
 
 </code></pre>
 
 <p>Transforms a <a href="https://github.com/StructJuMP/StructJuMP.jl">StructJuMP</a> model <code>m</code> into a lattice that can be used by the SDDP algorithm.</p>
-<p><a target='_blank' href='https://github.com/blegat/StochasticDualDynamicProgramming.jl/tree/c5eb38e02343592e986f4a23cb4ff6f5c8452275/src/interface.jl#L260' class='documenter-source'>source</a><br></p>
+<p><a target='_blank' href='https://github.com/blegat/StochasticDualDynamicProgramming.jl/tree/069c61e5b5bb67ac2be25534c212477e09dea2a1/src/interface.jl#L260' class='documenter-source'>source</a><br></p>
 <p><a id='StochasticDualDynamicProgramming.SDDP-Tuple{StochasticDualDynamicProgramming.SDDPNode,Any}' href='#StochasticDualDynamicProgramming.SDDP-Tuple{StochasticDualDynamicProgramming.SDDPNode,Any}'>#</a>
 <strong><code>StochasticDualDynamicProgramming.SDDP</code></strong> &mdash; <em>Method</em>.</p>
 <pre><code class="julia">SDDP(root, num_stages; K, verbose, pathsel, stopcrit, ztol)
@@ -135,7 +135,7 @@ model2lattice(m, num_stages, solver, cutmanager)
 </code></pre>
 
 <p>Runs the SDDP algorithms on the lattice given by <code>root</code>. The algorithm will do iterations until <code>stopcrit</code> decides to stop or when the root node is infeasible. In each iterations, <code>K</code> paths will be explored up to <code>num_stages</code> stages. The paths will be selected according to <code>pathsel</code> and equivalent paths might be merged if their difference is smaller than <code>ztol</code>. The parameter <code>ztol</code> is also used to check whether a new cut is useful.</p>
-<p><a target='_blank' href='https://github.com/blegat/StochasticDualDynamicProgramming.jl/tree/c5eb38e02343592e986f4a23cb4ff6f5c8452275/src/sddp.jl#L350' class='documenter-source'>source</a><br></p>
+<p><a target='_blank' href='https://github.com/blegat/StochasticDualDynamicProgramming.jl/tree/069c61e5b5bb67ac2be25534c212477e09dea2a1/src/sddp.jl#L350' class='documenter-source'>source</a><br></p>
 <p><a id='Index-1'></a></p>
 <h2 id="index">Index</h2>
 <ul>
@@ -148,6 +148,7 @@ model2lattice(m, num_stages, solver, cutmanager)
 <li><a href="stopcrit/#StochasticDualDynamicProgramming.Pereira"><code>StochasticDualDynamicProgramming.Pereira</code></a></li>
 <li><a href=".#StochasticDualDynamicProgramming.SDDP-Tuple{StochasticDualDynamicProgramming.SDDPNode,Any}"><code>StochasticDualDynamicProgramming.SDDP</code></a></li>
 <li><a href=".#StochasticDualDynamicProgramming.model2lattice-Tuple{JuMP.Model,Any,Any,StochasticDualDynamicProgramming.AbstractCutManager,Symbol,Symbol}"><code>StochasticDualDynamicProgramming.model2lattice</code></a></li>
+<li><a href="stopcrit/#StochasticDualDynamicProgramming.stop-Tuple{StochasticDualDynamicProgramming.AbstractStoppingCriterion,Any,Any,Any,Any,Any,Any,Any}"><code>StochasticDualDynamicProgramming.stop</code></a></li>
 </ul>
               
             </div>
@@ -199,5 +200,5 @@ model2lattice(m, num_stages, solver, cutmanager)
 
 <!--
 MkDocs version : 0.16.1
-Build Date UTC : 2017-01-08 14:47:48
+Build Date UTC : 2017-01-08 15:01:04
 -->

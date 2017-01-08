@@ -112,13 +112,46 @@
               
                 <p><a id='Stopping-Criterion-1'></a></p>
 <h2 id="stopping-criterion">Stopping Criterion</h2>
-<pre><code>stop(stopcrit::AbstractStoppingCriterion, iter, nfcuts, nocuts, K, z_LB, z_UB, σ)
-OrStoppingCriterion
-AndStoppingCriterion
-IterLimit
-CutLimit
-Pereira
+<p><a id='StochasticDualDynamicProgramming.stop-Tuple{StochasticDualDynamicProgramming.AbstractStoppingCriterion,Any,Any,Any,Any,Any,Any,Any}' href='#StochasticDualDynamicProgramming.stop-Tuple{StochasticDualDynamicProgramming.AbstractStoppingCriterion,Any,Any,Any,Any,Any,Any,Any}'>#</a>
+<strong><code>StochasticDualDynamicProgramming.stop</code></strong> &mdash; <em>Method</em>.</p>
+<p>stop(stopcrit, iter, nfcuts, nocuts, K, z_LB, z_UB, σ)</p>
+<p>Returns whether the SDDP algorithm should stop. If <code>iter</code> is 0, no iteration has already been done, otherwise, the <code>iter</code>th iteration has just finished. This iteration used <code>K</code> paths and generated <code>nfcuts</code> (resp. <code>nocuts</code>) new feasibility (resp. optimality) cuts. The lower bound is now <code>z_LB</code> and the upper bound has mean <code>z_UB</code> and variance <code>σ</code>.</p>
+<p><a target='_blank' href='https://github.com/blegat/StochasticDualDynamicProgramming.jl/tree/069c61e5b5bb67ac2be25534c212477e09dea2a1/src/stopcrit.jl#L6-L13' class='documenter-source'>source</a><br></p>
+<p><a id='StochasticDualDynamicProgramming.OrStoppingCriterion' href='#StochasticDualDynamicProgramming.OrStoppingCriterion'>#</a>
+<strong><code>StochasticDualDynamicProgramming.OrStoppingCriterion</code></strong> &mdash; <em>Type</em>.</p>
+<pre><code class="julia">type OrStoppingCriterion &lt;: StochasticDualDynamicProgramming.AbstractStoppingCriterion
 </code></pre>
+
+<p>Stops if <code>lhs</code> <em>or</em> <code>rhs</code> want to stop.</p>
+<p><a target='_blank' href='https://github.com/blegat/StochasticDualDynamicProgramming.jl/tree/069c61e5b5bb67ac2be25534c212477e09dea2a1/src/stopcrit.jl#L18' class='documenter-source'>source</a><br></p>
+<p><a id='StochasticDualDynamicProgramming.AndStoppingCriterion' href='#StochasticDualDynamicProgramming.AndStoppingCriterion'>#</a>
+<strong><code>StochasticDualDynamicProgramming.AndStoppingCriterion</code></strong> &mdash; <em>Type</em>.</p>
+<pre><code class="julia">type AndStoppingCriterion &lt;: StochasticDualDynamicProgramming.AbstractStoppingCriterion
+</code></pre>
+
+<p>Stops if <code>lhs</code> <em>and</em> <code>rhs</code> want to stop.</p>
+<p><a target='_blank' href='https://github.com/blegat/StochasticDualDynamicProgramming.jl/tree/069c61e5b5bb67ac2be25534c212477e09dea2a1/src/stopcrit.jl#L36' class='documenter-source'>source</a><br></p>
+<p><a id='StochasticDualDynamicProgramming.IterLimit' href='#StochasticDualDynamicProgramming.IterLimit'>#</a>
+<strong><code>StochasticDualDynamicProgramming.IterLimit</code></strong> &mdash; <em>Type</em>.</p>
+<pre><code class="julia">type IterLimit &lt;: StochasticDualDynamicProgramming.AbstractStoppingCriterion
+</code></pre>
+
+<p>Stops if <code>iter</code> ≧ <code>limit</code>.</p>
+<p><a target='_blank' href='https://github.com/blegat/StochasticDualDynamicProgramming.jl/tree/069c61e5b5bb67ac2be25534c212477e09dea2a1/src/stopcrit.jl#L54' class='documenter-source'>source</a><br></p>
+<p><a id='StochasticDualDynamicProgramming.CutLimit' href='#StochasticDualDynamicProgramming.CutLimit'>#</a>
+<strong><code>StochasticDualDynamicProgramming.CutLimit</code></strong> &mdash; <em>Type</em>.</p>
+<pre><code class="julia">type CutLimit &lt;: StochasticDualDynamicProgramming.AbstractStoppingCriterion
+</code></pre>
+
+<p>Stops if there was less than or equal to <code>limit</code> cuts added in the iteration. For instance, <code>CutLimit(0)</code> stops when there are no cuts added.</p>
+<p><a target='_blank' href='https://github.com/blegat/StochasticDualDynamicProgramming.jl/tree/069c61e5b5bb67ac2be25534c212477e09dea2a1/src/stopcrit.jl#L67' class='documenter-source'>source</a><br></p>
+<p><a id='StochasticDualDynamicProgramming.Pereira' href='#StochasticDualDynamicProgramming.Pereira'>#</a>
+<strong><code>StochasticDualDynamicProgramming.Pereira</code></strong> &mdash; <em>Type</em>.</p>
+<pre><code class="julia">type Pereira &lt;: StochasticDualDynamicProgramming.AbstractStoppingCriterion
+</code></pre>
+
+<p>Stops if <code>z_UB - α * σ/√K &lt; z_LB &lt; z_UB - α * σ/√K</code> and <code>σ / √K &gt; β * max(1, |z_LB|))</code></p>
+<p><a target='_blank' href='https://github.com/blegat/StochasticDualDynamicProgramming.jl/tree/069c61e5b5bb67ac2be25534c212477e09dea2a1/src/stopcrit.jl#L81' class='documenter-source'>source</a><br></p>
               
             </div>
           </div>
