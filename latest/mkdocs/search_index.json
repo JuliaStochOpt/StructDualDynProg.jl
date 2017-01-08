@@ -1,0 +1,24 @@
+{
+    "docs": [
+        {
+            "location": "/", 
+            "text": "StochasticDualDynamicProgramming.jl Documentation\n\n\n\n\nFunctions\n\n\n#\n\n\nStochasticDualDynamicProgramming.model2lattice\n \n \nMethod\n.\n\n\nmodel2lattice(m, num_stages, solver, cutmanager)\nmodel2lattice(m, num_stages, solver, cutmanager, cutmode, newcut)\nmodel2lattice(m, num_stages, solver, cutmanager, cutmode)\n\n\n\n\n\nTransforms a \nStructJuMP\n model \nm\n into a lattice that can be used by the SDDP algorithm.\n\n\nsource\n\n\n#\n\n\nStochasticDualDynamicProgramming.SDDP\n \n \nMethod\n.\n\n\nSDDP(root, num_stages; mccount, verbose, pereiracoef, pathsel, stopcrit, ztol)\n\n\n\n\n\nRuns the SDDP algorithms on the lattice given by \nroot\n.\n\n\nsource\n\n\n\n\nIndex\n\n\n\n\nStochasticDualDynamicProgramming.SDDP\n\n\nStochasticDualDynamicProgramming.model2lattice", 
+            "title": "Home"
+        }, 
+        {
+            "location": "/#stochasticdualdynamicprogrammingjl-documentation", 
+            "text": "", 
+            "title": "StochasticDualDynamicProgramming.jl Documentation"
+        }, 
+        {
+            "location": "/#functions", 
+            "text": "#  StochasticDualDynamicProgramming.model2lattice     Method .  model2lattice(m, num_stages, solver, cutmanager)\nmodel2lattice(m, num_stages, solver, cutmanager, cutmode, newcut)\nmodel2lattice(m, num_stages, solver, cutmanager, cutmode)  Transforms a  StructJuMP  model  m  into a lattice that can be used by the SDDP algorithm.  source  #  StochasticDualDynamicProgramming.SDDP     Method .  SDDP(root, num_stages; mccount, verbose, pereiracoef, pathsel, stopcrit, ztol)  Runs the SDDP algorithms on the lattice given by  root .  source", 
+            "title": "Functions"
+        }, 
+        {
+            "location": "/#index", 
+            "text": "StochasticDualDynamicProgramming.SDDP  StochasticDualDynamicProgramming.model2lattice", 
+            "title": "Index"
+        }
+    ]
+}
