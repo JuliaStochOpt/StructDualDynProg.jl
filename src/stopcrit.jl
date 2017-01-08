@@ -1,5 +1,5 @@
 import Base.|, Base.&
-export OrStoppingCriterion, AndStoppingCriterion, IterLimit, Pereira, CutLimit
+export stop, AbstractStoppingCriterion, OrStoppingCriterion, AndStoppingCriterion, IterLimit, Pereira, CutLimit
 
 abstract AbstractStoppingCriterion
 
@@ -61,7 +61,7 @@ type IterLimit <: AbstractStoppingCriterion
 end
 
 function stop(s::IterLimit, iter, nfcuts, nocuts, K, z_LB, z_UB, σ)
-    iter > s.limit
+    iter >= s.limit
 end
 
 """

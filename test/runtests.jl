@@ -5,6 +5,7 @@ using Base.Test
 
 # solver independent tests
 include("cutmanager.jl")
+include("stopcrit.jl")
 
 # load a solver
 include("solvers.jl")
