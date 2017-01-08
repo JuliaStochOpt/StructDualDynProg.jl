@@ -2,6 +2,8 @@ __precompile__()
 
 module StochasticDualDynamicProgramming
 
+using DocStringExtensions
+
 using JuMP
 using StructJuMP
 import Base.show, Base.isless
