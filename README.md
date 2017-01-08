@@ -2,7 +2,7 @@
 
 | **Documentation** | **Build Status** |
 |:-----------------:|:----------------:|
-| [![][docs-stable-img]][docs-stable-url] | [![Build Status][build-img]][build-url] |
+| | [![Build Status][build-img]][build-url] |
 | [![][docs-latest-img]][docs-latest-url] | [![Coveralls branch][coveralls-img]][coveralls-url] [![Codecov branch][codecov-img]][codecov-url] |
 
 Implementation of [Stochastic Dual Dynamic Programming (SDDP)](http://www.optimization-online.org/DB_FILE/2009/12/2509.pdf).
