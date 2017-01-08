@@ -1,10 +1,6 @@
 # StochasticDualDynamicProgramming.jl Documentation
 
-```@contents
-```
-
 ## Functions
-
 
 ```@docs
 model2lattice(m::JuMP.Model, num_stages, solver, cutmanager::AbstractCutManager, cutmode::Symbol, newcut::Symbol)
