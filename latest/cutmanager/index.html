@@ -118,14 +118,14 @@
 </code></pre>
 
 <p>Removes the cuts with lower trust where the trust is initially <code>newcuttrust + bonus</code> and is updated using <code>trust -&gt; λ * trust + used</code> after each optimization done with it. The value <code>used</code> is 1 if the cut was used and 0 otherwise. It has a bonus equal to <code>mycutbonus</code> if the cut was generated using a trial given by the problem using this cut. We say that the cut was used if its dual value is nonzero.</p>
-<p><a target='_blank' href='https://github.com/blegat/StochasticDualDynamicProgramming.jl/tree/069c61e5b5bb67ac2be25534c212477e09dea2a1/src/decaycutmanager.jl#L3' class='documenter-source'>source</a><br></p>
+<p><a target='_blank' href='https://github.com/blegat/StochasticDualDynamicProgramming.jl/tree/bfa22130001ece8a0771ce7f501697f40bf01a04/src/decaycutmanager.jl#L3' class='documenter-source'>source</a><br></p>
 <p><a id='StochasticDualDynamicProgramming.AvgCutManager' href='#StochasticDualDynamicProgramming.AvgCutManager'>#</a>
 <strong><code>StochasticDualDynamicProgramming.AvgCutManager</code></strong> &mdash; <em>Type</em>.</p>
 <pre><code class="julia">type AvgCutManager{S} &lt;: StochasticDualDynamicProgramming.AbstractCutManager{S}
 </code></pre>
 
 <p>Removes the cuts with lower trust where the trust is: nused / nwith + bonus where the cut has been used <code>nused</code> times amoung <code>nwith</code> optimization done with it. We say that the cut was used if its dual value is nonzero. It has a bonus equal to <code>mycutbonus</code> if the cut was generated using a trial given by the problem using this cut. If <code>nwidth</code> is zero, <code>nused/nwith</code> is replaced by <code>newcuttrust</code>.</p>
-<p><a target='_blank' href='https://github.com/blegat/StochasticDualDynamicProgramming.jl/tree/069c61e5b5bb67ac2be25534c212477e09dea2a1/src/avgcutmanager.jl#L3' class='documenter-source'>source</a><br></p>
+<p><a target='_blank' href='https://github.com/blegat/StochasticDualDynamicProgramming.jl/tree/bfa22130001ece8a0771ce7f501697f40bf01a04/src/avgcutmanager.jl#L3' class='documenter-source'>source</a><br></p>
               
             </div>
           </div>
