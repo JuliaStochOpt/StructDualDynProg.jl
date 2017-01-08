@@ -2,7 +2,7 @@
     "docs": [
         {
             "location": "/", 
-            "text": "StochasticDualDynamicProgramming.jl Documentation\n\n\n\n\nFunctions\n\n\n#\n\n\nStochasticDualDynamicProgramming.model2lattice\n \n \nMethod\n.\n\n\nmodel2lattice(m, num_stages, solver, cutmanager)\nmodel2lattice(m, num_stages, solver, cutmanager, cutmode, newcut)\nmodel2lattice(m, num_stages, solver, cutmanager, cutmode)\n\n\n\n\n\nTransforms a \nStructJuMP\n model \nm\n into a lattice that can be used by the SDDP algorithm.\n\n\nsource\n\n\n#\n\n\nStochasticDualDynamicProgramming.SDDP\n \n \nMethod\n.\n\n\nSDDP(root, num_stages; mccount, verbose, pereiracoef, pathsel, stopcrit, ztol)\n\n\n\n\n\nRuns the SDDP algorithms on the lattice given by \nroot\n.\n\n\nsource\n\n\n\n\nIndex\n\n\n\n\nStochasticDualDynamicProgramming.SDDP\n\n\nStochasticDualDynamicProgramming.model2lattice", 
+            "text": "StochasticDualDynamicProgramming.jl Documentation\n\n\n\n\nFunctions\n\n\n#\n\n\nStochasticDualDynamicProgramming.model2lattice\n \n \nMethod\n.\n\n\nmodel2lattice(m, num_stages, solver, cutmanager, cutmode)\nmodel2lattice(m, num_stages, solver, cutmanager, cutmode, newcut)\nmodel2lattice(m, num_stages, solver, cutmanager)\n\n\n\n\n\nTransforms a \nStructJuMP\n model \nm\n into a lattice that can be used by the SDDP algorithm.\n\n\nsource\n\n\n#\n\n\nStochasticDualDynamicProgramming.SDDP\n \n \nMethod\n.\n\n\nSDDP(root, num_stages; K, verbose, pathsel, stopcrit, ztol)\n\n\n\n\n\nRuns the SDDP algorithms on the lattice given by \nroot\n. The algorithm will do iterations until \nstopcrit\n decides to stop or when the root node is infeasible. In each iterations, \nK\n paths will be explored up to \nnum_stages\n stages. The paths will be selected according to \npathsel\n and equivalent paths might be merged if their difference is smaller than \nztol\n. The parameter \nztol\n is also used to check whether a new cut is useful.\n\n\nsource\n\n\n\n\nIndex\n\n\n\n\nStochasticDualDynamicProgramming.AndStoppingCriterion\n\n\nStochasticDualDynamicProgramming.AvgCutManager\n\n\nStochasticDualDynamicProgramming.CutLimit\n\n\nStochasticDualDynamicProgramming.DecayCutManager\n\n\nStochasticDualDynamicProgramming.IterLimit\n\n\nStochasticDualDynamicProgramming.OrStoppingCriterion\n\n\nStochasticDualDynamicProgramming.Pereira\n\n\nStochasticDualDynamicProgramming.SDDP\n\n\nStochasticDualDynamicProgramming.model2lattice", 
             "title": "Home"
         }, 
         {
@@ -12,13 +12,33 @@
         }, 
         {
             "location": "/#functions", 
-            "text": "#  StochasticDualDynamicProgramming.model2lattice     Method .  model2lattice(m, num_stages, solver, cutmanager)\nmodel2lattice(m, num_stages, solver, cutmanager, cutmode, newcut)\nmodel2lattice(m, num_stages, solver, cutmanager, cutmode)  Transforms a  StructJuMP  model  m  into a lattice that can be used by the SDDP algorithm.  source  #  StochasticDualDynamicProgramming.SDDP     Method .  SDDP(root, num_stages; mccount, verbose, pereiracoef, pathsel, stopcrit, ztol)  Runs the SDDP algorithms on the lattice given by  root .  source", 
+            "text": "#  StochasticDualDynamicProgramming.model2lattice     Method .  model2lattice(m, num_stages, solver, cutmanager, cutmode)\nmodel2lattice(m, num_stages, solver, cutmanager, cutmode, newcut)\nmodel2lattice(m, num_stages, solver, cutmanager)  Transforms a  StructJuMP  model  m  into a lattice that can be used by the SDDP algorithm.  source  #  StochasticDualDynamicProgramming.SDDP     Method .  SDDP(root, num_stages; K, verbose, pathsel, stopcrit, ztol)  Runs the SDDP algorithms on the lattice given by  root . The algorithm will do iterations until  stopcrit  decides to stop or when the root node is infeasible. In each iterations,  K  paths will be explored up to  num_stages  stages. The paths will be selected according to  pathsel  and equivalent paths might be merged if their difference is smaller than  ztol . The parameter  ztol  is also used to check whether a new cut is useful.  source", 
             "title": "Functions"
         }, 
         {
             "location": "/#index", 
-            "text": "StochasticDualDynamicProgramming.SDDP  StochasticDualDynamicProgramming.model2lattice", 
+            "text": "StochasticDualDynamicProgramming.AndStoppingCriterion  StochasticDualDynamicProgramming.AvgCutManager  StochasticDualDynamicProgramming.CutLimit  StochasticDualDynamicProgramming.DecayCutManager  StochasticDualDynamicProgramming.IterLimit  StochasticDualDynamicProgramming.OrStoppingCriterion  StochasticDualDynamicProgramming.Pereira  StochasticDualDynamicProgramming.SDDP  StochasticDualDynamicProgramming.model2lattice", 
             "title": "Index"
+        }, 
+        {
+            "location": "/stopcrit/", 
+            "text": "Stopping Criterion\n\n\nstop(stopcrit::AbstractStoppingCriterion, iter, nfcuts, nocuts, K, z_LB, z_UB, \u03c3)\nOrStoppingCriterion\nAndStoppingCriterion\nIterLimit\nCutLimit\nPereira", 
+            "title": "Stopping Criterion"
+        }, 
+        {
+            "location": "/stopcrit/#stopping-criterion", 
+            "text": "stop(stopcrit::AbstractStoppingCriterion, iter, nfcuts, nocuts, K, z_LB, z_UB, \u03c3)\nOrStoppingCriterion\nAndStoppingCriterion\nIterLimit\nCutLimit\nPereira", 
+            "title": "Stopping Criterion"
+        }, 
+        {
+            "location": "/cutmanager/", 
+            "text": "Cut Manager\n\n\n#\n\n\nStochasticDualDynamicProgramming.DecayCutManager\n \n \nType\n.\n\n\ntype DecayCutManager{S} \n: StochasticDualDynamicProgramming.AbstractCutManager{S}\n\n\n\n\nRemoves the cuts with lower trust where the trust is initially \nnewcuttrust + bonus\n and is updated using \ntrust -\n \u03bb * trust + used\n after each optimization done with it. The value \nused\n is 1 if the cut was used and 0 otherwise. It has a bonus equal to \nmycutbonus\n if the cut was generated using a trial given by the problem using this cut. We say that the cut was used if its dual value is nonzero.\n\n\nsource\n\n\n#\n\n\nStochasticDualDynamicProgramming.AvgCutManager\n \n \nType\n.\n\n\ntype AvgCutManager{S} \n: StochasticDualDynamicProgramming.AbstractCutManager{S}\n\n\n\n\nRemoves the cuts with lower trust where the trust is: nused / nwith + bonus where the cut has been used \nnused\n times amoung \nnwith\n optimization done with it. We say that the cut was used if its dual value is nonzero. It has a bonus equal to \nmycutbonus\n if the cut was generated using a trial given by the problem using this cut. If \nnwidth\n is zero, \nnused/nwith\n is replaced by \nnewcuttrust\n.\n\n\nsource", 
+            "title": "Cut Manager"
+        }, 
+        {
+            "location": "/cutmanager/#cut-manager", 
+            "text": "#  StochasticDualDynamicProgramming.DecayCutManager     Type .  type DecayCutManager{S}  : StochasticDualDynamicProgramming.AbstractCutManager{S}  Removes the cuts with lower trust where the trust is initially  newcuttrust + bonus  and is updated using  trust -  \u03bb * trust + used  after each optimization done with it. The value  used  is 1 if the cut was used and 0 otherwise. It has a bonus equal to  mycutbonus  if the cut was generated using a trial given by the problem using this cut. We say that the cut was used if its dual value is nonzero.  source  #  StochasticDualDynamicProgramming.AvgCutManager     Type .  type AvgCutManager{S}  : StochasticDualDynamicProgramming.AbstractCutManager{S}  Removes the cuts with lower trust where the trust is: nused / nwith + bonus where the cut has been used  nused  times amoung  nwith  optimization done with it. We say that the cut was used if its dual value is nonzero. It has a bonus equal to  mycutbonus  if the cut was generated using a trial given by the problem using this cut. If  nwidth  is zero,  nused/nwith  is replaced by  newcuttrust .  source", 
+            "title": "Cut Manager"
         }
     ]
 }
