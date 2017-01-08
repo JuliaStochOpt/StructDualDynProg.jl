@@ -22,3 +22,5 @@ docs_dir: 'build'
 
 pages:
   - Home: index.md
+  - Stopping Criterion: stopcrit.md
+  - Cut Manager: cutmanager.md

@@ -5,26 +5,26 @@ type WSPath
     nlds::Vector{NLDS}
     z::Float64
     proba::Float64
-    mccount::Int
+    K::Int
 end
 
-function meanstdpaths(paths::Vector{WSPath}, totalmccount)
+function meanstdpaths(paths::Vector{WSPath}, totalK)
     z = Float64[x.z for x in paths]
     proba = Float64[x.proba for x in paths]
-    npaths = Int[x.mccount for x in paths]
-    meanstdpaths(z, proba, npaths, totalmccount)
+    npaths = Int[x.K for x in paths]
+    meanstdpaths(z, proba, npaths, totalK)
 end
 
-function waitandsee(root::SDDPNode, num_stages, solver, totalmccount=25, verbose=0)
-    paths = WSPath[WSPath(root, NLDS[root.nlds], .0, 1., totalmccount)]
+function waitandsee(root::SDDPNode, num_stages, solver, totalK=25, verbose=0)
+    paths = WSPath[WSPath(root, NLDS[root.nlds], .0, 1., totalK)]
     for t in 2:num_stages
         newpaths = WSPath[]
         for path in paths
             if isempty(path.node.children)
                 push!(newpaths, path)
             else
-                npaths = choosepaths(path.node, path.mccount, :Proba, t, num_stages)
-                childs = totalmccount == -1 ? (1:length(path.node.children)) : find(npaths .> 0)
+                npaths = choosepaths(path.node, path.K, :Proba, t, num_stages)
+                childs = totalK == -1 ? (1:length(path.node.children)) : find(npaths .> 0)
                 curpaths = WSPath[WSPath(path.node.children[i], [path.nlds; path.node.children[i].nlds], path.z, path.proba * path.node.proba[i], npaths[i]) for i in childs]
                 append!(newpaths, curpaths)
             end
@@ -73,8 +73,8 @@ function waitandsee(root::SDDPNode, num_stages, solver, totalmccount=25, verbose
                 else
                 @assert status == :Optimal
                 objval = MathProgBase.getobjval(model)
-                push!(newpaths, WSPath(path.node, path.nlds, objval, path.proba, path.mccount))
+                push!(newpaths, WSPath(path.node, path.nlds, objval, path.proba, path.K))
             end
         end
-        meanstdpaths(newpaths, totalmccount)
+        meanstdpaths(newpaths, totalK)
     end

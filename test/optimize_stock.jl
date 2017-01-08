@@ -20,11 +20,11 @@
 
     num_stages = 2
     cutmode = :AveragedCut
-    mccount = 10
+    K = 10
     pereiracoef = 0.1
 
     root = model2lattice(m1, num_stages, solver, AvgCutManager(-1), cutmode)
-    sol = SDDP(root, num_stages, mccount=mccount, pereiracoef=0.1, verbose=0, stopcrit=(x,y)->(x > 10))
+    sol = SDDP(root, num_stages, K = K, stopcrit = Pereira(0.1) | IterLimit(10), verbose = 0)
 
     @test sol.status == :Optimal
     @test sol.objval == -2.0
