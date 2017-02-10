@@ -1,10 +1,10 @@
 function fulltest(m, num_stages, objval, solval, ws, wsσ)
     for K in [-1, 42]
         for maxncuts in [-1, 7]
-            for newcut in [:AddImmediately, :InvalidateSolver]
+            for newcut in [:InvalidateSolver]#[:AddImmediately, :InvalidateSolver]
                 for cutmode in [:MultiCut, :AveragedCut]
-                    for cutpruner in [AvgCutPruner(maxncuts), DecayCutPruner(maxncuts)]
-                        root = model2lattice(m, num_stages, solver, cutpruner, cutmode, newcut)
+                    for pruningalgo in [AvgCutPruningAlgo(maxncuts), DecayCutPruningAlgo(maxncuts)]
+                        root = model2lattice(m, num_stages, solver, pruningalgo, cutmode, newcut)
 
                         μ, σ = waitandsee(root, num_stages, solver, K)
                         @test abs(μ - ws) / ws < (K == -1 ? 1e-6 : .03)

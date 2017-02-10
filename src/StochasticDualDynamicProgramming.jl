@@ -4,7 +4,7 @@ module StochasticDualDynamicProgramming
 
 using DocStringExtensions
 
-using CutPruner
+using CutPruners
 
 using JuMP
 using StructJuMP
