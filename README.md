@@ -13,7 +13,7 @@ This package is used by the [Entropic Cone](https://github.com/blegat/EntropicCo
 # Installation
 Neither [StructJuMP](https://github.com/joehuchette/StructJuMP.jl) nor this package are currently registered so you will need to use `Pkg.clone` to use them:
 
-```
+```julia
 > Pkg.clone("https://github.com/StructJuMP/StructJuMP.jl")
 > Pkg.clone("https://github.com/blegat/StochasticDualDynamicProgramming.jl")
 ```
