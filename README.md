@@ -1,9 +1,9 @@
 # Stochastic Dual Dynamic Programming (SDDP)
 
-| **Documentation** | **Build Status** |
-|:-----------------:|:----------------:|
-| | [![Build Status][build-img]][build-url] |
-| [![][docs-latest-img]][docs-latest-url] | [![Coveralls branch][coveralls-img]][coveralls-url] [![Codecov branch][codecov-img]][codecov-url] |
+| **Documentation** | **Build Status** | **Social** |
+|:-----------------:|:----------------:|:----------:|
+| | [![Build Status][build-img]][build-url] | [![Gitter][gitter-img]][gitter-url] |
+| [![][docs-latest-img]][docs-latest-url] | [![Coveralls branch][coveralls-img]][coveralls-url] [![Codecov branch][codecov-img]][codecov-url] | [<img src="https://upload.wikimedia.org/wikipedia/en/a/af/Discourse_logo.png" width="64">][discourse-url] |
 
 Implementation of [Stochastic Dual Dynamic Programming (SDDP)](http://www.optimization-online.org/DB_FILE/2009/12/2509.pdf).
 The problem can either be provided using the [StructJuMP](https://github.com/joehuchette/StructJuMP.jl) modeling interface or using a lower level interface.
@@ -28,3 +28,6 @@ Neither [StructJuMP](https://github.com/joehuchette/StructJuMP.jl) nor this pack
 [coveralls-url]: https://coveralls.io/github/blegat/StochasticDualDynamicProgramming.jl
 [codecov-img]: https://codecov.io/gh/blegat/StochasticDualDynamicProgramming.jl/branch/master/graph/badge.svg
 [codecov-url]: https://codecov.io/gh/blegat/StochasticDualDynamicProgramming.jl
+[gitter-url]: https://gitter.im/JuliaOpt/StochasticDualDynamicProgramming.jl
+[gitter-img]: https://badges.gitter.im/JuliaOpt/StochasticDualDynamicProgramming.jl.svg
+[discourse-url]: https://discourse.julialang.org/c/domain/opt
