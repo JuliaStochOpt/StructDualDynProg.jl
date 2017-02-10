@@ -4,8 +4,11 @@ module StochasticDualDynamicProgramming
 
 using DocStringExtensions
 
+using CutPruner
+
 using JuMP
 using StructJuMP
+
 import Base.show, Base.isless
 
 # Utils
@@ -13,9 +16,9 @@ include("mycomp.jl")
 
 # Abstract components
 # Cut Manager
-include("cutmanager.jl")
-include("avgcutmanager.jl")
-include("decaycutmanager.jl")
+#include("cutmanager.jl")
+#include("avgcutmanager.jl")
+#include("decaycutmanager.jl")
 # Stopping Criterion
 include("stopcrit.jl")
 

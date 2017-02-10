@@ -3,8 +3,8 @@ function fulltest(m, num_stages, objval, solval, ws, wsσ)
         for maxncuts in [-1, 7]
             for newcut in [:AddImmediately, :InvalidateSolver]
                 for cutmode in [:MultiCut, :AveragedCut]
-                    for cutmanager in [AvgCutManager(maxncuts), DecayCutManager(maxncuts)]
-                        root = model2lattice(m, num_stages, solver, cutmanager, cutmode, newcut)
+                    for cutpruner in [AvgCutPruner(maxncuts), DecayCutPruner(maxncuts)]
+                        root = model2lattice(m, num_stages, solver, cutpruner, cutmode, newcut)
 
                         μ, σ = waitandsee(root, num_stages, solver, K)
                         @test abs(μ - ws) / ws < (K == -1 ? 1e-6 : .03)

@@ -119,9 +119,9 @@ type NLDS{S}
     prevsol::Nullable{NLDSSolution}
 
     newcut::Symbol
-    man::AbstractCutManager{S}
+    pruner::AbstractCutPruner{S}
 
-    function NLDS(W::AbstractMatrix{S}, h::AbstractVector{S}, T::AbstractMatrix{S}, K, C, c::AbstractVector{S}, solver, man::AbstractCutManager{S}, newcut::Symbol=:AddImmediately)
+    function NLDS(W::AbstractMatrix{S}, h::AbstractVector{S}, T::AbstractMatrix{S}, K, C, c::AbstractVector{S}, solver, pruner::AbstractCutPruner{S}, newcut::Symbol=:AddImmediately)
         nx = size(W, 2)
         nθ = 0
         nπ = length(h)
@@ -132,15 +132,15 @@ type NLDS{S}
         else
             model = MathProgBase.LinearQuadraticModel(solver)
         end
-        nlds = new(W, h, T, K, C, c, S[], nothing, nothing, CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, nothing, :NoOptimalityCut, nx, nθ, nπ, 1:nπ, model, false, false, nothing, newcut, clone(man))
+        nlds = new(W, h, T, K, C, c, S[], nothing, nothing, CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, nothing, :NoOptimalityCut, nx, nθ, nπ, 1:nπ, model, false, false, nothing, newcut, CutPruner.clone(pruner))
         addfollower(localFC, (nlds, (:Feasibility, 0)))
         addfollower(localOC, (nlds, (:Optimality, 0)))
         nlds
     end
 end
 
-function (::Type{NLDS{S}}){S}(W::AbstractMatrix, h::AbstractVector, T::AbstractMatrix, K, C, c::AbstractVector, solver, man::AbstractCutManager{S}, newcut::Symbol=:AddImmediately)
-    NLDS{S}(AbstractMatrix{S}(W), AbstractVector{S}(h), AbstractMatrix{S}(T), K, C, AbstractVector{S}(c), solver, man, newcut)
+function (::Type{NLDS{S}}){S}(W::AbstractMatrix, h::AbstractVector, T::AbstractMatrix, K, C, c::AbstractVector, solver, pruner::AbstractCutPruner{S}, newcut::Symbol=:AddImmediately)
+    NLDS{S}(AbstractMatrix{S}(W), AbstractVector{S}(h), AbstractMatrix{S}(T), K, C, AbstractVector{S}(c), solver, pruner, newcut)
 end
 
 function setchildren!(nlds::NLDS, childFC, childOC, proba, cutmode, childT)
@@ -195,7 +195,7 @@ function appendchildren!(nlds::NLDS, childFC, childOC, proba, childT)
 end
 
 function updatemaxncuts!(nlds::NLDS, maxncuts)
-    nlds.man.maxncuts = maxncuts
+    nlds.pruner.maxncuts = maxncuts
 end
 
 # .=== doesn't work :(
@@ -274,7 +274,7 @@ function notifynewcuts{S}(nlds::NLDS{S}, A::AbstractMatrix{S}, b::AbstractVector
     @assert attrs[1] in [:Feasibility, :Optimality]
     isfc = attrs[1] == :Feasibility
     nnewcuts = size(A, 1)
-    if isstarted(nlds.man)
+    if isstarted(nlds.pruner)
         i = attrs[2]
         if i > 0 && !isnull(nlds.childT)
             A = A * get(nlds.childT)[i]
@@ -290,7 +290,7 @@ function notifynewcuts{S}(nlds::NLDS{S}, A::AbstractMatrix{S}, b::AbstractVector
         end
         # No .=== :(
         mine = [authors[i] === nlds for i in 1:length(authors)]
-        addstatus = addcuts!(nlds.man, B, b, isfc, mine)
+        addstatus = addcuts!(nlds.pruner, B, b, isfc, mine)
         for j in 1:nnewcuts
             if nlds.loaded
                 if addstatus[j] != :Pushed || nlds.newcut == :InvalidateSolver
@@ -319,22 +319,22 @@ end
 
 function checkconsistency(nlds)
     @assert length(nlds.πs) == nlds.nπ
-    @assert length(nlds.man.σs) == nlds.man.nσ
-    @assert length(nlds.man.ρs) == nlds.man.nρ
-    @assert sort([nlds.πs; nlds.nπ + nlds.man.σs; nlds.nπ + nlds.man.ρs]) == collect(1:(nlds.nπ + nlds.man.nσ + nlds.man.nρ))
+    @assert length(nlds.pruner.σs) == nlds.pruner.nσ
+    @assert length(nlds.pruner.ρs) == nlds.pruner.nρ
+    @assert sort([nlds.πs; nlds.nπ + nlds.pruner.σs; nlds.nπ + nlds.pruner.ρs]) == collect(1:(nlds.nπ + nlds.pruner.nσ + nlds.pruner.nρ))
 end
 
 function getrhs(nlds)
     bs = [nlds.h - nlds.T * nlds.x_a]
     Ks = [nlds.K]
-    if ncuts(nlds.man) > 0
-        push!(bs, get(nlds.man.cuts_de))
+    if ncuts(nlds.pruner) > 0
+        push!(bs, get(nlds.pruner.cuts_de))
         Kcut = []
-        if nlds.man.nσ > 0
-            push!(Kcut, (:NonPos, nlds.man.σs))
+        if nlds.pruner.nσ > 0
+            push!(Kcut, (:NonPos, nlds.pruner.σs))
         end
-        if nlds.man.nρ > 0
-            push!(Kcut, (:NonPos, nlds.man.ρs))
+        if nlds.pruner.nρ > 0
+            push!(Kcut, (:NonPos, nlds.pruner.ρs))
         end
         push!(Ks, Kcut)
     end
@@ -368,13 +368,13 @@ function setparentx(nlds::NLDS, x_a::AbstractVector, xuray_a, objvalxuray_a)
 end
 
 function computecuts!{S}(nlds::NLDS{S})
-    if !isstarted(nlds.man)
+    if !isstarted(nlds.pruner)
         nlds.nπ = length(nlds.h)
         nlds.πs = collect(1:nlds.nπ)
         cuts_D, cuts_d, mycut_d = getfeasibilitycuts(nlds)
         cuts_D = padfcut(nlds, cuts_D)
         cuts_E, cuts_e, mycut_e = getoptimalitycuts(nlds)
-        start!(nlds.man, cuts_D, cuts_E, cuts_d, cuts_e, mycut_d, mycut_e)
+        start!(nlds.pruner, cuts_D, cuts_E, cuts_d, cuts_e, mycut_d, mycut_e)
         # I will add the cuts in notifynewcuts! now
         noneedstored!(nlds.localFC, nlds)
         for store in nlds.childFC
@@ -397,7 +397,7 @@ function load!{S}(nlds::NLDS{S})
             bigA = [bigA nlds.T * get(nlds.xuray_a)]
         end
         computecuts!(nlds)
-        cuts_DE = get(nlds.man.cuts_DE)
+        cuts_DE = get(nlds.pruner.cuts_DE)
         if !isnull(nlds.xuray_a)
             cuts_DE = [cuts_DE spzeros(size(cuts_DE, 1), 1)]
         end
@@ -455,22 +455,22 @@ function solve!(nlds::NLDS)
                 if length(dual) == 0
                     error("Dual vector returned by the solver is empty while the status is $status")
                 end
-                @assert length(dual) == nlds.nπ + ncuts(nlds.man)
+                @assert length(dual) == nlds.nπ + ncuts(nlds.pruner)
 
                 π = dual[nlds.πs]
                 σρ = dual[nlds.nπ+1:end]
-                σ = σρ[nlds.man.σs]
-                ρ = σρ[nlds.man.ρs]
+                σ = σρ[nlds.pruner.σs]
+                ρ = σρ[nlds.pruner.ρs]
 
-                cuts_d = get(nlds.man.cuts_de)[nlds.man.σs]
-                cuts_e = get(nlds.man.cuts_de)[nlds.man.ρs]
+                cuts_d = get(nlds.pruner.cuts_de)[nlds.pruner.σs]
+                cuts_e = get(nlds.pruner.cuts_de)[nlds.pruner.ρs]
 
                 sol.πT = vec(π' * nlds.T)
                 sol.πh = vecdot(π, nlds.h)
                 sol.σd = vecdot(σ, cuts_d)
                 sol.ρe = vecdot(ρ, cuts_e)
 
-                updatestats!(nlds.man, σρ)
+                CutPruner.updatestats!(nlds.pruner, σρ)
             end
 
             nlds.prevsol = sol

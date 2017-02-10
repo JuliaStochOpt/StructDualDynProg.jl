@@ -23,7 +23,7 @@
     K = 10
     pereiracoef = 0.1
 
-    root = model2lattice(m1, num_stages, solver, AvgCutManager(-1), cutmode)
+    root = model2lattice(m1, num_stages, solver, AvgCutPruner(-1), cutmode)
     sol = SDDP(root, num_stages, K = K, stopcrit = Pereira(0.1) | IterLimit(10), verbose = 0)
 
     @test sol.status == :Optimal

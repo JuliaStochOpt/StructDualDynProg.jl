@@ -1,10 +1,11 @@
 using JuMP
+using CutPruner
 using StructJuMP
 using StochasticDualDynamicProgramming
 using Base.Test
 
 # solver independent tests
-include("cutmanager.jl")
+#include("cutmanager.jl")
 include("stopcrit.jl")
 
 # load a solver
