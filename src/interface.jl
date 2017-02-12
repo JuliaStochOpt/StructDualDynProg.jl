@@ -12,13 +12,8 @@ function conicconstraintdata(m::Model)
     if parent != nothing
         numMasterCols = parent.numCols
     end
-    v = Symbol[]
-    obj_coeff = zeros(m.numCols)
-    for i in eachindex(m.obj.aff.vars)
-        var = m.obj.aff.vars[i]
-        coeff = m.obj.aff.coeffs[i]
-        obj_coeff[var.col] = coeff
-    end
+
+    obj_coeff = JuMP.prepAffObjective(m)
     m.objSense == :Max && scale!(obj_coeff, -1.0)
 
     var_cones = Any[cone for cone in m.varCones]
@@ -134,6 +129,7 @@ function conicconstraintdata(m::Model)
         end
     end
 
+    v = Symbol[]
     c = numLinRows
     bndidx = 0
     for idx in 1:m.numCols

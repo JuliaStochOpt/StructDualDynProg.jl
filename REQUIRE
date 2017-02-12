@@ -1,6 +1,6 @@
 julia 0.5-
 CutPruners
 MathProgBase 0.5
-JuMP
+JuMP 0.15.1
 StructJuMP
 DocStringExtensions 0.2
