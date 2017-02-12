@@ -6,8 +6,9 @@ It features the following:
 * Support for unfeasible problem by generating a feasibility cut.
 * Support for unbounded problem by using an unbounded ray.
 * Support for a variety of cut pruning algorithm through the [CutPruners](https://github.com/JuliaPolyhedra/CutPruners.jl) package.
-* Support for any linear or conic solvers available through [MathProgBase](https://github.com/JuliaOpt/MathProgBase.jl); see [JuliaOpt's webpage] for a list.
+* Support for any linear or conic solvers available through [MathProgBase](https://github.com/JuliaOpt/MathProgBase.jl); see [JuliaOpt's webpage](http://www.juliaopt.org/) for a list.
 * Support modeling the problem using the [StructJuMP modeling interface](github.com/StructJuMP/StructJuMP.jl).
+* Support specifying the problem using a low-level interface. This is used for example by the [EntropicCone](https://github.com/blegat/EntropicCone.jl) package.
 
 The `SDDP` algorithm can be run from any node of the lattice of problems using the following function:
 ```@docs
