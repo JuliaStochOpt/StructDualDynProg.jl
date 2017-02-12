@@ -16,7 +16,7 @@ SDDP(root::SDDPNode, num_stages; K::Int, stopcrit::AbstractStoppingCriterion, ve
 
 This lattice can be built from a [StructJuMP](github.com/StructJuMP/StructJuMP.jl) model using the following function:
 ```@docs
-model2lattice(m::JuMP.Model, num_stages, solver, pruningalgo::AbstractCutPruningAlgo, cutmode::Symbol, newcut::Symbol)
+model2lattice(m::JuMP.Model, num_stages, solver, pruningalgo::CutPruners.AbstractCutPruningAlgo, cutmode::Symbol, newcut::Symbol)
 ```
 
 ## Index
