@@ -13,6 +13,7 @@ import Base.show, Base.isless
 
 # Utils
 include("mycomp.jl")
+include("stats.jl")
 
 # Abstract components
 # Cut Manager
