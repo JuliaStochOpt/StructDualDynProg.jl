@@ -5,64 +5,6 @@ type SDDPSolution
     attrs
 end
 
-macro mytime(x)
-    quote
-        y = @timed $(esc(x))
-        # y[1] is returned value
-        # y[2] is time in seconds
-        y[2]
-    end
-end
-
-type SDDPStats
-    nsolved::Int
-    solvertime::Float64
-    nmerged::Int
-    mergetime::Float64
-    nfcuts::Int
-    fcutstime::Float64
-    nocuts::Int
-    ocutstime::Float64
-    nsetx::Int
-    setxtime::Float64
-end
-
-SDDPStats() = SDDPStats(0,.0,0,.0,0,.0,0,.0,0,.0)
-
-import Base: +, show
-
-function +(a::SDDPStats, b::SDDPStats)
-    SDDPStats(a.nsolved + b.nsolved, a.solvertime + b.solvertime,
-    a.nmerged + b.nmerged, a.mergetime  + b.mergetime,
-    a.nfcuts  + b.nfcuts , a.fcutstime  + b.fcutstime,
-    a.nocuts  + b.nocuts , a.ocutstime  + b.ocutstime,
-    a.nsetx   + b.nsetx  , a.setxtime   + b.setxtime)
-end
-
-function showtime(t::Float64)
-    if !isfinite(t)
-        "   min    s    ms    μs"
-    else
-        s = Int(floor(t))
-        t = (t - s) * 1000
-        min = div(s, 60)
-        s = mod(s, 60)
-        ms = Int(floor(t))
-        t = (t - ms) * 1000
-        μs = Int(floor(t))
-        @sprintf "%3dmin %3ds %3dms %3dμs" min s ms μs
-    end
-end
-
-function Base.show(io::IO, stat::SDDPStats)
-    println("                        |     Total time [s]      |  Number  | Average time [s]")
-    @printf "        Solving problem | %s | %8d | %s\n" showtime(stat.solvertime) stat.nsolved showtime(stat.solvertime / stat.nsolved)
-    @printf "          Merging paths | %s | %8d | %s\n" showtime(stat.mergetime ) stat.nmerged showtime(stat.mergetime  / stat.nmerged)
-    @printf "Adding feasibility cuts | %s | %8d | %s\n" showtime(stat.fcutstime ) stat.nfcuts  showtime(stat.fcutstime  / stat.nfcuts )
-    @printf "Adding  optimality cuts | %s | %8d | %s\n" showtime(stat.ocutstime ) stat.nocuts  showtime(stat.ocutstime  / stat.nocuts )
-    @printf "Setting parent solution | %s | %8d | %s\n" showtime(stat.setxtime  ) stat.nsetx   showtime(stat.setxtime   / stat.nsetx  )
-    @printf "                        | %s |" showtime(stat.solvertime+stat.fcutstime+stat.ocutstime+stat.setxtime)
-end
 
 function meanstdpaths(z::Vector{Float64}, proba::Vector{Float64}, npaths::Vector{Int}, Ktot)
     if Ktot != -1
@@ -176,6 +118,7 @@ function iteration{S}(root::SDDPNode{S}, Ktot::Int, num_stages, verbose, pathsel
 
     stats.solvertime += @mytime rootsol = loadAndSolve(root)
     stats.nsolved += 1
+    stats.niterations += 1
     infeasibility_detected = rootsol.status == :Infeasible
     if infeasibility_detected
         pathsd = Dict{SDDPNode, Vector{SDDPPath}}()
@@ -344,7 +287,14 @@ function iteration{S}(root::SDDPNode{S}, Ktot::Int, num_stages, verbose, pathsel
         end
         z_UB, σ = meanstdpaths(endedpaths, Ktot)
     end
-    rootsol, stats, z_UB, σ
+
+    # update stats
+    stats.upperbound = z_UB
+    stats.σ_UB = σ
+    stats.npaths = Ktot
+    stats.lowerbound = rootsol.objval
+
+    rootsol, stats
 end
 
 """
@@ -361,7 +311,6 @@ function SDDP(root::SDDPNode, num_stages; K::Int=25, stopcrit::AbstractStoppingC
         error("Invalid pathsel")
     end
     rootsol = nothing
-    totaltime = 0
     totalstats = SDDPStats()
 
     z_UB = Inf
@@ -371,17 +320,18 @@ function SDDP(root::SDDPNode, num_stages; K::Int=25, stopcrit::AbstractStoppingC
     nfcuts = 0
     nocuts = 0
 
-    while (rootsol === nothing || rootsol.status != :Infeasible) && !stop(stopcrit, iter, nfcuts, nocuts, K, z_LB, z_UB, σ)
-        itertime = @mytime rootsol, stats, z_UB, σ = iteration(root, K, num_stages, verbose, pathsel, ztol)
+    while (rootsol === nothing || rootsol.status != :Infeasible) && !stop(stopcrit, totalstats)
+        itertime = @mytime rootsol, stats = iteration(root, K, num_stages, verbose, pathsel, ztol)
         z_LB = rootsol.objval
         iter += 1
         nfcuts = stats.nfcuts
         nocuts = stats.nocuts
 
-        totaltime  += itertime
+        totalstats.time += itertime
+
         totalstats += stats
         if verbose >= 2
-            println("Iteration $iter completed in $itertime s (Total time is $totaltime)")
+            println("Iteration $iter completed in $itertime s (Total time is $(stats.time))")
             println("Status: $(rootsol.status)")
             println("z_UB: $(z_UB)")
             println("z_LB: $(z_LB)")

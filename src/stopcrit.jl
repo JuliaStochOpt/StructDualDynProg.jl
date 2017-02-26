@@ -1,5 +1,5 @@
 import Base.|, Base.&
-export stop, AbstractStoppingCriterion, OrStoppingCriterion, AndStoppingCriterion, IterLimit, Pereira, CutLimit
+export stop, AbstractStoppingCriterion, OrStoppingCriterion, AndStoppingCriterion, IterLimit, Pereira, CutLimit, TimeLimit
 
 abstract AbstractStoppingCriterion
 
@@ -11,7 +11,7 @@ If `iter` is 0, no iteration has already been done, otherwise, the `iter`th iter
 This iteration used `K` paths and generated `nfcuts` (resp. `nocuts`) new feasibility (resp. optimality) cuts.
 The lower bound is now `z_LB` and the upper bound has mean `z_UB` and variance `σ`.
 """
-function stop(s::AbstractStoppingCriterion, iter, nfcuts, nocuts, K, z_LB, z_UB, σ)
+function stop(s::AbstractStoppingCriterion, stats::AbstractSDDPStats)
     error("`stop' function not defined for $(typeof(s))")
 end
 
@@ -25,8 +25,8 @@ type OrStoppingCriterion <: AbstractStoppingCriterion
     rhs::AbstractStoppingCriterion
 end
 
-function stop(s::OrStoppingCriterion, iter, nfcuts, nocuts, K, z_LB, z_UB, σ)
-    stop(s.lhs, iter, nfcuts, nocuts, K, z_LB, z_UB, σ) || stop(s.rhs, iter, nfcuts, nocuts, K, z_LB, z_UB, σ)
+function stop(s::OrStoppingCriterion, stats::AbstractSDDPStats)
+    stop(s.lhs, stats) || stop(s.rhs, stats)
 end
 
 function (|)(lhs::AbstractStoppingCriterion, rhs::AbstractStoppingCriterion)
@@ -43,8 +43,8 @@ type AndStoppingCriterion <: AbstractStoppingCriterion
     rhs::AbstractStoppingCriterion
 end
 
-function stop(s::AndStoppingCriterion, iter, nfcuts, nocuts, K, z_LB, z_UB, σ)
-    stop(s.lhs, iter, nfcuts, nocuts, K, z_LB, z_UB, σ) && stop(s.rhs, iter, nfcuts, nocuts, K, z_LB, z_UB, σ)
+function stop(s::AndStoppingCriterion, stats::AbstractSDDPStats)
+    stop(s.lhs, stats) && stop(s.rhs, stats)
 end
 
 function (&)(lhs::AbstractStoppingCriterion, rhs::AbstractStoppingCriterion)
@@ -60,8 +60,8 @@ type IterLimit <: AbstractStoppingCriterion
     limit::Int
 end
 
-function stop(s::IterLimit, iter, nfcuts, nocuts, K, z_LB, z_UB, σ)
-    iter >= s.limit
+function stop(s::IterLimit, stats::AbstractSDDPStats)
+    stats.niterations >= s.limit
 end
 
 """
@@ -74,9 +74,25 @@ type CutLimit <: AbstractStoppingCriterion
     limit::Int
 end
 
-function stop(s::CutLimit, iter, nfcuts, nocuts, K, z_LB, z_UB, σ)
-    iter > 0 && nfcuts + nocuts <= s.limit
+function stop(s::CutLimit, stats::AbstractSDDPStats)
+    stats.niterations > 0 && stats.nfcuts + stats.nocuts <= s.limit
 end
+
+
+"""
+$(TYPEDEF)
+
+Stops if total time of execution is greater than the time limit specified.
+For instance, `TimeLimit(100)` stops after 100s.
+"""
+type TimeLimit <: AbstractStoppingCriterion
+    timelimit::Float64
+end
+
+function stop(s::TimeLimit, stats::AbstractSDDPStats)
+    stats.niterations > 0 && stats.time > s.timelimit
+end
+
 
 """
 $(TYPEDEF)
@@ -90,8 +106,13 @@ type Pereira <: AbstractStoppingCriterion
     Pereira(α=2.0, β=0.05) = new(α, β)
 end
 
-function stop(s::Pereira, iter, nfcuts, nocuts, K, z_LB, z_UB, σ)
-    if iter > 0
+function stop(s::Pereira, stats::AbstractSDDPStats)
+    z_UB = stats.upperbound
+    z_LB = stats.lowerbound
+    K = stats.npaths
+    σ = stats.σ_UB
+
+    if stats.niterations > 0
         @assert K >= 0
         σ1 = σ / √K
         σ2 = s.α * σ1

@@ -5,7 +5,21 @@ K = 42
 z_LB = 1
 z_UB = 1
 σ = 1
-@test_throws ErrorException stop(InvalidStoppingCriterion(), 1, 2, 3, K, z_LB, z_UB, σ)
-@test stop(AndStoppingCriterion(IterLimit(8), CutLimit(8)), 8, 2, 6, K, z_LB, z_UB, σ)
-@test !stop(AndStoppingCriterion(IterLimit(8), CutLimit(8)), 7, 2, 6, K, z_LB, z_UB, σ)
-@test !stop(AndStoppingCriterion(IterLimit(8), CutLimit(8)), 7, 2, 5, K, z_LB, z_UB, σ)
+stats = StochasticDualDynamicProgramming.SDDPStats()
+
+stats.upperbound = z_UB
+stats.niterations = 8
+stats.nocuts = 8
+stats.lowerbound = z_LB
+stats.npaths = K
+stats.σ_UB = σ
+
+@test_throws ErrorException stop(InvalidStoppingCriterion(), stats)
+@test stop(AndStoppingCriterion(IterLimit(8), CutLimit(8)), stats)
+stats.niterations = 7
+stats.nocuts = 2
+stats.nfcuts = 6
+@test !stop(AndStoppingCriterion(IterLimit(8), CutLimit(8)), stats)
+stats.nocuts = 2
+stats.nfcuts = 5
+@test !stop(AndStoppingCriterion(IterLimit(8), CutLimit(8)), stats)
