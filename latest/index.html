@@ -124,7 +124,7 @@
 </code></pre>
 
 <p>Runs the SDDP algorithms on the lattice given by <code>root</code>. The algorithm will do iterations until <code>stopcrit</code> decides to stop or when the root node is infeasible. In each iterations, <code>K</code> paths will be explored up to <code>num_stages</code> stages. The paths will be selected according to <code>pathsel</code> and equivalent paths might be merged if their difference is smaller than <code>ztol</code>. The parameter <code>ztol</code> is also used to check whether a new cut is useful.</p>
-<p><a target='_blank' href='https://github.com/blegat/StochasticDualDynamicProgramming.jl/tree/65896370608f0c7d747722663e2d1e56e7712453/src/sddp.jl#L350' class='documenter-source'>source</a><br></p>
+<p><a target='_blank' href='https://github.com/blegat/StochasticDualDynamicProgramming.jl/tree/db59fceda132c87c07b8ed514dfed843ae31725c/src/sddp.jl#L300' class='documenter-source'>source</a><br></p>
 <p>This lattice can be built from a <a href="./github.com/StructJuMP/StructJuMP.jl">StructJuMP</a> model using the following function:</p>
 <p><a id='StochasticDualDynamicProgramming.model2lattice-Tuple{JuMP.Model,Any,Any,CutPruners.AbstractCutPruningAlgo,Symbol,Symbol}' href='#StochasticDualDynamicProgramming.model2lattice-Tuple{JuMP.Model,Any,Any,CutPruners.AbstractCutPruningAlgo,Symbol,Symbol}'>#</a>
 <strong><code>StochasticDualDynamicProgramming.model2lattice</code></strong> &mdash; <em>Method</em>.</p>
@@ -135,7 +135,7 @@ model2lattice(m, num_stages, solver, pruningalgo, cutmode)
 </code></pre>
 
 <p>Transforms a <a href="https://github.com/StructJuMP/StructJuMP.jl">StructJuMP</a> model <code>m</code> into a lattice that can be used by the SDDP algorithm.</p>
-<p><a target='_blank' href='https://github.com/blegat/StochasticDualDynamicProgramming.jl/tree/65896370608f0c7d747722663e2d1e56e7712453/src/interface.jl#L260' class='documenter-source'>source</a><br></p>
+<p><a target='_blank' href='https://github.com/blegat/StochasticDualDynamicProgramming.jl/tree/db59fceda132c87c07b8ed514dfed843ae31725c/src/interface.jl#L260' class='documenter-source'>source</a><br></p>
 <p><a id='Index-1'></a></p>
 <h2 id="index">Index</h2>
 <ul>
@@ -146,7 +146,6 @@ model2lattice(m, num_stages, solver, pruningalgo, cutmode)
 <li><a href="stopcrit/#StochasticDualDynamicProgramming.Pereira"><code>StochasticDualDynamicProgramming.Pereira</code></a></li>
 <li><a href=".#StochasticDualDynamicProgramming.SDDP-Tuple{StochasticDualDynamicProgramming.SDDPNode,Any}"><code>StochasticDualDynamicProgramming.SDDP</code></a></li>
 <li><a href=".#StochasticDualDynamicProgramming.model2lattice-Tuple{JuMP.Model,Any,Any,CutPruners.AbstractCutPruningAlgo,Symbol,Symbol}"><code>StochasticDualDynamicProgramming.model2lattice</code></a></li>
-<li><a href="stopcrit/#StochasticDualDynamicProgramming.stop-Tuple{StochasticDualDynamicProgramming.AbstractStoppingCriterion,Any,Any,Any,Any,Any,Any,Any}"><code>StochasticDualDynamicProgramming.stop</code></a></li>
 </ul>
               
             </div>
@@ -198,5 +197,5 @@ model2lattice(m, num_stages, solver, pruningalgo, cutmode)
 
 <!--
 MkDocs version : 0.16.1
-Build Date UTC : 2017-02-26 17:10:19
+Build Date UTC : 2017-02-26 18:18:31
 -->
