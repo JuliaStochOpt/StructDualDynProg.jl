@@ -269,7 +269,7 @@ function notifynewcuts{S}(nlds::NLDS{S}, A::AbstractMatrix{S}, b::AbstractVector
         pruner = nlds.OCpruners[i]
     end
     ncur = ncuts(pruner)
-    addstatus = addcuts!(pruner, A, b, mine)
+    addstatus = addcuts!(pruner, -A, -b, mine)
     npushed = sum(addstatus .> ncur)
     cur = nlds.nσ + sum(nlds.nρ)
     if isfc
@@ -331,7 +331,7 @@ function getrhs{S}(nlds::NLDS{S})
     cur = 0
     cuts_de = S[]
     if !isempty(nlds.FCpruner)
-        append!(cuts_de, nlds.FCpruner.cuts_de)
+        append!(cuts_de, -nlds.FCpruner.cuts_de)
         nlds.nσ = ncuts(nlds.FCpruner)
         nlds.σs = cur + (1:nlds.nσ)
         cur += ncuts(nlds.FCpruner)
@@ -339,7 +339,7 @@ function getrhs{S}(nlds::NLDS{S})
     end
     for i in 1:nlds.nθ
         if !isempty(nlds.OCpruners[i])
-            append!(cuts_de, nlds.OCpruners[i].cuts_de)
+            append!(cuts_de, -nlds.OCpruners[i].cuts_de)
             nlds.nρ[i] = ncuts(nlds.OCpruners[i])
             nlds.ρs[i] = cur + (1:nlds.nρ[i])
             cur += ncuts(nlds.OCpruners[i])
@@ -402,11 +402,11 @@ function getcutsDE{S}(nlds::NLDS{S})
     nc = nlds.nσ + sum(nlds.nρ)
     cuts_DE = spzeros(S, nc, nlds.nx + nlds.nθ)
     if !isempty(nlds.FCpruner)
-        cuts_DE[nlds.σs, 1:nlds.nx] = nlds.FCpruner.cuts_DE
+        cuts_DE[nlds.σs, 1:nlds.nx] = -nlds.FCpruner.cuts_DE
     end
     for i in 1:nlds.nθ
         if !isempty(nlds.OCpruners[i])
-            cuts_DE[nlds.ρs[i], 1:nlds.nx] = nlds.OCpruners[i].cuts_DE
+            cuts_DE[nlds.ρs[i], 1:nlds.nx] = -nlds.OCpruners[i].cuts_DE
             cuts_DE[nlds.ρs[i], nlds.nx + i] = 1
         end
     end
@@ -490,13 +490,13 @@ function solve!{S}(nlds::NLDS{S})
 
                 σ = σρ[nlds.σs]
                 CutPruners.updatestats!(nlds.FCpruner, σ)
-                sol.σd = vecdot(σ, nlds.FCpruner.cuts_de)
+                sol.σd = -vecdot(σ, nlds.FCpruner.cuts_de)
 
                 sol.ρe = zero(S)
                 for i in 1:nlds.nθ
                     ρ = σρ[nlds.ρs[i]]
                     CutPruners.updatestats!(nlds.OCpruners[i], ρ)
-                    sol.ρe += vecdot(ρ, nlds.OCpruners[i].cuts_de)
+                    sol.ρe += -vecdot(ρ, nlds.OCpruners[i].cuts_de)
                 end
 
                 sol.πT = vec(π' * nlds.T)
