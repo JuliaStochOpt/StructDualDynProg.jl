@@ -86,7 +86,7 @@ Stops if total time of execution is greater than the time limit specified.
 For instance, `TimeLimit(100)` stops after 100s.
 """
 type TimeLimit <: AbstractStoppingCriterion
-    timelimit::Int
+    timelimit::Float64
 end
 
 function stop(s::TimeLimit, stats::AbstractSDDPStats)
