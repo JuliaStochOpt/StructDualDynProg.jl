@@ -16,18 +16,37 @@ type SDDPStats
     ocutstime::Float64
     nsetx::Int
     setxtime::Float64
+
+    # number of iterations
+    niterations::Int
+    # n forwards passes of last computation of upper-bound:
+    npaths::Int
+    # current lower bound
+    lowerbound::Float64
+    # current lower bound
+    upperbound::Float64
+    # upper-bound std:
+    σ_UB::Float64
+    # total time
+    time::Float64
 end
 
-SDDPStats() = SDDPStats(0,.0,0,.0,0,.0,0,.0,0,.0)
+SDDPStats() = SDDPStats(0,.0,0,.0,0,.0,0,.0,0,.0, 0, 0, 0, 0, 0, 0)
 
 import Base: +, show
 
+# Add two `SDDPStats` objects and return a new `SDDPStats`
+# The second SDDPStats is supposed to be more up to date that the first one
+# WARNING: the addition is currently non commutative !
 function +(a::SDDPStats, b::SDDPStats)
     SDDPStats(a.nsolved + b.nsolved, a.solvertime + b.solvertime,
     a.nmerged + b.nmerged, a.mergetime  + b.mergetime,
     a.nfcuts  + b.nfcuts , a.fcutstime  + b.fcutstime,
     a.nocuts  + b.nocuts , a.ocutstime  + b.ocutstime,
-    a.nsetx   + b.nsetx  , a.setxtime   + b.setxtime)
+    a.nsetx   + b.nsetx  , a.setxtime   + b.setxtime,
+    a.niterations   + b.niterations  , b.npaths,
+    b.lowerbound, b.upperbound,
+    b.σ_UB, a.time + b.time)
 end
 
 macro mytime(x)

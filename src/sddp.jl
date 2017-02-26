@@ -118,6 +118,7 @@ function iteration{S}(root::SDDPNode{S}, Ktot::Int, num_stages, verbose, pathsel
 
     stats.solvertime += @mytime rootsol = loadAndSolve(root)
     stats.nsolved += 1
+    stats.niterations += 1
     infeasibility_detected = rootsol.status == :Infeasible
     if infeasibility_detected
         pathsd = Dict{SDDPNode, Vector{SDDPPath}}()
@@ -286,7 +287,14 @@ function iteration{S}(root::SDDPNode{S}, Ktot::Int, num_stages, verbose, pathsel
         end
         z_UB, σ = meanstdpaths(endedpaths, Ktot)
     end
-    rootsol, stats, z_UB, σ
+
+    # update stats
+    stats.upperbound = z_UB
+    stats.σ_UB = σ
+    stats.npaths = Ktot
+    stats.lowerbound = rootsol.objval
+
+    rootsol, stats
 end
 
 """
@@ -303,7 +311,6 @@ function SDDP(root::SDDPNode, num_stages; K::Int=25, stopcrit::AbstractStoppingC
         error("Invalid pathsel")
     end
     rootsol = nothing
-    totaltime = 0
     totalstats = SDDPStats()
 
     z_UB = Inf
@@ -313,17 +320,18 @@ function SDDP(root::SDDPNode, num_stages; K::Int=25, stopcrit::AbstractStoppingC
     nfcuts = 0
     nocuts = 0
 
-    while (rootsol === nothing || rootsol.status != :Infeasible) && !stop(stopcrit, iter, nfcuts, nocuts, K, z_LB, z_UB, σ)
-        itertime = @mytime rootsol, stats, z_UB, σ = iteration(root, K, num_stages, verbose, pathsel, ztol)
+    while (rootsol === nothing || rootsol.status != :Infeasible) && !stop(stopcrit, totalstats)
+        itertime = @mytime rootsol, stats = iteration(root, K, num_stages, verbose, pathsel, ztol)
         z_LB = rootsol.objval
         iter += 1
         nfcuts = stats.nfcuts
         nocuts = stats.nocuts
 
-        totaltime  += itertime
+        totalstats.time += itertime
+
         totalstats += stats
         if verbose >= 2
-            println("Iteration $iter completed in $itertime s (Total time is $totaltime)")
+            println("Iteration $iter completed in $itertime s (Total time is $(stats.time))")
             println("Status: $(rootsol.status)")
             println("z_UB: $(z_UB)")
             println("z_LB: $(z_LB)")
