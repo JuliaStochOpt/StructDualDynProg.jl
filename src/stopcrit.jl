@@ -1,5 +1,5 @@
 import Base.|, Base.&
-export stop, AbstractStoppingCriterion, OrStoppingCriterion, AndStoppingCriterion, IterLimit, Pereira, CutLimit
+export stop, AbstractStoppingCriterion, OrStoppingCriterion, AndStoppingCriterion, IterLimit, Pereira, CutLimit, TimeLimit
 
 abstract AbstractStoppingCriterion
 
@@ -77,6 +77,22 @@ end
 function stop(s::CutLimit, stats::SDDPStats)
     stats.niterations > 0 && stats.nfcuts + stats.nocuts <= s.limit
 end
+
+
+"""
+$(TYPEDEF)
+
+Stops if total time of execution is greater than the time limit specified.
+For instance, `TimeLimit(100)` stops after 100s.
+"""
+type TimeLimit <: AbstractStoppingCriterion
+    timelimit::Int
+end
+
+function stop(s::TimeLimit, stats::SDDPStats)
+    stats.niterations > 0 && stats.time > s.timelimit
+end
+
 
 """
 $(TYPEDEF)
