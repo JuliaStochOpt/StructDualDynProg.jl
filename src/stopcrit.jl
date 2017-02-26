@@ -11,7 +11,7 @@ If `iter` is 0, no iteration has already been done, otherwise, the `iter`th iter
 This iteration used `K` paths and generated `nfcuts` (resp. `nocuts`) new feasibility (resp. optimality) cuts.
 The lower bound is now `z_LB` and the upper bound has mean `z_UB` and variance `σ`.
 """
-function stop(s::AbstractStoppingCriterion, stats::SDDPStats)
+function stop(s::AbstractStoppingCriterion, stats::AbstractSDDPStats)
     error("`stop' function not defined for $(typeof(s))")
 end
 
@@ -25,7 +25,7 @@ type OrStoppingCriterion <: AbstractStoppingCriterion
     rhs::AbstractStoppingCriterion
 end
 
-function stop(s::OrStoppingCriterion, stats::SDDPStats)
+function stop(s::OrStoppingCriterion, stats::AbstractSDDPStats)
     stop(s.lhs, stats) || stop(s.rhs, stats)
 end
 
@@ -43,7 +43,7 @@ type AndStoppingCriterion <: AbstractStoppingCriterion
     rhs::AbstractStoppingCriterion
 end
 
-function stop(s::AndStoppingCriterion, stats::SDDPStats)
+function stop(s::AndStoppingCriterion, stats::AbstractSDDPStats)
     stop(s.lhs, stats) && stop(s.rhs, stats)
 end
 
@@ -60,7 +60,7 @@ type IterLimit <: AbstractStoppingCriterion
     limit::Int
 end
 
-function stop(s::IterLimit, stats::SDDPStats)
+function stop(s::IterLimit, stats::AbstractSDDPStats)
     stats.niterations >= s.limit
 end
 
@@ -74,7 +74,7 @@ type CutLimit <: AbstractStoppingCriterion
     limit::Int
 end
 
-function stop(s::CutLimit, stats::SDDPStats)
+function stop(s::CutLimit, stats::AbstractSDDPStats)
     stats.niterations > 0 && stats.nfcuts + stats.nocuts <= s.limit
 end
 
@@ -89,7 +89,7 @@ type TimeLimit <: AbstractStoppingCriterion
     timelimit::Int
 end
 
-function stop(s::TimeLimit, stats::SDDPStats)
+function stop(s::TimeLimit, stats::AbstractSDDPStats)
     stats.niterations > 0 && stats.time > s.timelimit
 end
 
@@ -106,7 +106,7 @@ type Pereira <: AbstractStoppingCriterion
     Pereira(α=2.0, β=0.05) = new(α, β)
 end
 
-function stop(s::Pereira, stats::SDDPStats)
+function stop(s::Pereira, stats::AbstractSDDPStats)
     z_UB = stats.upperbound
     z_LB = stats.lowerbound
     K = stats.npaths

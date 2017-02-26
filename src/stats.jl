@@ -1,5 +1,8 @@
+export AbstractSDDPStats
 
-type SDDPStats
+abstract AbstractSDDPStats
+
+type SDDPStats <: AbstractSDDPStats
     # number of calls to solver
     nsolved::Int
     # total time passed inside solver
