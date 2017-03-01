@@ -96,7 +96,7 @@ type NLDS{S}
         nπ = length(h)
         localFC = CutStore{S}(nx)
         localOC = CutStore{S}(nx)
-        FCpruner = CutPruner{nx, S}(pruningalgo)
+        FCpruner = CutPruner{nx, S}(pruningalgo, :≤)
         OCpruners = typeof(FCpruner)[]
         if false
             model = MathProgBase.ConicModel(solver)
@@ -127,7 +127,7 @@ function setchildren!{S}(nlds::NLDS{S}, childFC, childOC, proba, cutmode, childT
     end
     nlds.nρ = zeros(Int, nlds.nθ)
     nlds.ρs = [Int[] for i in 1:nlds.nθ]
-    nlds.OCpruners = [CutPruner{nlds.nx, S}(nlds.pruningalgo) for i in 1:nlds.nθ]
+    nlds.OCpruners = [CutPruner{nlds.nx, S}(nlds.pruningalgo, :Max) for i in 1:nlds.nθ]
     nlds.childFC = childFC
     for i in 1:length(childFC)
         addfollower(childFC[i], (nlds, (:Feasibility, i)))
@@ -269,7 +269,7 @@ function notifynewcuts{S}(nlds::NLDS{S}, A::AbstractMatrix{S}, b::AbstractVector
         pruner = nlds.OCpruners[i]
     end
     ncur = ncuts(pruner)
-    addstatus = addcuts!(pruner, -A, -b, mine)
+    addstatus = addcuts!(pruner, isfc ? A : -A, b, mine)
     npushed = sum(addstatus .> ncur)
     cur = nlds.nσ + sum(nlds.nρ)
     if isfc
@@ -329,9 +329,9 @@ function getrhs{S}(nlds::NLDS{S})
     Ks = [nlds.K]
     Kcut = []
     cur = 0
-    cuts_de = S[]
+    b = S[]
     if !isempty(nlds.FCpruner)
-        append!(cuts_de, -nlds.FCpruner.cuts_de)
+        append!(b, nlds.FCpruner.b)
         nlds.nσ = ncuts(nlds.FCpruner)
         nlds.σs = cur + (1:nlds.nσ)
         cur += ncuts(nlds.FCpruner)
@@ -339,7 +339,7 @@ function getrhs{S}(nlds::NLDS{S})
     end
     for i in 1:nlds.nθ
         if !isempty(nlds.OCpruners[i])
-            append!(cuts_de, -nlds.OCpruners[i].cuts_de)
+            append!(b, nlds.OCpruners[i].b)
             nlds.nρ[i] = ncuts(nlds.OCpruners[i])
             nlds.ρs[i] = cur + (1:nlds.nρ[i])
             cur += ncuts(nlds.OCpruners[i])
@@ -347,7 +347,7 @@ function getrhs{S}(nlds::NLDS{S})
         end
     end
     if !isempty(Kcut)
-        push!(bs, cuts_de)
+        push!(bs, b)
         push!(Ks, Kcut)
     end
     checkconsistency(nlds)
@@ -400,17 +400,17 @@ end
 function getcutsDE{S}(nlds::NLDS{S})
     checkconsistency(nlds)
     nc = nlds.nσ + sum(nlds.nρ)
-    cuts_DE = spzeros(S, nc, nlds.nx + nlds.nθ)
+    A = spzeros(S, nc, nlds.nx + nlds.nθ)
     if !isempty(nlds.FCpruner)
-        cuts_DE[nlds.σs, 1:nlds.nx] = -nlds.FCpruner.cuts_DE
+        A[nlds.σs, 1:nlds.nx] = nlds.FCpruner.A
     end
     for i in 1:nlds.nθ
         if !isempty(nlds.OCpruners[i])
-            cuts_DE[nlds.ρs[i], 1:nlds.nx] = -nlds.OCpruners[i].cuts_DE
-            cuts_DE[nlds.ρs[i], nlds.nx + i] = 1
+            A[nlds.ρs[i], 1:nlds.nx] = -nlds.OCpruners[i].A
+            A[nlds.ρs[i], nlds.nx + i] = 1
         end
     end
-    cuts_DE
+    A
 end
 
 function load!{S}(nlds::NLDS{S})
@@ -427,11 +427,11 @@ function load!{S}(nlds::NLDS{S})
         bs, Ks = getrhs(nlds)
 
         computecuts!(nlds) # FIXME what is the use of this ?
-        cuts_DE = getcutsDE(nlds)
+        A = getcutsDE(nlds)
         if !isnull(nlds.xuray_a)
-            cuts_DE = [cuts_DE spzeros(size(cuts_DE, 1), 1)]
+            A = [A spzeros(size(A, 1), 1)]
         end
-        bigA = [bigA; cuts_DE]
+        bigA = [bigA; A]
 
         bigC = nlds.C
         bigc = nlds.c
@@ -490,13 +490,13 @@ function solve!{S}(nlds::NLDS{S})
 
                 σ = σρ[nlds.σs]
                 CutPruners.updatestats!(nlds.FCpruner, σ)
-                sol.σd = -vecdot(σ, nlds.FCpruner.cuts_de)
+                sol.σd = vecdot(σ, nlds.FCpruner.b)
 
                 sol.ρe = zero(S)
                 for i in 1:nlds.nθ
                     ρ = σρ[nlds.ρs[i]]
                     CutPruners.updatestats!(nlds.OCpruners[i], ρ)
-                    sol.ρe += -vecdot(ρ, nlds.OCpruners[i].cuts_de)
+                    sol.ρe += vecdot(ρ, nlds.OCpruners[i].b)
                 end
 
                 sol.πT = vec(π' * nlds.T)
