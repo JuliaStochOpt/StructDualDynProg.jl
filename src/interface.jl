@@ -269,6 +269,7 @@ function model2lattice(m::Model, num_stages, solver, pruningalgo::AbstractCutPru
     end
 
     root = getSDDPNode(nodes, m, 1, num_stages, solver, nothing, pruningalgo, cutmode, newcut)
+	GraphSDDPTree(root)
 end
 
 function SDDPclear(m::Model)

@@ -15,7 +15,8 @@ function meanstdpaths(paths::Vector{WSPath}, totalK)
     meanstdpaths(z, proba, npaths, totalK)
 end
 
-function waitandsee(root::SDDPNode, num_stages, solver, totalK=25, verbose=0)
+function waitandsee(g::AbstractSDDPTree, num_stages, solver, totalK=25, verbose=0)
+	root = g.root
     paths = WSPath[WSPath(root, NLDS[root.nlds], .0, 1., totalK)]
     for t in 2:num_stages
         newpaths = WSPath[]
@@ -23,7 +24,7 @@ function waitandsee(root::SDDPNode, num_stages, solver, totalK=25, verbose=0)
             if isempty(path.node.children)
                 push!(newpaths, path)
             else
-                npaths = choosepaths(path.node, path.K, :Proba, t, num_stages)
+                npaths = choosepaths(g, path.node, path.K, :Proba, t, num_stages)
                 childs = totalK == -1 ? (1:length(path.node.children)) : find(npaths .> 0)
                 curpaths = WSPath[WSPath(path.node.children[i], [path.nlds; path.node.children[i].nlds], path.z, path.proba * path.node.proba[i], npaths[i]) for i in childs]
                 append!(newpaths, curpaths)

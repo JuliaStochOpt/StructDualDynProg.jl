@@ -16,18 +16,17 @@ include("mycomp.jl")
 include("stats.jl")
 
 # Abstract components
-# Cut Manager
-#include("cutmanager.jl")
-#include("avgcutmanager.jl")
-#include("decaycutmanager.jl")
 # Stopping Criterion
 include("stopcrit.jl")
-
-# SDDP algorithm
+# NLDS Model
 include("cutstore.jl")
 include("solver.jl")
 include("nlds.jl")
+# SDDP Tree
 include("node.jl")
+include("sddptree.jl")
+
+# SDDP algorithm
 include("sddp.jl")
 
 # Wait and See value

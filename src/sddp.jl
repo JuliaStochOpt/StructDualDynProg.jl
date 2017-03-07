@@ -16,44 +16,6 @@ function meanstdpaths(z::Vector{Float64}, proba::Vector{Float64}, npaths::Vector
     μ, σ
 end
 
-function choosepaths(node::SDDPNode, K::Int, pathsel, t, num_stages)
-    if K == -1
-        map(child->-1, node.children)
-    else
-        if pathsel == :nPaths
-            den = numberofpaths(node, t-1, num_stages)
-            pmf = map(child->numberofpaths(child, t, num_stages) / den, node.children)
-        else
-            pmf = node.proba
-        end
-        cmf = cumsum(pmf)
-        @assert abs(cmf[end] - 1) < 1e-6
-        cmf[end] = 1
-        samples = rand(Float64, K)
-        npaths = zeros(Int, length(node.children))
-        sort!(samples)
-        i = 1
-        for j in samples
-            while j >= cmf[i]
-                i += 1
-            end
-            npaths[i] += 1
-        end
-        npaths
-    end
-end
-
-function choosepaths(node::SDDPNode, K::Vector{Int}, pathsel, t, num_stages)
-    npathss = Vector{Int}[similar(K) for i in 1:length(node.children)]
-    for i in 1:length(K)
-        npaths = choosepaths(node, K[i], pathsel, t, num_stages)
-        for c in 1:length(node.children)
-            npathss[c][i] = npaths[c]
-        end
-    end
-    npathss
-end
-
 type SDDPPath
     sol::NLDSSolution
     z::Vector{Float64}
@@ -105,7 +67,7 @@ function Base.isapprox(p::SDDPPath, q::SDDPPath)
     Base.isapprox(p.sol.x, q.sol.x)
 end
 
-function addjob!(jobsd::Dict{SDDPNode, Vector{SDDPJob}}, node::SDDPNode, job::SDDPJob)
+function addjob!{S}(jobsd::Dict{SDDPNode{S}, Vector{SDDPJob}}, node::SDDPNode{S}, job::SDDPJob)
     if node in keys(jobsd)
         push!(jobsd[node], job)
     else
@@ -113,17 +75,19 @@ function addjob!(jobsd::Dict{SDDPNode, Vector{SDDPJob}}, node::SDDPNode, job::SD
     end
 end
 
-function iteration{S}(root::SDDPNode{S}, Ktot::Int, num_stages, verbose, pathsel, ztol)
+function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pathsel, ztol)
     stats = SDDPStats()
 
-    stats.solvertime += @mytime rootsol = loadAndSolve(root)
+	master, initialstate = getmaster(g)
+	StateT = typeof(initialstate)
+    stats.solvertime += @mytime mastersol = loadAndSolve(master)
     stats.nsolved += 1
     stats.niterations += 1
-    infeasibility_detected = rootsol.status == :Infeasible
+    infeasibility_detected = mastersol.status == :Infeasible
     if infeasibility_detected
-        pathsd = Dict{SDDPNode, Vector{SDDPPath}}()
+		pathsd = Dict{StateT, Vector{SDDPPath}}()
     else
-        pathsd = Dict{SDDPNode, Vector{SDDPPath}}(root => [SDDPPath(rootsol, [rootsol.objvalx], [1.], [Ktot], length(root.children))])
+        pathsd = Dict{StateT, Vector{SDDPPath}}(initialstate => [SDDPPath(mastersol, [mastersol.objvalx], [1.], [Ktot], length(master.children))])
     end
     endedpaths = SDDPPath[]
 
@@ -134,8 +98,8 @@ function iteration{S}(root::SDDPNode{S}, Ktot::Int, num_stages, verbose, pathsel
 
         # Merge paths
         if true
-            before = sum([sum([sum(path.K) for path in paths]) for (node, paths) in pathsd])
-            stats.mergetime += @mytime for (node, paths) in pathsd
+            before = sum([sum([sum(path.K) for path in paths]) for (state, paths) in pathsd])
+            stats.mergetime += @mytime for (state, paths) in pathsd
                 keep = ones(Bool, length(paths))
                 merged = false
                 for i in 1:length(paths)
@@ -150,38 +114,38 @@ function iteration{S}(root::SDDPNode{S}, Ktot::Int, num_stages, verbose, pathsel
                         end
                     end
                 end
-                pathsd[node] = paths[keep]
+                pathsd[state] = paths[keep]
             end
-            after = sum([sum([sum(path.K) for path in paths]) for (node, paths) in pathsd])
+            after = sum([sum([sum(path.K) for path in paths]) for (state, paths) in pathsd])
             @assert before == after
         end
 
         # Make jobs
-        jobsd = Dict{SDDPNode, Vector{SDDPJob}}()
-        for (parent, paths) in pathsd
-            if isempty(parent.children)
-                append!(endedpaths, paths)
-            else
+        jobsd = Dict{StateT, Vector{SDDPJob}}()
+        for (state, paths) in pathsd
+			if haschildren(g, state)
                 for path in paths
                     # Adding Jobs
-                    npaths = choosepaths(parent, path.K, pathsel, t, num_stages)
-                    childocuts = Array{Any}(length(parent.children))
-                    for i in 1:length(parent.children)
-                        if t == 2 || sum(npaths[i]) != 0 || parent.nlds.cutmode == :AveragedCut
-                            addjob!(jobsd, parent.children[i], SDDPJob(path.proba * parent.proba[i], npaths[i], parent, path, i))
+                    npaths = choosepaths(g, state, path.K, pathsel, t, num_stages)
+					childocuts = Array{Any}(nchildren(g, state))
+                    for i in 1:nchildren(g, state)
+						if t == 2 || sum(npaths[i]) != 0 || cutmode(g, state) == :AveragedCut
+							addjob!(jobsd, getchild(g, state, i), SDDPJob(path.proba * getproba(g, state, i), npaths[i], state, path, i))
                         end
                     end
                 end
+			else
+                append!(endedpaths, paths)
             end
         end
 
         # Solve Jobs (parallelism possible here)
-        for (node, jobs) in jobsd
+        for (state, jobs) in jobsd
             for job in jobs
                 if job.parent.childs_feasible
                     stats.setxtime += @mytime setchildx(job.parentnode, job.i, job.parent.sol)
                     stats.nsetx += 1
-                    stats.solvertime += @mytime job.sol = loadAndSolve(node)
+                    stats.solvertime += @mytime job.sol = loadAndSolve(state)
                     job.parent.childsols[job.i] = job.sol
                     stats.nsolved += 1
                     if get(job.sol).status == :Infeasible
@@ -253,27 +217,27 @@ function iteration{S}(root::SDDPNode{S}, Ktot::Int, num_stages, verbose, pathsel
         end
 
         # Apply cut addition
-        for (parent, paths) in pathsd
-            for child in parent.children
+        for (state, paths) in pathsd
+			for child in children(g, state)
                 applyfeasibilitycut!(child)
             end
-            if parent.nlds.cutmode == :MultiCut
-                for child in parent.children
+			if cutmode(g, state) == :MultiCut
+				for child in children(g, state)
                     applyoptimalitycutforparent!(child)
                 end
-            elseif parent.nlds.cutmode == :AveragedCut
-                applyoptimalitycut!(parent)
+			elseif cutmode(g, state) == :AveragedCut
+                applyoptimalitycut!(state)
             end
         end
 
         # Jobs -> Paths
         empty!(pathsd)
-        for (node, jobs) in jobsd
+        for (state, jobs) in jobsd
             K = [find(job.K .!= 0) for job in jobs]
             keep = find(Bool[jobs[i].parent.childs_feasible && !isempty(K[i]) for i in 1:length(jobs)])
             if !isempty(keep)
-                paths = SDDPPath[SDDPPath(get(jobs[i].sol), jobs[i].parent.z[K[i]]+get(jobs[i].sol).objvalx, jobs[i].proba[K[i]], jobs[i].K[K[i]], length(node.children)) for i in keep]
-                pathsd[node] = paths
+				paths = SDDPPath[SDDPPath(get(jobs[i].sol), jobs[i].parent.z[K[i]]+get(jobs[i].sol).objvalx, jobs[i].proba[K[i]], jobs[i].K[K[i]], nchildren(g, state)) for i in keep]
+                pathsd[state] = paths
             end
         end
     end
@@ -282,7 +246,7 @@ function iteration{S}(root::SDDPNode{S}, Ktot::Int, num_stages, verbose, pathsel
         z_UB = Inf # FIXME assumes minimization
         σ = 0
     else
-        for (node, paths) in pathsd
+        for (_, paths) in pathsd
             append!(endedpaths, paths)
         end
         z_UB, σ = meanstdpaths(endedpaths, Ktot)
@@ -292,9 +256,9 @@ function iteration{S}(root::SDDPNode{S}, Ktot::Int, num_stages, verbose, pathsel
     stats.upperbound = z_UB
     stats.σ_UB = σ
     stats.npaths = Ktot
-    stats.lowerbound = rootsol.objval
+    stats.lowerbound = mastersol.objval
 
-    rootsol, stats
+    mastersol, stats
 end
 
 """
@@ -306,11 +270,11 @@ In each iterations, `K` paths will be explored up to `num_stages` stages.
 The paths will be selected according to `pathsel` and equivalent paths might be merged if their difference is smaller than `ztol`.
 The parameter `ztol` is also used to check whether a new cut is useful.
 """
-function SDDP(root::SDDPNode, num_stages; K::Int=25, stopcrit::AbstractStoppingCriterion=Pereira(), verbose=0, pathsel::Symbol=:Proba, ztol=1e-6)
+function SDDP(g::AbstractSDDPTree, num_stages; K::Int=25, stopcrit::AbstractStoppingCriterion=Pereira(), verbose=0, pathsel::Symbol=:Proba, ztol=1e-6)
     if !(pathsel in [:Proba, :nPaths])
         error("Invalid pathsel")
     end
-    rootsol = nothing
+    mastersol = nothing
     totalstats = SDDPStats()
 
     z_UB = Inf
@@ -320,9 +284,9 @@ function SDDP(root::SDDPNode, num_stages; K::Int=25, stopcrit::AbstractStoppingC
     nfcuts = 0
     nocuts = 0
 
-    while (rootsol === nothing || rootsol.status != :Infeasible) && !stop(stopcrit, totalstats)
-        itertime = @mytime rootsol, stats = iteration(root, K, num_stages, verbose, pathsel, ztol)
-        z_LB = rootsol.objval
+    while (mastersol === nothing || mastersol.status != :Infeasible) && !stop(stopcrit, totalstats)
+        itertime = @mytime mastersol, stats = iteration(g, K, num_stages, verbose, pathsel, ztol)
+        z_LB = mastersol.objval
         iter += 1
         nfcuts = stats.nfcuts
         nocuts = stats.nocuts
@@ -332,10 +296,10 @@ function SDDP(root::SDDPNode, num_stages; K::Int=25, stopcrit::AbstractStoppingC
         totalstats += stats
         if verbose >= 2
             println("Iteration $iter completed in $itertime s (Total time is $(stats.time))")
-            println("Status: $(rootsol.status)")
+            println("Status: $(mastersol.status)")
             println("z_UB: $(z_UB)")
             println("z_LB: $(z_LB)")
-            #println(" Solution value: $(rootsol.x)")
+            #println(" Solution value: $(mastersol.x)")
             println("Stats for this iteration:")
             println(stats)
             println("Total stats:")
@@ -345,11 +309,11 @@ function SDDP(root::SDDPNode, num_stages; K::Int=25, stopcrit::AbstractStoppingC
 
     if verbose >= 1
         println("SDDP completed in $iter iterations in $totaltime s")
-        println("Status: $(rootsol.status)")
-        #println("Objective value: $(rootsol.objval)")
+        println("Status: $(mastersol.status)")
+        #println("Objective value: $(mastersol.objval)")
         println("z_UB: $(z_UB)")
         println("z_LB: $(z_LB)")
-        #println(" Solution value: $(rootsol.x)")
+        #println(" Solution value: $(mastersol.x)")
         println("Total stats:")
         println(totalstats)
     end
@@ -358,5 +322,5 @@ function SDDP(root::SDDPNode, num_stages; K::Int=25, stopcrit::AbstractStoppingC
     attrs[:niter] = iter
     attrs[:nfcuts] = nfcuts
     attrs[:nocuts] = nocuts
-    SDDPSolution(rootsol.status, rootsol.objval, rootsol.x, attrs)
+    SDDPSolution(mastersol.status, mastersol.objval, mastersol.x, attrs)
 end
