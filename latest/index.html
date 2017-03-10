@@ -117,25 +117,20 @@
 <li>Support specifying the problem using a low-level interface. This is used for example by the <a href="https://github.com/blegat/EntropicCone.jl">EntropicCone</a> package.</li>
 </ul>
 <p>The <code>SDDP</code> algorithm can be run from any node of the lattice of problems using the following function:</p>
-<p><a id='StochasticDualDynamicProgramming.SDDP-Tuple{StochasticDualDynamicProgramming.SDDPNode,Any}' href='#StochasticDualDynamicProgramming.SDDP-Tuple{StochasticDualDynamicProgramming.SDDPNode,Any}'>#</a>
-<strong><code>StochasticDualDynamicProgramming.SDDP</code></strong> &mdash; <em>Method</em>.</p>
-<pre><code class="julia">SDDP(root, num_stages; K, verbose, pathsel, stopcrit, ztol)
-
+<pre><code>SDDP(root::SDDPNode, num_stages; K::Int, stopcrit::AbstractStoppingCriterion, verbose, pathsel::Symbol, ztol)
 </code></pre>
 
-<p>Runs the SDDP algorithms on the lattice given by <code>root</code>. The algorithm will do iterations until <code>stopcrit</code> decides to stop or when the root node is infeasible. In each iterations, <code>K</code> paths will be explored up to <code>num_stages</code> stages. The paths will be selected according to <code>pathsel</code> and equivalent paths might be merged if their difference is smaller than <code>ztol</code>. The parameter <code>ztol</code> is also used to check whether a new cut is useful.</p>
-<p><a target='_blank' href='https://github.com/blegat/StochasticDualDynamicProgramming.jl/tree/ff1a4901d4655dc17fd7384dc41eaec0ed141eb7/src/sddp.jl#L300' class='documenter-source'>source</a><br></p>
 <p>This lattice can be built from a <a href="./github.com/StructJuMP/StructJuMP.jl">StructJuMP</a> model using the following function:</p>
 <p><a id='StochasticDualDynamicProgramming.model2lattice-Tuple{JuMP.Model,Any,Any,CutPruners.AbstractCutPruningAlgo,Symbol,Symbol}' href='#StochasticDualDynamicProgramming.model2lattice-Tuple{JuMP.Model,Any,Any,CutPruners.AbstractCutPruningAlgo,Symbol,Symbol}'>#</a>
 <strong><code>StochasticDualDynamicProgramming.model2lattice</code></strong> &mdash; <em>Method</em>.</p>
 <pre><code class="julia">model2lattice(m, num_stages, solver, pruningalgo, cutmode)
-model2lattice(m, num_stages, solver, pruningalgo, cutmode, newcut)
 model2lattice(m, num_stages, solver, pruningalgo)
+model2lattice(m, num_stages, solver, pruningalgo, cutmode, newcut)
 
 </code></pre>
 
 <p>Transforms a <a href="https://github.com/StructJuMP/StructJuMP.jl">StructJuMP</a> model <code>m</code> into a lattice that can be used by the SDDP algorithm.</p>
-<p><a target='_blank' href='https://github.com/blegat/StochasticDualDynamicProgramming.jl/tree/ff1a4901d4655dc17fd7384dc41eaec0ed141eb7/src/interface.jl#L260' class='documenter-source'>source</a><br></p>
+<p><a target='_blank' href='https://github.com/blegat/StochasticDualDynamicProgramming.jl/tree/09127a2225735fefb8ca402ec29f3b1e3f8aa9f1/src/interface.jl#L260' class='documenter-source'>source</a><br></p>
 <p><a id='Index-1'></a></p>
 <h2 id="index">Index</h2>
 <ul>
@@ -144,7 +139,6 @@ model2lattice(m, num_stages, solver, pruningalgo)
 <li><a href="stopcrit/#StochasticDualDynamicProgramming.IterLimit"><code>StochasticDualDynamicProgramming.IterLimit</code></a></li>
 <li><a href="stopcrit/#StochasticDualDynamicProgramming.OrStoppingCriterion"><code>StochasticDualDynamicProgramming.OrStoppingCriterion</code></a></li>
 <li><a href="stopcrit/#StochasticDualDynamicProgramming.Pereira"><code>StochasticDualDynamicProgramming.Pereira</code></a></li>
-<li><a href=".#StochasticDualDynamicProgramming.SDDP-Tuple{StochasticDualDynamicProgramming.SDDPNode,Any}"><code>StochasticDualDynamicProgramming.SDDP</code></a></li>
 <li><a href=".#StochasticDualDynamicProgramming.model2lattice-Tuple{JuMP.Model,Any,Any,CutPruners.AbstractCutPruningAlgo,Symbol,Symbol}"><code>StochasticDualDynamicProgramming.model2lattice</code></a></li>
 </ul>
               
@@ -197,5 +191,5 @@ model2lattice(m, num_stages, solver, pruningalgo)
 
 <!--
 MkDocs version : 0.16.1
-Build Date UTC : 2017-03-01 11:29:20
+Build Date UTC : 2017-03-10 19:27:12
 -->
