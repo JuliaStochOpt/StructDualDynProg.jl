@@ -15,8 +15,9 @@ function fulltest(m, num_stages, objval, solval, ws, wsσ)
                         else
                             stopcrit = Pereira()
                         end
-                        stopcrit |= IterLimit(50)
+                        stopcrit |= IterLimit(42)
                         sol = SDDP(root, num_stages, K = K, stopcrit = stopcrit, verbose = 0)
+                        @test sol.attrs[:niter] < 40
                         v11value = sol.sol[1:4]
                         @test sol.status == :Optimal
                         @test abs(sol.objval - objval) / objval < (K == -1 ? 1e-6 : .03)

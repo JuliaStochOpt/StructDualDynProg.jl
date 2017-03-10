@@ -34,7 +34,7 @@ type SDDPStats <: AbstractSDDPStats
     time::Float64
 end
 
-SDDPStats() = SDDPStats(0,.0,0,.0,0,.0,0,.0,0,.0, 0, 0, 0, 0, 0, 0)
+SDDPStats() = SDDPStats(0, .0, 0, .0, 0, .0, 0, .0, 0, .0, 0, 0, 0, Inf, 0, 0)
 
 import Base: +, show
 

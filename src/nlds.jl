@@ -96,7 +96,7 @@ type NLDS{S}
         nπ = length(h)
         localFC = CutStore{S}(nx)
         localOC = CutStore{S}(nx)
-        FCpruner = CutPruner{nx, S}(pruningalgo, :≤)
+        FCpruner = CutPruner{nx, S}(pruningalgo, :≥)
         OCpruners = typeof(FCpruner)[]
         if false
             model = MathProgBase.ConicModel(solver)
@@ -271,6 +271,7 @@ function notifynewcuts{S}(nlds::NLDS{S}, A::AbstractMatrix{S}, b::AbstractVector
     ncur = ncuts(pruner)
     addstatus = addcuts!(pruner, isfc ? A : -A, b, mine)
     npushed = sum(addstatus .> ncur)
+    @assert ncur + npushed == ncuts(pruner)
     cur = nlds.nσ + sum(nlds.nρ)
     if isfc
         nlds.nσ += npushed
@@ -291,7 +292,6 @@ function notifynewcuts{S}(nlds::NLDS{S}, A::AbstractMatrix{S}, b::AbstractVector
                 nlds.loaded = false
                 nlds.solved = false
             elseif nlds.newcut == :AddImmediately
-
                 idx = collect(1:nlds.nx)
                 a = A[j,:]
                 if !isfc

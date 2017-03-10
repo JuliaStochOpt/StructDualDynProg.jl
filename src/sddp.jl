@@ -91,6 +91,7 @@ function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pa
     end
     endedpaths = SDDPPath[]
 
+
     for t in 2:num_stages
         if verbose >= 3
             @show t
@@ -276,29 +277,19 @@ function SDDP(g::AbstractSDDPTree, num_stages; K::Int=25, stopcrit::AbstractStop
     end
     mastersol = nothing
     totalstats = SDDPStats()
+    stats = SDDPStats()
+    stats.niterations = 1
 
-    z_UB = Inf
-    σ = 0
-    z_LB = 0
-    iter = 0
-    nfcuts = 0
-    nocuts = 0
-
-    while (mastersol === nothing || mastersol.status != :Infeasible) && !stop(stopcrit, totalstats)
+    while (mastersol === nothing || mastersol.status != :Infeasible) && !stop(stopcrit, stats, totalstats)
         itertime = @mytime mastersol, stats = iteration(g, K, num_stages, verbose, pathsel, ztol)
-        z_LB = mastersol.objval
-        iter += 1
-        nfcuts = stats.nfcuts
-        nocuts = stats.nocuts
-
-        totalstats.time += itertime
+        stats.time = itertime
 
         totalstats += stats
         if verbose >= 2
             println("Iteration $iter completed in $itertime s (Total time is $(stats.time))")
             println("Status: $(mastersol.status)")
-            println("z_UB: $(z_UB)")
-            println("z_LB: $(z_LB)")
+            println("Upper Bound: $(status.upperbound)")
+            println("Lower Bound: $(status.lowerbound)")
             #println(" Solution value: $(mastersol.x)")
             println("Stats for this iteration:")
             println(stats)
@@ -311,16 +302,16 @@ function SDDP(g::AbstractSDDPTree, num_stages; K::Int=25, stopcrit::AbstractStop
         println("SDDP completed in $iter iterations in $totaltime s")
         println("Status: $(mastersol.status)")
         #println("Objective value: $(mastersol.objval)")
-        println("z_UB: $(z_UB)")
-        println("z_LB: $(z_LB)")
+        println("Upper Bound: $(status.upperbound)")
+        println("Lower Bound: $(status.lowerbound)")
         #println(" Solution value: $(mastersol.x)")
         println("Total stats:")
         println(totalstats)
     end
 
     attrs = Dict()
-    attrs[:niter] = iter
-    attrs[:nfcuts] = nfcuts
-    attrs[:nocuts] = nocuts
+    attrs[:niter] = totalstats.niterations
+    attrs[:nfcuts] = totalstats.nfcuts
+    attrs[:nocuts] = totalstats.nocuts
     SDDPSolution(mastersol.status, mastersol.objval, mastersol.x, attrs)
 end
