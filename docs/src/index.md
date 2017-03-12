@@ -12,7 +12,7 @@ It features the following:
 
 The `SDDP` algorithm can be run from any node of the lattice of problems using the following function:
 ```@docs
-SDDP(root::SDDPNode, num_stages; K::Int, stopcrit::AbstractStoppingCriterion, verbose, pathsel::Symbol, ztol)
+SDDP(g::AbstractSDDPTree, num_stages; K::Int, stopcrit::AbstractStoppingCriterion, verbose, pathsel::Symbol, ztol)
 ```
 
 This lattice can be built from a [StructJuMP](github.com/StructJuMP/StructJuMP.jl) model using the following function:

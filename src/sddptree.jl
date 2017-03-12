@@ -1,3 +1,4 @@
+export AbstractSDDPTree
 abstract AbstractSDDPTree{S}
 
 type GraphSDDPTree{S} <: AbstractSDDPTree{S}

@@ -1,7 +1,7 @@
 ## Stopping Criterion
 
 ```@docs
-stop(stopcrit::AbstractStoppingCriterion, iter, nfcuts, nocuts, K, z_LB, z_UB, σ)
+stop(s::AbstractStoppingCriterion, stats::AbstractSDDPStats, totalstats::AbstractSDDPStats)
 OrStoppingCriterion
 AndStoppingCriterion
 IterLimit

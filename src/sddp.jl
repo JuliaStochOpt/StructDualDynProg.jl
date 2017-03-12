@@ -265,7 +265,7 @@ end
 """
 $(SIGNATURES)
 
-Runs the SDDP algorithms on the lattice given by `root`.
+Runs the SDDP algorithms on the lattice given by `g`.
 The algorithm will do iterations until `stopcrit` decides to stop or when the root node is infeasible.
 In each iterations, `K` paths will be explored up to `num_stages` stages.
 The paths will be selected according to `pathsel` and equivalent paths might be merged if their difference is smaller than `ztol`.

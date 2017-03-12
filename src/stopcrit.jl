@@ -4,12 +4,12 @@ export stop, AbstractStoppingCriterion, OrStoppingCriterion, AndStoppingCriterio
 abstract AbstractStoppingCriterion
 
 """
-`stop(stopcrit, iter, nfcuts, nocuts, K, z_LB, z_UB, σ)`
+$(SIGNATURES)
 
 Returns whether the SDDP algorithm should stop.
-If `iter` is 0, no iteration has already been done, otherwise, the `iter`th iteration has just finished.
-This iteration used `K` paths and generated `nfcuts` (resp. `nocuts`) new feasibility (resp. optimality) cuts.
-The lower bound is now `z_LB` and the upper bound has mean `z_UB` and variance `σ`.
+If `totalstats.niterations` is 0, no iteration has already been done, otherwise, the `niterations`th iteration has just finished.
+This iteration used `stats.npaths` paths and generated `stats.nfcuts` (resp. `stats.nocuts`) new feasibility (resp. optimality) cuts.
+The lower bound is now `totalstats.lowerbound` and the upper bound has mean `totalstats.upperbound` and variance `totalstats.σ_UB`.
 """
 function stop(s::AbstractStoppingCriterion, stats::AbstractSDDPStats, totalstats::AbstractSDDPStats)
     error("`stop' function not defined for $(typeof(s))")
@@ -107,10 +107,10 @@ type Pereira <: AbstractStoppingCriterion
 end
 
 function stop(s::Pereira, stats::AbstractSDDPStats, totalstats::AbstractSDDPStats)
-    z_UB = totalstats.upperbound
-    z_LB = totalstats.lowerbound
-    K = totalstats.npaths
-    σ = totalstats.σ_UB
+    z_UB = stats.upperbound
+    z_LB = stats.lowerbound
+    K = stats.npaths
+    σ = stats.σ_UB
 
     if totalstats.niterations > 0
         @assert K >= 0
