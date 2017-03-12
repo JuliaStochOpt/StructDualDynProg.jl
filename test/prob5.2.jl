@@ -1,5 +1,5 @@
 function fulltest(m, num_stages, objval, solval, ws, wsσ)
-    for K in [-1, 4]
+    for K in [-1, 40]
         for maxncuts in [-1, 7]
             for newcut in [:InvalidateSolver]#[:AddImmediately, :InvalidateSolver]
                 for cutmode in [:MultiCut, :AveragedCut]

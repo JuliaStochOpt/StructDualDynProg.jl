@@ -20,7 +20,7 @@
 
     num_stages = 2
     cutmode = :AveragedCut
-    K = 10
+    K = 2
     pereiracoef = 0.1
 
     root = model2lattice(m1, num_stages, solver, AvgCutPruningAlgo(-1), cutmode)
