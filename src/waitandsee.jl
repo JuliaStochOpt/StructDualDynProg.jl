@@ -24,7 +24,7 @@ function waitandsee(g::AbstractSDDPTree, num_stages, solver, totalK=25, verbose=
             if isempty(path.node.children)
                 push!(newpaths, path)
             else
-                npaths = choosepaths(g, path.node, path.K, :Proba, t, num_stages)
+                npaths = samplepaths(ProbaPathSampler(true), g, path.node, path.K, t, num_stages)
                 childs = totalK == -1 ? (1:length(path.node.children)) : find(npaths .> 0)
                 curpaths = WSPath[WSPath(path.node.children[i], [path.nlds; path.node.children[i].nlds], path.z, path.proba * path.node.proba[i], npaths[i]) for i in childs]
                 append!(newpaths, curpaths)

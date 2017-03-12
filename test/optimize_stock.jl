@@ -26,6 +26,9 @@
     root = model2lattice(m1, num_stages, solver, AvgCutPruningAlgo(-1), cutmode)
     sol = SDDP(root, num_stages, K = K, stopcrit = Pereira(0.1) | IterLimit(10), verbose = 0)
 
+    # K = 10 is a multiple of 2 so with ProbaPathSampler(true), the sampling is deterministic
+    # therefor we can test for sol.attrs[:niter]
+    @test sol.attrs[:niter] == 4
     @test sol.status == :Optimal
     @test sol.objval == -2.0
 end

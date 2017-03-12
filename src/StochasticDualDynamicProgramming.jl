@@ -25,6 +25,8 @@ include("nlds.jl")
 # SDDP Tree
 include("node.jl")
 include("sddptree.jl")
+# Path Sampler
+include("paths.jl")
 
 # SDDP algorithm
 include("sddp.jl")

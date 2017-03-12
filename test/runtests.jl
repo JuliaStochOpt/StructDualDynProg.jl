@@ -6,6 +6,7 @@ using Base.Test
 
 # solver independent tests
 include("stopcrit.jl")
+include("paths.jl")
 
 # load a solver
 include("solvers.jl")

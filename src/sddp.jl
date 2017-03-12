@@ -75,7 +75,7 @@ function addjob!{S}(jobsd::Dict{SDDPNode{S}, Vector{SDDPJob}}, node::SDDPNode{S}
     end
 end
 
-function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pathsel, ztol)
+function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pathsampler, ztol)
     stats = SDDPStats()
 
 	master, initialstate = getmaster(g)
@@ -94,7 +94,7 @@ function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pa
 
     for t in 2:num_stages
         if verbose >= 3
-            @show t
+            println("Stage $t/$num_stages")
         end
 
         # Merge paths
@@ -106,7 +106,7 @@ function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pa
                 for i in 1:length(paths)
                     for j in 1:(i-1)
                         if keep[j] && canmerge(paths[i], paths[j], ztol)
-                            @show maximum(abs(paths[j].sol.x - paths[i].sol.x))
+                            println("Merging path since ||x_i - x_j||_∞ = $(norm(paths[j].sol.x - paths[i].sol.x, Inf))")
                             merge!(paths[i], paths[j])
                             keep[j] = false
                             merged = true
@@ -127,7 +127,7 @@ function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pa
 			if haschildren(g, state)
                 for path in paths
                     # Adding Jobs
-                    npaths = choosepaths(g, state, path.K, pathsel, t, num_stages)
+                    npaths = samplepaths(pathsampler, g, state, path.K, t, num_stages)
 					childocuts = Array{Any}(nchildren(g, state))
                     for i in 1:nchildren(g, state)
 						if t == 2 || sum(npaths[i]) != 0 || cutmode(g, state) == :AveragedCut
@@ -268,20 +268,17 @@ $(SIGNATURES)
 Runs the SDDP algorithms on the lattice given by `g`.
 The algorithm will do iterations until `stopcrit` decides to stop or when the root node is infeasible.
 In each iterations, `K` paths will be explored up to `num_stages` stages.
-The paths will be selected according to `pathsel` and equivalent paths might be merged if their difference is smaller than `ztol`.
+The paths will be selected according to `pathsampler` and equivalent paths might be merged if their difference is smaller than `ztol`.
 The parameter `ztol` is also used to check whether a new cut is useful.
 """
-function SDDP(g::AbstractSDDPTree, num_stages; K::Int=25, stopcrit::AbstractStoppingCriterion=Pereira(), verbose=0, pathsel::Symbol=:Proba, ztol=1e-6)
-    if !(pathsel in [:Proba, :nPaths])
-        error("Invalid pathsel")
-    end
+function SDDP(g::AbstractSDDPTree, num_stages; K::Int=25, stopcrit::AbstractStoppingCriterion=Pereira(), verbose=0, pathsampler::AbstractPathSampler=ProbaPathSampler(true), ztol=1e-6)
     mastersol = nothing
     totalstats = SDDPStats()
     stats = SDDPStats()
     stats.niterations = 1
 
     while (mastersol === nothing || mastersol.status != :Infeasible) && !stop(stopcrit, stats, totalstats)
-        itertime = @mytime mastersol, stats = iteration(g, K, num_stages, verbose, pathsel, ztol)
+        itertime = @mytime mastersol, stats = iteration(g, K, num_stages, verbose, pathsampler, ztol)
         stats.time = itertime
 
         totalstats += stats
