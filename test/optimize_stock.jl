@@ -1,4 +1,4 @@
-@testset "Optimize Stock" begin
+@testset "Optimize Stock with $solver" for solver in lp_solvers
     numScen = 2
     C = 1
     P = 2

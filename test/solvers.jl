@@ -1,8 +1,21 @@
+# Similar to JuMP/test/solvers.jl
+
+function try_import(name::Symbol)
+    try
+        @eval import $name
+        return true
+    catch e
+        return false
+    end
+end
+
 #using ECOS
 #solver = ECOS.ECOSSolver(verbose=false)
-#using Clp
-#solver = Clp.ClpSolver()
-#using Gurobi
-#solver = Gurobi.GurobiSolver(OutputFlag=0)
-using GLPKMathProgInterface
-solver = GLPKSolverLP()
+clp = try_import(:Clp)
+glp = try_import(:GLPKMathProgInterface)
+gur = try_import(:Gurobi)
+
+lp_solvers = Any[]
+clp && push!(lp_solvers, Clp.ClpSolver())
+glp && push!(lp_solvers, GLPKMathProgInterface.GLPKSolverLP())
+gur && push!(lp_solvers, Gurobi.GurobiSolver())

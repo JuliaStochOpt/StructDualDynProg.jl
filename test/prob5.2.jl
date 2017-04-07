@@ -1,4 +1,4 @@
-function fulltest(m, num_stages, objval, solval, ws, wsσ)
+function fulltest(m, num_stages, objval, solval, ws, wsσ, solver)
     for K in [-1, 40]
         for maxncuts in [-1, 7]
             for newcut in [:InvalidateSolver]#[:AddImmediately, :InvalidateSolver]

@@ -1,4 +1,4 @@
-@testset "3 stages serial" begin
+@testset "3 stages serial with $solver" for solver in lp_solvers
     include("prob5.2_data.jl")
 
     numScen = 2
@@ -47,5 +47,5 @@
         end
     end
 
-    fulltest(models[1], 3, 406712.49, [2986,0,7329,854], 402593.71614, 17319.095064)
+    fulltest(models[1], 3, 406712.49, [2986,0,7329,854], 402593.71614, 17319.095064, solver)
 end

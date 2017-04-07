@@ -1,4 +1,4 @@
-@testset "2 stages" begin
+@testset "2 stages with $solver" for solver in lp_solvers
     include("prob5.2_data.jl")
 
     numScen = 2
@@ -21,7 +21,7 @@
         @objective(M2, Min, dot(C, y2 * T))
     end
 
-    fulltest(M1, 2, 340315.52, [5085,1311,3919,854], 334687.754566,15869.996575)
+    fulltest(M1, 2, 340315.52, [5085,1311,3919,854], 334687.754566, 15869.996575, solver)
     # root = model2lattice(M1, 2, solver, cutmode)
     # sol = SDDP(root, 2, cutmode, :All, verbose)
     #
