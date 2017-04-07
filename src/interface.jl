@@ -262,7 +262,7 @@ $(SIGNATURES)
 
 Transforms a [StructJuMP](https://github.com/StructJuMP/StructJuMP.jl) model `m` into a lattice that can be used by the SDDP algorithm.
 """
-function model2lattice(m::Model, num_stages, solver, pruningalgo::AbstractCutPruningAlgo, cutmode::Symbol=:MultiCut, newcut::Symbol=:AddImmediately)
+function model2lattice(m::Model, num_stages, solver, pruningalgo::AbstractCutPruningAlgo, cutmode::Symbol=:MultiCut, newcut::Symbol=:InvalidateSolver)
     nodes = Vector{Vector{SDDPNode}}(num_stages)
     for i in 1:num_stages
         nodes[i] = SDDPNode[]
