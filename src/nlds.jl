@@ -454,57 +454,84 @@ function load!{S}(nlds::NLDS{S})
     end
 end
 
+function checkstatus(status::Symbol)
+    if status == :Error
+        error("The solver reported an error")
+    elseif status == :UserLimit
+        error("The solver reached iteration limit or timed out")
+    end
+end
+
 function solve!{S}(nlds::NLDS{S})
     load!(nlds)
     if !nlds.solved
         MathProgBase.optimize!(nlds.model)
         status = MathProgBase.status(nlds.model)
-        if status == :Error
-            error("The solver reported an error")
-        elseif status == :UserLimit
-            error("The solver reached iteration limit or timed out")
-        else
-            sol = NLDSSolution(status, _getobjval(nlds.model))
-            if status != :Infeasible
-                primal = _getsolution(nlds.model)
-                sol.x = primal[1:nlds.nx]
-                sol.objvalx = dot(nlds.c, sol.x)
-                sol.θ = primal[nlds.nx+(1:nlds.nθ)]
-            end
-            if status == :Unbounded
-                uray = _getunboundedray(nlds.model)
-                sol.xuray = uray[1:nlds.nx]
-                sol.objvalxuray = dot(nlds.c, sol.xuray)
-                sol.θuray = uray[nlds.nx+(1:nlds.nθ)]
+        checkstatus(status)
+        sol = NLDSSolution(status, _getobjval(nlds.model))
+
+        if status == :Unbounded
+            uray = _getunboundedray(nlds.model)
+            sol.xuray = uray[1:nlds.nx]
+            sol.objvalxuray = dot(nlds.c, sol.xuray)
+            sol.θuray = uray[nlds.nx+(1:nlds.nθ)]
+
+            # See https://github.com/JuliaOpt/Gurobi.jl/issues/80
+            c = MathProgBase.getobj(nlds.model)
+
+            MathProgBase.setobj!(nlds.model, zeros(c))
+            MathProgBase.optimize!(nlds.model)
+            newstatus = MathProgBase.status(nlds.model)
+            @assert newstatus != :Unbounded # Now the objective is 0
+            checkstatus(newstatus)
+            if newstatus == :Infeasible
+                # We discard unbounded ray, infeasibility is more important
+                status = newstatus
+                sol.xuray = nothing
+                sol.objvalxuray = nothing
+                sol.θuray = nothing
             else
-                # if infeasible dual + λ iray is dual feasible for any λ >= 0
-                # here I just take iray to build the feasibility cut
-                dual = _getdual(nlds.model)
-                if length(dual) == 0
-                    error("Dual vector returned by the solver is empty while the status is $status")
-                end
-                @assert length(dual) == nlds.nπ + nlds.nσ + sum(nlds.nρ)
+                @assert newstatus == :Optimal
+            end
+            MathProgBase.setobj!(nlds.model, c)
+        end
 
-                π = dual[nlds.πs]
-                σρ = @view dual[nlds.nπ+1:end]
+        if status != :Unbounded
+            # if infeasible dual + λ iray is dual feasible for any λ >= 0
+            # here I just take iray to build the feasibility cut
+            dual = _getdual(nlds.model)
+            if length(dual) == 0
+                error("Dual vector returned by the solver is empty while the status is $status")
+            end
+            @assert length(dual) == nlds.nπ + nlds.nσ + sum(nlds.nρ)
 
-                σ = σρ[nlds.σs]
-                CutPruners.updatestats!(nlds.FCpruner, σ)
-                sol.σd = vecdot(σ, nlds.FCpruner.b)
+            π = dual[nlds.πs]
+            σρ = @view dual[nlds.nπ+1:end]
 
-                sol.ρe = zero(S)
-                for i in 1:nlds.nθ
-                    ρ = σρ[nlds.ρs[i]]
-                    CutPruners.updatestats!(nlds.OCpruners[i], ρ)
-                    sol.ρe += vecdot(ρ, nlds.OCpruners[i].b)
-                end
+            σ = σρ[nlds.σs]
+            CutPruners.updatestats!(nlds.FCpruner, σ)
+            sol.σd = vecdot(σ, nlds.FCpruner.b)
 
-                sol.πT = vec(π' * nlds.T)
-                sol.πh = vecdot(π, nlds.h)
+            sol.ρe = zero(S)
+            for i in 1:nlds.nθ
+                ρ = σρ[nlds.ρs[i]]
+                CutPruners.updatestats!(nlds.OCpruners[i], ρ)
+                sol.ρe += vecdot(ρ, nlds.OCpruners[i].b)
             end
 
-            nlds.prevsol = sol
+            sol.πT = vec(π' * nlds.T)
+            sol.πh = vecdot(π, nlds.h)
         end
+
+        # Needs to be done after since if status is unbounded I do a resolve
+        if status != :Infeasible
+            primal = _getsolution(nlds.model)
+            sol.x = primal[1:nlds.nx]
+            sol.objvalx = dot(nlds.c, sol.x)
+            sol.θ = primal[nlds.nx+(1:nlds.nθ)]
+        end
+
+        nlds.prevsol = sol
     end
 end
 
