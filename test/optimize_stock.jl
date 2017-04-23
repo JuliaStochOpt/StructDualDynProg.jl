@@ -27,7 +27,13 @@
     sol = SDDP(root, num_stages, K = K, stopcrit = Pereira(0.1) | IterLimit(10), verbose = 0)
 
     # K = 10 is a multiple of 2 so with ProbaPathSampler(true), the sampling is deterministic
-    # therefor we can test for sol.attrs[:niter]
+    # therefore we can test for sol.attrs[:niter]
+    #
+    # Iteration | Status    |  LB  |  UB  | #OC |
+    #     1     | Unbounded | -Inf |  0.0 |  1  |
+    #     2     | Unbounded | -Inf | -5.0 |  1  |
+    #     3     | Optimal   | -2.5 | -2.0 |  1  |
+    #     4     | Optimal   | -2.0 | -2.0 |  0  |
     @test sol.attrs[:niter] == 4
     @test sol.status == :Optimal
     @test sol.objval == -2.0

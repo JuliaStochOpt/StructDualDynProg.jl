@@ -97,13 +97,14 @@ end
 """
 $(TYPEDEF)
 
-Stops if `z_UB - α * σ/√K < z_LB < z_UB - α * σ/√K` and `σ / √K > β * max(1, |z_LB|))`
+Stops if `z_UB - α * σ/√K - tol < z_LB < z_UB + α * σ/√K + tol` and `σ / √K > β * max(1, |z_LB|))`
 """
 type Pereira <: AbstractStoppingCriterion
     α::Float64
     β::Float64
+    tol::Float64
 
-    Pereira(α=2.0, β=0.05) = new(α, β)
+    Pereira(α=2.0, β=0.05, tol=1e-6) = new(α, β, tol)
 end
 
 function stop(s::Pereira, stats::AbstractSDDPStats, totalstats::AbstractSDDPStats)
@@ -114,7 +115,9 @@ function stop(s::Pereira, stats::AbstractSDDPStats, totalstats::AbstractSDDPStat
 
     if totalstats.niterations > 0
         @assert K >= 0
-        σ1 = σ / √K
+        # On the test optimize_stock with Clp, z_LB = -2, z_UB = -1.999999999999 and σ1 = 0
+        # this shows the necessicity for a tolerance
+        σ1 = σ / √K + s.tol
         σ2 = s.α * σ1
         z_UB - σ2 <= z_LB <= z_UB + σ2 && σ1 < s.β * max(1, abs(z_LB))
     else
