@@ -283,10 +283,10 @@ function SDDP(g::AbstractSDDPTree, num_stages; K::Int=25, stopcrit::AbstractStop
 
         totalstats += stats
         if verbose >= 2
-            println("Iteration $iter completed in $itertime s (Total time is $(stats.time))")
+            println("Iteration $(totalstats.niterations) completed in $itertime s (Total time is $(stats.time))")
             println("Status: $(mastersol.status)")
-            println("Upper Bound: $(status.upperbound)")
-            println("Lower Bound: $(status.lowerbound)")
+            println("Upper Bound: $(totalstats.upperbound)")
+            println("Lower Bound: $(totalstats.lowerbound)")
             #println(" Solution value: $(mastersol.x)")
             println("Stats for this iteration:")
             println(stats)
@@ -296,11 +296,11 @@ function SDDP(g::AbstractSDDPTree, num_stages; K::Int=25, stopcrit::AbstractStop
     end
 
     if verbose >= 1
-        println("SDDP completed in $iter iterations in $totaltime s")
+        println("SDDP completed in $(totalstats.niterations) iterations in $(totalstats.time) s")
         println("Status: $(mastersol.status)")
         #println("Objective value: $(mastersol.objval)")
-        println("Upper Bound: $(status.upperbound)")
-        println("Lower Bound: $(status.lowerbound)")
+        println("Upper Bound: $(totalstats.upperbound)")
+        println("Lower Bound: $(totalstats.lowerbound)")
         #println(" Solution value: $(mastersol.x)")
         println("Total stats:")
         println(totalstats)
