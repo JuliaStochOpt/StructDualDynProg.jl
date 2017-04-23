@@ -127,7 +127,9 @@ function setchildren!{S}(nlds::NLDS{S}, childFC, childOC, proba, cutmode, childT
     end
     nlds.nρ = zeros(Int, nlds.nθ)
     nlds.ρs = [Int[] for i in 1:nlds.nθ]
-    nlds.OCpruners = [CutPruner{nlds.nx, S}(nlds.pruningalgo, :Max) for i in 1:nlds.nθ]
+    # θ ≧ max β - ⟨a, x⟩
+    # so we give :Max and set lazy_minus to true because it is "- ⟨a, x⟩" and not "+ ⟨a, x⟩"
+    nlds.OCpruners = [CutPruner{nlds.nx, S}(nlds.pruningalgo, :Max, true) for i in 1:nlds.nθ]
     nlds.childFC = childFC
     for i in 1:length(childFC)
         addfollower(childFC[i], (nlds, (:Feasibility, i)))
@@ -269,7 +271,7 @@ function notifynewcuts{S}(nlds::NLDS{S}, A::AbstractMatrix{S}, b::AbstractVector
         pruner = nlds.OCpruners[i]
     end
     ncur = ncuts(pruner)
-    addstatus = addcuts!(pruner, isfc ? A : -A, b, mine)
+    addstatus = addcuts!(pruner, A, b, mine)
     npushed = sum(addstatus .> ncur)
     @assert ncur + npushed == ncuts(pruner)
     cur = nlds.nσ + sum(nlds.nρ)
@@ -406,7 +408,7 @@ function getcutsDE{S}(nlds::NLDS{S})
     end
     for i in 1:nlds.nθ
         if !isempty(nlds.OCpruners[i])
-            A[nlds.ρs[i], 1:nlds.nx] = -nlds.OCpruners[i].A
+            A[nlds.ρs[i], 1:nlds.nx] = nlds.OCpruners[i].A
             A[nlds.ρs[i], nlds.nx + i] = 1
         end
     end
