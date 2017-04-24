@@ -260,7 +260,10 @@ end
 """
 $(SIGNATURES)
 
-Transforms a [StructJuMP](https://github.com/StructJuMP/StructJuMP.jl) model `m` into a lattice that can be used by the SDDP algorithm.
+Transforms a [StructJuMP](https://github.com/StructJuMP/StructJuMP.jl) model into a lattice that can be used by the SDDP algorithm.
+The master problem is assumed to have model `m` and the scenarios are considered up to `num_stages` stages.
+The `pruningalgo` is as defined in [CutPruners](https://github.com/JuliaPolyhedra/CutPruners.jl).
+If `cutmode` is `:MultiCut`, one variable `θ_i` is created for each scenario. Otherwise, if `cutmode` is `:AveragedCut`, only one variable `θ` is created and it represents the expected value of the objective value of the scenarios. If `cutmode` is `:NoOptimalityCut` then no `θ` is created, only use this option if the objective of all models is zero except fo the master model.
 """
 function model2lattice(m::Model, num_stages, solver, pruningalgo::AbstractCutPruningAlgo, cutmode::Symbol=:MultiCut, newcut::Symbol=:InvalidateSolver)
     nodes = Vector{Vector{SDDPNode}}(num_stages)

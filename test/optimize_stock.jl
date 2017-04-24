@@ -3,9 +3,9 @@
     C = 1
     P = 2
     d = [2, 3]
-    m1 = StructuredModel(num_scenarios=numScen)
 
-    @variable m1 x >= 0
+    m1 = StructuredModel(num_scenarios=numScen)
+    @variable(m1, x >= 0)
     @objective(m1, Min, C * x)
 
     for ξ in 1:numScen
@@ -23,8 +23,8 @@
     K = 2
     pereiracoef = 0.1
 
-    root = model2lattice(m1, num_stages, solver, AvgCutPruningAlgo(-1), cutmode)
-    sol = SDDP(root, num_stages, K = K, stopcrit = Pereira(0.1) | IterLimit(10), verbose = 0)
+    lattice = model2lattice(m1, num_stages, solver, AvgCutPruningAlgo(-1), cutmode)
+    sol = SDDP(lattice, num_stages, K = K, stopcrit = Pereira(0.1) | IterLimit(10), verbose = 0)
 
     # K = 10 is a multiple of 2 so with ProbaPathSampler(true), the sampling is deterministic
     # therefore we can test for sol.attrs[:niter]
