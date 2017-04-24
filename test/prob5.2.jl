@@ -3,7 +3,7 @@ function fulltest(m, num_stages, objval, solval, ws, wsσ, solver)
         for maxncuts in [-1, 7]
             for newcut in [:InvalidateSolver]#[:AddImmediately, :InvalidateSolver]
                 for cutmode in [:MultiCut, :AveragedCut]
-                    for pruningalgo in [AvgCutPruningAlgo(maxncuts), DecayCutPruningAlgo(maxncuts)]
+                    for pruningalgo in [AvgCutPruningAlgo(maxncuts), DecayCutPruningAlgo(maxncuts), DeMatosPruningAlgo(maxncuts)]
                         root = model2lattice(m, num_stages, solver, pruningalgo, cutmode, newcut)
 
                         μ, σ = waitandsee(root, num_stages, solver, K)

@@ -511,13 +511,13 @@ function solve!{S}(nlds::NLDS{S})
             σρ = @view dual[nlds.nπ+1:end]
 
             σ = σρ[nlds.σs]
-            CutPruners.updatestats!(nlds.FCpruner, σ)
+            addusage!(nlds.FCpruner, σ)
             sol.σd = vecdot(σ, nlds.FCpruner.b)
 
             sol.ρe = zero(S)
             for i in 1:nlds.nθ
                 ρ = σρ[nlds.ρs[i]]
-                CutPruners.updatestats!(nlds.OCpruners[i], ρ)
+                addusage!(nlds.OCpruners[i], ρ)
                 sol.ρe += vecdot(ρ, nlds.OCpruners[i].b)
             end
 
@@ -529,6 +529,10 @@ function solve!{S}(nlds::NLDS{S})
         if status != :Infeasible
             primal = _getsolution(nlds.model)
             sol.x = primal[1:nlds.nx]
+            addposition!(nlds.FCpruner, sol.x)
+            for i in 1:nlds.nθ
+                addposition!(nlds.OCpruners[i], sol.x)
+            end
             sol.objvalx = dot(nlds.c, sol.x)
             sol.θ = primal[nlds.nx+(1:nlds.nθ)]
         end
