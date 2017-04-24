@@ -108,7 +108,8 @@
 <h2 id="a-first-example-production-planning">A first example : Production Planning</h2>
 <p>In this quick start guide, we show how to run the <a href="https://web.stanford.edu/~lcambier/fast/demo.php">FAST quick start example</a> using this package. We guide you through each step of the modeling separately. The full example can be found <a href="https://github.com/blegat/StochasticDualDynamicProgramming.jl/blob/master/test/optimize_stock.jl">in the test</a>.</p>
 <p>We start by setting the different constants</p>
-<pre><code class="julia">const numScen = 2
+<pre><code class="julia">const num_stages = 2
+const numScen = 2
 const C = 1
 const P = 2
 const d = [2, 3]
