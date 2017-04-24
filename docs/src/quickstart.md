@@ -6,6 +6,7 @@ The full example can be found [in the test](https://github.com/blegat/Stochastic
 
 We start by setting the different constants
 ```julia
+const num_stages = 2
 const numScen = 2
 const C = 1
 const P = 2
