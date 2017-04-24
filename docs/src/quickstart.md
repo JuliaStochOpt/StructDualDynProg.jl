@@ -1,4 +1,5 @@
 ## A first example : Production Planning
+
 In this quick start guide, we show how to run the [FAST quick start example](https://web.stanford.edu/~lcambier/fast/demo.php) using this package.
 We guide you through each step of the modeling separately.
 The full example can be found [in the test](https://github.com/blegat/StochasticDualDynamicProgramming.jl/blob/master/test/optimize_stock.jl).
