@@ -8,6 +8,8 @@
 Implementation of [Stochastic Dual Dynamic Programming (SDDP)](http://www.optimization-online.org/DB_FILE/2009/12/2509.pdf).
 The problem can either be provided using the [StructJuMP](https://github.com/joehuchette/StructJuMP.jl) modeling interface or using a lower level interface.
 
+Documentation can be found [here][docs-latest-url].
+
 This package is used by the [Entropic Cone](https://github.com/blegat/EntropicCone.jl) package.
 
 # Installation
