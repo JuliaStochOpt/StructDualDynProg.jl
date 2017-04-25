@@ -24,3 +24,4 @@ pages:
   - Home: index.md
   - Stopping Criterion: stopcrit.md
   - Quick Start: quickstart.md
+  - Tutorial: tutorial.md
