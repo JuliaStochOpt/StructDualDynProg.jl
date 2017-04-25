@@ -122,15 +122,15 @@ const r = [2, 10]
 </code></pre>
 
 <p>We now create a matrix to store all the variables of all the models. This allows us to use the variables of other models from a given model. We also create an array of the first model of each stage to give play the role of parent for the models of the next stage.</p>
-<pre><code class="julia">x = Matrix{JuMP.Variable}(num_stages, numScen)
+<pre><code class="julia">using StructJuMP
+x = Matrix{JuMP.Variable}(num_stages, numScen)
 y = Matrix{JuMP.Variable}(num_stages, numScen)
 p = Matrix{JuMP.Variable}(num_stages, numScen)
 models = Vector{JuMP.Model}(num_stages)
 </code></pre>
 
 <p>Now, we create all the models. Note that each model declares that its parent is the first model (i.e. the model <code>ξ == 1</code>) of the previous stage. Hence if it is not the first model, it also declares that it has the same children than the first model of its stage. This is how serial independence is modeled in <a href="https://github.com/StructJuMP/StructJuMP.jl">StructJuMP</a>.</p>
-<pre><code class="julia">using StructJuMP
-for s in 1:num_stages
+<pre><code class="julia">for s in 1:num_stages
     for ξ in 1:(s == 1 ? 1 : numScen) # for the first stage there is only 1 scenario
         if s == 1
             model = StructuredModel(num_scenarios=numScen)
@@ -165,7 +165,7 @@ lattice = model2lattice(models[1], num_stages, solver, pruner)
 </code></pre>
 
 <p>The SDDP algorithm can now be run on the lattice:</p>
-<pre><code class="julia">sol = SDDP(lattice, num_stages, K = 16, stopcrit = Pereira(2.) | IterLimit(10))
+<pre><code class="julia">sol = SDDP(lattice, num_stages, K = 16, stopcrit = Pereira(2., 0.5) | IterLimit(10))
 </code></pre>
               
             </div>
