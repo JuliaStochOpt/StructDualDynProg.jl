@@ -19,6 +19,7 @@ We now create a matrix to store all the variables of all the models.
 This allows us to use the variables of other models from a given model.
 We also create an array of the first model of each stage to give play the role of parent for the models of the next stage.
 ```julia
+using StructJuMP
 x = Matrix{JuMP.Variable}(num_stages, numScen)
 y = Matrix{JuMP.Variable}(num_stages, numScen)
 p = Matrix{JuMP.Variable}(num_stages, numScen)
@@ -30,7 +31,6 @@ Note that each model declares that its parent is the first model (i.e. the model
 Hence if it is not the first model, it also declares that it has the same children than the first model of its stage.
 This is how serial independence is modeled in [StructJuMP](https://github.com/StructJuMP/StructJuMP.jl).
 ```julia
-using StructJuMP
 for s in 1:num_stages
     for ξ in 1:(s == 1 ? 1 : numScen) # for the first stage there is only 1 scenario
         if s == 1
@@ -68,5 +68,5 @@ lattice = model2lattice(models[1], num_stages, solver, pruner)
 
 The SDDP algorithm can now be run on the lattice:
 ```julia
-sol = SDDP(lattice, num_stages, K = 16, stopcrit = Pereira(2.) | IterLimit(10))
+sol = SDDP(lattice, num_stages, K = 16, stopcrit = Pereira(2., 0.5) | IterLimit(10))
 ```
