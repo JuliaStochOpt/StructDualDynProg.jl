@@ -56,6 +56,9 @@ function setchildren!(node::SDDPNode, children, proba, cutmode, childT=nothing)
     setchildren!(node.nlds, childFC, childOC, proba, cutmode, childT)
 end
 
+getobjlb(node::SDDPNode) = getobjlb(node.nlds)
+setθlb!(node::SDDPNode, θlb) = setθlb!(node.nlds, θlb)
+
 function appendchildren!(node::SDDPNode, children, proba, childT=nothing)
     append!(node.children, children)
     if length(proba) == length(children)

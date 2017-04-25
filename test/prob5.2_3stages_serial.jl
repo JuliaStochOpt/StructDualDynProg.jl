@@ -20,7 +20,7 @@
     models[1] = model
 
     for s in 1:numScen
-        model = StructuredModel(parent=models[1], prob=p2[s], same_children_as=(s == 1 ? nothing : models[2]), id=s)
+        model = StructuredModel(parent=models[1], prob=p2[s], same_children_as=(s == 1 ? nothing : models[2]), id=s, num_scenarios=numScen)
         y[1,s] = @variable(model, [1:n, 1:m], lowerbound=0)
         x[2,s] = @variable(model, [1:n], lowerbound=0)
         v[2,s] = @variable(model, [1:n], lowerbound=0)

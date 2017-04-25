@@ -115,10 +115,10 @@ function stop(s::Pereira, stats::AbstractSDDPStats, totalstats::AbstractSDDPStat
 
     if totalstats.niterations > 0
         @assert K >= 0
+        σ1 = σ / √K
         # On the test optimize_stock with Clp, z_LB = -2, z_UB = -1.999999999999 and σ1 = 0
         # this shows the necessicity for a tolerance
-        σ1 = σ / √K + s.tol
-        σ2 = s.α * σ1
+        σ2 = s.α * σ1 + s.tol
         z_UB - σ2 <= z_LB <= z_UB + σ2 && σ1 < s.β * max(1, abs(z_LB))
     else
         false

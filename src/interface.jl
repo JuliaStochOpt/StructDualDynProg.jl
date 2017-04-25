@@ -230,7 +230,7 @@ type SDDPModelData
     nodes::Vector{Nullable{SDDPNode}}
 end
 
-function getSDDPNode(allnodes, m::Model, t, num_stages, solver, parent, pruningalgo::AbstractCutPruningAlgo, cutmode::Symbol, newcut::Symbol)
+function getSDDPNode(allnodes, m::Model, t, num_stages, solver, parent, pruningalgo::AbstractCutPruningAlgo, cutmode::Symbol, detectlb::Bool, newcut::Symbol)
     if !(:SDDP in keys(m.ext))
         nodes = Vector{Nullable{SDDPNode}}(num_stages)
         fill!(nodes, nothing)
@@ -248,10 +248,13 @@ function getSDDPNode(allnodes, m::Model, t, num_stages, solver, parent, pruninga
             children = Vector{SDDPNode{Float64}}(num_scen)
             probability = Vector{Float64}(num_scen)
             for (i, id) in enumerate(keys(struct.children))
-                children[i] = getSDDPNode(allnodes, struct.children[id], t+1, num_stages, solver, newnode, pruningalgo, cutmode, newcut)
+                children[i] = getSDDPNode(allnodes, struct.children[id], t+1, num_stages, solver, newnode, pruningalgo, cutmode, detectlb, newcut)
                 probability[i] = struct.probability[id]
             end
             setchildren!(newnode, children, probability, cutmode)
+            if detectlb
+                setθlb!(newnode, map(getobjlb, children))
+            end
         end
     end
     get(nodes[t])
@@ -265,13 +268,13 @@ The master problem is assumed to have model `m` and the scenarios are considered
 The `pruningalgo` is as defined in [CutPruners](https://github.com/JuliaPolyhedra/CutPruners.jl).
 If `cutmode` is `:MultiCut`, one variable `θ_i` is created for each scenario. Otherwise, if `cutmode` is `:AveragedCut`, only one variable `θ` is created and it represents the expected value of the objective value of the scenarios. If `cutmode` is `:NoOptimalityCut` then no `θ` is created, only use this option if the objective of all models is zero except fo the master model.
 """
-function model2lattice(m::Model, num_stages, solver, pruningalgo::AbstractCutPruningAlgo, cutmode::Symbol=:MultiCut, newcut::Symbol=:InvalidateSolver)
+function model2lattice(m::Model, num_stages, solver, pruningalgo::AbstractCutPruningAlgo, cutmode::Symbol=:MultiCut, detectlb::Bool=true, newcut::Symbol=:InvalidateSolver)
     nodes = Vector{Vector{SDDPNode}}(num_stages)
     for i in 1:num_stages
         nodes[i] = SDDPNode[]
     end
 
-    root = getSDDPNode(nodes, m, 1, num_stages, solver, nothing, pruningalgo, cutmode, newcut)
+    root = getSDDPNode(nodes, m, 1, num_stages, solver, nothing, pruningalgo, cutmode, detectlb, newcut)
 	GraphSDDPTree(root)
 end
 

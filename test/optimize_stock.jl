@@ -1,3 +1,4 @@
+# See https://web.stanford.edu/~lcambier/fast/demo.php
 @testset "Optimize Stock with $solver" for solver in lp_solvers
     numScen = 2
     C = 1
@@ -23,7 +24,7 @@
     K = 2
     pereiracoef = 0.1
 
-    lattice = model2lattice(m1, num_stages, solver, AvgCutPruningAlgo(-1), cutmode)
+    lattice = model2lattice(m1, num_stages, solver, AvgCutPruningAlgo(-1), cutmode, false)
     sol = SDDP(lattice, num_stages, K = K, stopcrit = Pereira(0.1) | IterLimit(10), verbose = 0)
 
     # K = 10 is a multiple of 2 so with ProbaPathSampler(true), the sampling is deterministic

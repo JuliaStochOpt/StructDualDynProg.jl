@@ -64,6 +64,8 @@ type NLDS{S}
     localFC::CutStore{S}
     localOC::CutStore{S}
     proba
+    θlb::Vector{Float64}
+    θC
     childT::Nullable{Vector{AbstractMatrix{S}}}
     cutmode::Symbol
 
@@ -103,7 +105,7 @@ type NLDS{S}
         else
             model = MathProgBase.LinearQuadraticModel(solver)
         end
-        nlds = new(W, h, T, K, C, c, S[], nothing, nothing, CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, nothing, :NoOptimalityCut, nx, nθ, nπ, 1:nπ, 0, Int[], Int[], Vector{Int}[], model, false, false, nothing, newcut, pruningalgo, FCpruner, OCpruners)
+        nlds = new(W, h, T, K, C, c, S[], nothing, nothing, CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, Float64[], [], nothing, :NoOptimalityCut, nx, nθ, nπ, 1:nπ, 0, Int[], Int[], Vector{Int}[], model, false, false, nothing, newcut, pruningalgo, FCpruner, OCpruners)
         addfollower(localFC, (nlds, (:Feasibility, 0)))
         addfollower(localOC, (nlds, (:Optimality, 1)))
         nlds
@@ -117,14 +119,16 @@ end
 function setchildren!{S}(nlds::NLDS{S}, childFC, childOC, proba, cutmode, childT)
     nlds.cutmode = cutmode
     @assert length(childFC) == length(childOC) == length(proba)
+    nlds.proba = proba
     if cutmode == :MultiCut
-        nlds.proba = proba
         nlds.nθ = length(proba)
     elseif cutmode == :AveragedCut
         nlds.nθ = 1
     else
         nlds.nθ = 0
     end
+    nlds.θlb = zeros(nlds.nθ)
+    nlds.θC = [(:Free, collect(nlds.nx+(1:nlds.nθ)))]
     nlds.nρ = zeros(Int, nlds.nθ)
     nlds.ρs = [Int[] for i in 1:nlds.nθ]
     # θ ≧ max β - ⟨a, x⟩
@@ -141,12 +145,55 @@ function setchildren!{S}(nlds::NLDS{S}, childFC, childOC, proba, cutmode, childT
     nlds.childT = childT
 end
 
+function getobjlb(nlds::NLDS)
+    for (cone, idxs) in nlds.C
+        for i in idxs
+            if (cone == :NonNeg && nlds.c[i]  < 0) ||
+               (cone == :NonPos && nlds.c[i]  > 0) ||
+               (cone == :Free   && nlds.c[i] != 0)
+               return -Inf
+           end
+        end
+    end
+    for (cone, _) in nlds.θC
+        if cone != :NonNeg
+            return -Inf
+        end
+    end
+    return Eθlb(nlds)
+end
+function setθlb!(nlds::NLDS, θlb)
+    fin = isfinite.(θlb)
+    if nlds.nθ == length(θlb)
+        fin = isfinite.(θlb)
+        if any(fin)
+            nlds.θlb = zeros(nlds.nθ)
+            nlds.θlb[fin] = θlb[fin]
+            nlds.θC = [(:NonNeg, collect(nlds.nx+(1:nlds.nθ)[fin]))]
+            if !all(fin)
+                push!(nlds.θC, (:NonNeg, collect(nlds.nx+(1:nlds.nθ)[!fin])))
+            end
+        else
+            nlds.θlb = zeros(nlds.nθ)
+            nlds.θC = [(:Free, collect(nlds.nx+(1:nlds.nθ)))]
+        end
+    elseif nlds.nθ == 1
+        if all(isfinite.(θlb))
+            nlds.θlb = [dot(nlds.proba, θlb)]
+            nlds.θC = [(:NonNeg, [nlds.nx+1])]
+        else
+            nlds.θlb = [0.]
+            nlds.θC = [(:Free, [nlds.nx+1])]
+        end
+    end
+end
+
 function appendchildren!{S}(nlds::NLDS{S}, childFC, childOC, proba, childT)
     @assert length(childFC) == length(childOC)
     @assert length(proba) == length(nlds.childOC) + length(childOC) == length(nlds.childFC) + length(childFC)
     oldnθ = nlds.nθ
+    nlds.proba = proba
     if nlds.cutmode == :MultiCut
-        nlds.proba = proba
         nlds.nθ = length(proba)
     end
     Δθ = nlds.nθ - oldnθ
@@ -438,9 +485,8 @@ function load!{S}(nlds::NLDS{S})
         bigC = nlds.C
         bigc = nlds.c
         if nlds.nθ > 0
-            bigC = [bigC; (:Free, collect(nlds.nx+(1:nlds.nθ)))]
-            if nlds.proba === nothing
-                @assert nlds.nθ == 1
+            bigC = [bigC; nlds.θC]
+            if nlds.nθ == 1
                 bigc = [bigc; 1]
             else
                 bigc = [bigc; nlds.proba]
@@ -464,13 +510,25 @@ function checkstatus(status::Symbol)
     end
 end
 
+function Eθlb(nlds::NLDS)
+    if nlds.nθ == 0
+        0.
+    else
+        if nlds.nθ == length(nlds.proba)
+            dot(nlds.proba, nlds.θlb)
+        else
+            nlds.θlb[1]
+        end
+    end
+end
+
 function solve!{S}(nlds::NLDS{S})
     load!(nlds)
     if !nlds.solved
         MathProgBase.optimize!(nlds.model)
         status = MathProgBase.status(nlds.model)
         checkstatus(status)
-        sol = NLDSSolution(status, _getobjval(nlds.model))
+        sol = NLDSSolution(status, _getobjval(nlds.model) + Eθlb(nlds))
 
         if status == :Unbounded
             uray = _getunboundedray(nlds.model)
@@ -534,7 +592,7 @@ function solve!{S}(nlds::NLDS{S})
                 addposition!(nlds.OCpruners[i], sol.x)
             end
             sol.objvalx = dot(nlds.c, sol.x)
-            sol.θ = primal[nlds.nx+(1:nlds.nθ)]
+            sol.θ = nlds.θlb + primal[nlds.nx+(1:nlds.nθ)]
         end
 
         nlds.prevsol = sol

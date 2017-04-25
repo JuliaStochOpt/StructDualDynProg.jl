@@ -106,7 +106,7 @@ function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pa
                 for i in 1:length(paths)
                     for j in 1:(i-1)
                         if keep[j] && canmerge(paths[i], paths[j], ztol)
-                            println("Merging path since ||x_i - x_j||_∞ = $(norm(paths[j].sol.x - paths[i].sol.x, Inf))")
+                            #println("Merging path since ||x_i - x_j||_∞ = $(norm(paths[j].sol.x - paths[i].sol.x, Inf))")
                             merge!(paths[i], paths[j])
                             keep[j] = false
                             merged = true
