@@ -134,7 +134,7 @@ m1 = StructuredModel(num_scenarios=numScen)
 end
 </code></pre>
 
-<p>This structured model need to be transformed into an appropriate structure to run SDDP on it. This is achieved by <a href="..#StochasticDualDynamicProgramming.model2lattice-Tuple{JuMP.Model,Any,Any,CutPruners.AbstractCutPruningAlgo,Symbol,Symbol}"><code>model2lattice</code></a>:</p>
+<p>This structured model need to be transformed into an appropriate structure to run SDDP on it. This is achieved by <a href="../@ref"><code>model2lattice</code></a>:</p>
 <pre><code class="julia">using GLPKMathProgInterface
 const solver = GLPKMathProgInterface.GLPKSolverLP()
 using CutPruners
