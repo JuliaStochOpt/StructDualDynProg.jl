@@ -13,11 +13,10 @@ Documentation can be found [here][docs-latest-url].
 This package is used by the [Entropic Cone](https://github.com/blegat/EntropicCone.jl) package.
 
 # Installation
-Neither [StructJuMP](https://github.com/joehuchette/StructJuMP.jl) nor [CutPruners](https://github.com/JuliaPolyhedra/CutPruners.jl) nor this package are currently registered so you will need to use `Pkg.clone` to use them:
+Neither [StructJuMP](https://github.com/joehuchette/StructJuMP.jl) nor this package are currently registered so you will need to use `Pkg.clone` to use them:
 
 ```julia
 > Pkg.clone("https://github.com/StructJuMP/StructJuMP.jl.git")
-> Pkg.clone("https://github.com/JuliaPolyhedra/CutPruners.jl.git")
 > Pkg.clone("https://github.com/blegat/StochasticDualDynamicProgramming.jl.git")
 ```
 
