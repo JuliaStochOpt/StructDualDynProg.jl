@@ -12,6 +12,7 @@ end
 #using ECOS
 #solver = ECOS.ECOSSolver(verbose=false)
 clp = try_import(:Clp)
+isclp(solver) = contains(string(typeof(solver)),"ClpSolver")
 glp = try_import(:GLPKMathProgInterface)
 gur = try_import(:Gurobi)
 
