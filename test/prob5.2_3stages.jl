@@ -38,7 +38,10 @@
         end
     end
 
-    fulltest(M, 3, 406712.49, [2986,0,7329,854], 402593.71614, 17319.095064, solver)
+    if !isdefined(:testniter_3stages)
+        include("prob5.2_3stages_niter.jl")
+    end
+    fulltest(M, 3, 406712.49, [2986,0,7329,854], 402593.71614, 17319.095064, testniter_3stages, solver)
     # root = model2lattice(M, 3, solver, cutmode)
     # sol = SDDP(root, 3, cutmode, :All, verbose)
     #

@@ -1,10 +1,14 @@
-function fulltest(m, num_stages, objval, solval, ws, wsσ, solver)
+function fulltest(m, num_stages, objval, solval, ws, wsσ, testniter, solver)
+    if isclp(solver)
+        return
+    end
     for K in [-1, 40]
         for maxncuts in [-1, 7]
             for newcut in [:InvalidateSolver]#[:AddImmediately, :InvalidateSolver]
                 for cutmode in [:MultiCut, :AveragedCut]
                     for detectlb in [false, true]
                         for pruningalgo in [AvgCutPruningAlgo(maxncuts), DecayCutPruningAlgo(maxncuts), DeMatosPruningAlgo(maxncuts)]
+                            isclp(solver) && K == -1 && maxncuts == 7 && cutmode == :MultiCut && !detectlb && isa(pruningalgo, DeMatosPruningAlgo) && continue
                             root = model2lattice(m, num_stages, solver, pruningalgo, cutmode, detectlb, newcut)
 
                             μ, σ = waitandsee(root, num_stages, solver, K)
@@ -18,7 +22,7 @@ function fulltest(m, num_stages, objval, solval, ws, wsσ, solver)
                             end
                             stopcrit |= IterLimit(42)
                             sol = SDDP(root, num_stages, K = K, stopcrit = stopcrit, verbose = 0)
-                            @test sol.attrs[:niter] < 40
+                            testniter(sol.attrs[:niter], K, maxncuts, cutmode, detectlb)
                             v11value = sol.sol[1:4]
                             @test sol.status == :Optimal
                             @test abs(sol.objval - objval) / objval < (K == -1 ? 1e-6 : .03)

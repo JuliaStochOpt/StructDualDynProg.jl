@@ -75,7 +75,16 @@ function addjob!{S}(jobsd::Dict{SDDPNode{S}, Vector{SDDPJob}}, node::SDDPNode{S}
     end
 end
 
-function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pathsampler, ztol)
+"""
+$(SIGNATURES)
+
+Runs one iteration of the SDDP algorithm on the lattice given by `g`.
+A total of `Ktot` paths will be explored up to `num_stages` stages.
+The paths will be selected according to `pathsampler` and equivalent paths might be merged if their difference is smaller than `ztol` and `mergepaths` is true.
+The parameter `ztol` is also used to check whether a new cut is useful.
+When a scenario is infeasible and `stopatinf` is true then no other scenario with the same ancestor is run. Note that since the order in which the different scenarios is run is not deterministic, this might introduce nondeterminism even if the sampling is deterministic.
+"""
+function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pathsampler, stopatinf, mergepaths, ztol)
     stats = SDDPStats()
 
 	master, initialstate = getmaster(g)
@@ -85,9 +94,9 @@ function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pa
     stats.niterations += 1
     infeasibility_detected = mastersol.status == :Infeasible
     if infeasibility_detected
-		pathsd = Dict{StateT, Vector{SDDPPath}}()
+        pathsd = Tuple{StateT, Vector{SDDPPath}}[]
     else
-        pathsd = Dict{StateT, Vector{SDDPPath}}(initialstate => [SDDPPath(mastersol, [mastersol.objvalx], [1.], [Ktot], length(master.children))])
+        pathsd = Tuple{StateT, Vector{SDDPPath}}[(initialstate, [SDDPPath(mastersol, [mastersol.objvalx], [1.], [Ktot], length(master.children))])]
     end
     endedpaths = SDDPPath[]
 
@@ -98,8 +107,9 @@ function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pa
         end
 
         # Merge paths
-        if true
+        if mergepaths
             before = sum([sum([sum(path.K) for path in paths]) for (state, paths) in pathsd])
+            newpathsd = Tuple{StateT, Vector{SDDPPath}}[]
             stats.mergetime += @mytime for (state, paths) in pathsd
                 keep = ones(Bool, length(paths))
                 merged = false
@@ -115,8 +125,9 @@ function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pa
                         end
                     end
                 end
-                pathsd[state] = paths[keep]
+                push!(newpathsd, (state, paths[keep]))
             end
+            pathsd = newpathsd
             after = sum([sum([sum(path.K) for path in paths]) for (state, paths) in pathsd])
             @assert before == after
         end
@@ -143,7 +154,7 @@ function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pa
         # Solve Jobs (parallelism possible here)
         for (state, jobs) in jobsd
             for job in jobs
-                if job.parent.childs_feasible
+                if !stopatinf || job.parent.childs_feasible
                     stats.setxtime += @mytime setchildx(job.parentnode, job.i, job.parent.sol)
                     stats.nsetx += 1
                     stats.solvertime += @mytime job.sol = loadAndSolve(state)
@@ -238,7 +249,7 @@ function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pa
             keep = find(Bool[jobs[i].parent.childs_feasible && !isempty(K[i]) for i in 1:length(jobs)])
             if !isempty(keep)
 				paths = SDDPPath[SDDPPath(get(jobs[i].sol), jobs[i].parent.z[K[i]]+get(jobs[i].sol).objvalx, jobs[i].proba[K[i]], jobs[i].K[K[i]], nchildren(g, state)) for i in keep]
-                pathsd[state] = paths
+                push!(pathsd, (state, paths))
             end
         end
     end
@@ -268,17 +279,18 @@ $(SIGNATURES)
 Runs the SDDP algorithms on the lattice given by `g`.
 The algorithm will do iterations until `stopcrit` decides to stop or when the root node is infeasible.
 In each iterations, `K` paths will be explored up to `num_stages` stages.
-The paths will be selected according to `pathsampler` and equivalent paths might be merged if their difference is smaller than `ztol`.
+The paths will be selected according to `pathsampler` and equivalent paths might be merged if their difference is smaller than `ztol` and `mergepaths` is true.
 The parameter `ztol` is also used to check whether a new cut is useful.
+When a scenario is infeasible and `stopatinf` is true then no other scenario with the same ancestor is run. Note that since the order in which the different scenarios is run is not deterministic, this might introduce nondeterminism even if the sampling is deterministic.
 """
-function SDDP(g::AbstractSDDPTree, num_stages; K::Int=25, stopcrit::AbstractStoppingCriterion=Pereira(), verbose=0, pathsampler::AbstractPathSampler=ProbaPathSampler(true), ztol=1e-6)
+function SDDP(g::AbstractSDDPTree, num_stages; K::Int=25, stopcrit::AbstractStoppingCriterion=Pereira(), verbose=0, pathsampler::AbstractPathSampler=ProbaPathSampler(true), mergepaths=true, ztol=1e-6, stopatinf=false)
     mastersol = nothing
     totalstats = SDDPStats()
     stats = SDDPStats()
     stats.niterations = 1
 
     while (mastersol === nothing || mastersol.status != :Infeasible) && !stop(stopcrit, stats, totalstats)
-        itertime = @mytime mastersol, stats = iteration(g, K, num_stages, verbose, pathsampler, ztol)
+        itertime = @mytime mastersol, stats = iteration(g, K, num_stages, verbose, pathsampler, stopatinf, mergepaths, ztol)
         stats.time = itertime
 
         totalstats += stats
