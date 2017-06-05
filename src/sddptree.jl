@@ -1,5 +1,5 @@
 export AbstractSDDPTree
-abstract AbstractSDDPTree{S}
+@compat abstract type AbstractSDDPTree{S} end
 
 type GraphSDDPTree{S} <: AbstractSDDPTree{S}
 	root::SDDPNode{S}

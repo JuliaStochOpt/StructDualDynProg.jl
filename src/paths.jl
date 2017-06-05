@@ -1,5 +1,5 @@
 export AbstractPathSampler
-abstract AbstractPathSampler
+@compat abstract type AbstractPathSampler end
 
 function _samplepaths!(_npaths, npaths, pmf, semirandom::Bool, canmodifypmf::Bool)
     if semirandom

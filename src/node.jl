@@ -19,11 +19,11 @@ type SDDPNode{S}
     # Optimality cuts
     ocuts::CutStore{S}
 
-    function SDDPNode(nlds::NLDS{S}, parent)
+    function (::Type{SDDPNode{S}}){S}(nlds::NLDS{S}, parent)
         nvars = size(nlds.W, 2)
         root = parent === nothing
         nvars_a = root ? 0 : parent.nvars
-        new(nlds, nvars, parent, SDDPNode[], Float64[], nothing, root, true, Dict{Tuple{Int,Int},Int}(), CutStore{S}(nvars_a), CutStore{S}(nvars_a))
+        new{S}(nlds, nvars, parent, SDDPNode[], Float64[], nothing, root, true, Dict{Tuple{Int,Int},Int}(), CutStore{S}(nvars_a), CutStore{S}(nvars_a))
     end
 
 end

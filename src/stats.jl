@@ -1,6 +1,6 @@
 export AbstractSDDPStats
 
-abstract AbstractSDDPStats
+@compat abstract type AbstractSDDPStats end
 
 type SDDPStats <: AbstractSDDPStats
     # number of calls to solver

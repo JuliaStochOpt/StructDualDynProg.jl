@@ -17,14 +17,14 @@ function getSDDPNode(allnodes, m::Model, t, num_stages, solver, parent, pruninga
         newnode = SDDPNode(NLDS{Float64}(W,h,T,K,C,c,solver,pruningalgo, newcut), parent)
         nodes[t] = newnode
         push!(allnodes[t], newnode)
-        struct = getStructure(m)
+        struc = getStructure(m)
         if t < num_stages
-            num_scen = length(struct.children)
+            num_scen = length(struc.children)
             children = Vector{SDDPNode{Float64}}(num_scen)
             probability = Vector{Float64}(num_scen)
-            for (i, id) in enumerate(keys(struct.children))
-                children[i] = getSDDPNode(allnodes, struct.children[id], t+1, num_stages, solver, newnode, pruningalgo, cutmode, detectlb, newcut)
-                probability[i] = struct.probability[id]
+            for (i, id) in enumerate(keys(struc.children))
+                children[i] = getSDDPNode(allnodes, struc.children[id], t+1, num_stages, solver, newnode, pruningalgo, cutmode, detectlb, newcut)
+                probability[i] = struc.probability[id]
             end
             setchildren!(newnode, children, probability, cutmode)
             if detectlb
