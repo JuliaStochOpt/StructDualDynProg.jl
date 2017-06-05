@@ -64,7 +64,8 @@
             else
                 if K == -1
                     if detectlb
-                        @test 13 <= niter <= 14
+                        # up to 15 on Mac OS, <= 14 on Linux
+                        @test 13 <= niter <= 15
                     else
                         @test 14 <= niter <= 15
                     end
