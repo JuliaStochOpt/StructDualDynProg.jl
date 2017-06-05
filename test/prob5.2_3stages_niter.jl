@@ -13,7 +13,8 @@ function testniter_3stages(niter, K, maxncuts, cutmode, detectlb)
                     # down to 15 and up to 19 on Mac OS, 17 <= ... <= 18 on Linux
                     @test 15 <= niter <= 19
                 else
-                    @test 19 <= niter <= 21
+                    # up to 22 on 32 bits, <= 22 on 64 bits
+                    @test 19 <= niter <= 22
                 end
             end
         else
