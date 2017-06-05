@@ -134,7 +134,7 @@
 </code></pre>
 
 <p>Runs the SDDP algorithms on the lattice given by <code>g</code>. The algorithm will do iterations until <code>stopcrit</code> decides to stop or when the root node is infeasible. In each iterations, <code>K</code> paths will be explored up to <code>num_stages</code> stages. The paths will be selected according to <code>pathsampler</code> and equivalent paths might be merged if their difference is smaller than <code>ztol</code> and <code>mergepaths</code> is true. The parameter <code>ztol</code> is also used to check whether a new cut is useful. When a scenario is infeasible and <code>stopatinf</code> is true then no other scenario with the same ancestor is run. Note that since the order in which the different scenarios is run is not deterministic, this might introduce nondeterminism even if the sampling is deterministic.</p>
-<p><a target='_blank' href='https://github.com/blegat/StochasticDualDynamicProgramming.jl/tree/658708ce9a90124288cbc3457696108f0696ba0e/src/sddp.jl#L276' class='documenter-source'>source</a><br></p>
+<p><a target='_blank' href='https://github.com/blegat/StochasticDualDynamicProgramming.jl/tree/a76627c27f8a3f1c51369366047df6ceb9b35fbb/src/sddp.jl#L276' class='documenter-source'>source</a><br></p>
 <p>This lattice can be built from a <a href="./github.com/StructJuMP/StructJuMP.jl">StructJuMP</a> model using the following function:</p>
 <pre><code>model2lattice(m::JuMP.Model, num_stages, solver, pruningalgo::CutPruners.AbstractCutPruningAlgo, cutmode::Symbol, newcut::Symbol)
 </code></pre>
@@ -200,5 +200,5 @@
 
 <!--
 MkDocs version : 0.16.3
-Build Date UTC : 2017-06-02 13:45:24
+Build Date UTC : 2017-06-05 09:56:54
 -->
