@@ -1,9 +1,9 @@
-using Documenter, StochasticDualDynamicProgramming
+using Documenter, StructDualDynProg
 
 makedocs()
 
 deploydocs(
     deps = Deps.pip("mkdocs", "python-markdown-math"),
-    repo = "github.com/blegat/StochasticDualDynamicProgramming.jl.git",
+    repo = "github.com/blegat/StructDualDynProg.jl.git",
     julia  = "release"
 )

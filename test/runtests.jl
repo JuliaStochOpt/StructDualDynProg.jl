@@ -1,7 +1,7 @@
 using JuMP
 using CutPruners
 using StructJuMP
-using StochasticDualDynamicProgramming
+using StructDualDynProg
 using Base.Test
 
 # solver independent tests

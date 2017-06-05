@@ -1,5 +1,5 @@
-site_name:        StochasticDualDynamicProgramming.jl
-repo_url:         https://github.com/blegat/StochasticDualDynamicProgramming.jl
+site_name:        StructDualDynProg.jl
+repo_url:         https://github.com/blegat/StructDualDynProg.jl
 site_description: Implementation of SDDP (Stochastic Dual Dynamic Programming) using the StructJuMP modeling interface
 site_author:      Benoît Legat
 

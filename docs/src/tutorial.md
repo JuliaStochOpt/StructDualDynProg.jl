@@ -62,7 +62,7 @@ using GLPKMathProgInterface
 const solver = GLPKMathProgInterface.GLPKSolverLP()
 using CutPruners
 const pruner = AvgCutPruningAlgo(-1)
-using StochasticDualDynamicProgramming
+using StructDualDynProg
 lattice = model2lattice(models[1], num_stages, solver, pruner)
 ```
 

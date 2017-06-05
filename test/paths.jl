@@ -1,4 +1,4 @@
-import StochasticDualDynamicProgramming._samplepaths
+import StructDualDynProg._samplepaths
 @testset "Path Sampler" begin
     @test_throws AssertionError _samplepaths(4, [0.8, 0.3], false, false)
     @test_throws AssertionError _samplepaths(4, [0.5, 0.3], true, false)

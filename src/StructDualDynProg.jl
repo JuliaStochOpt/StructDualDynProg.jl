@@ -1,6 +1,6 @@
 __precompile__()
 
-module StochasticDualDynamicProgramming
+module StructDualDynProg
 
 using DocStringExtensions
 

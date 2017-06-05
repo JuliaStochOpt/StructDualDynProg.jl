@@ -3,7 +3,7 @@ using JuMP
 using StructJuMP
 # I have started a package for SDDP
 # The solution of problem 5.2 and 5.3 can be seen as a particular case of this work
-using StochasticDualDynamicProgramming
+using StructDualDynProg
 
 # Telling ECOS solver to shut up :)
 solver = ECOS.ECOSSolver(verbose=false)

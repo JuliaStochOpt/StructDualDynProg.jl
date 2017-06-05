@@ -2,7 +2,7 @@
 
 In this quick start guide, we show how to run the [FAST quick start example](https://web.stanford.edu/~lcambier/fast/demo.php) using this package.
 We guide you through each step of the modeling separately.
-The full example can be found [in the test](https://github.com/blegat/StochasticDualDynamicProgramming.jl/blob/master/test/optimize_stock.jl).
+The full example can be found [in the test](https://github.com/blegat/StructDualDynProg.jl/blob/master/test/optimize_stock.jl).
 
 We start by setting the different constants
 ```julia
@@ -41,7 +41,7 @@ using GLPKMathProgInterface
 const solver = GLPKMathProgInterface.GLPKSolverLP()
 using CutPruners
 const pruner = AvgCutPruningAlgo(-1)
-using StochasticDualDynamicProgramming
+using StructDualDynProg
 lattice = model2lattice(m1, num_stages, solver, pruner)
 ```
 In this example, we have chosen the [GLPK](https://github.com/JuliaOpt/GLPKMathProgInterface.jl/) solver but you can use any LP solver listed in the table of the [JuliaOpt's webpage](http://www.juliaopt.org/).

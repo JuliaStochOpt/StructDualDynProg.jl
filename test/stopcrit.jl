@@ -6,7 +6,7 @@ end
     z_LB = 1
     z_UB = 1
     σ = 1
-    stats = StochasticDualDynamicProgramming.SDDPStats()
+    stats = StructDualDynProg.SDDPStats()
 
     stats.upperbound = z_UB
     stats.nocuts = 8
@@ -14,7 +14,7 @@ end
     stats.npaths = K
     stats.σ_UB = σ
 
-    totalstats = StochasticDualDynamicProgramming.SDDPStats()
+    totalstats = StructDualDynProg.SDDPStats()
     totalstats.niterations = 8
 
     @test_throws ErrorException stop(InvalidStoppingCriterion(), stats, stats)

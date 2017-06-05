@@ -1,4 +1,4 @@
-# StochasticDualDynamicProgramming.jl Documentation
+# StructDualDynProg.jl Documentation
 
 This packages aims at providing an implementation of SDDP that is both efficient and modular/flexible.
 It features the following:
