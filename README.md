@@ -1,35 +1,43 @@
-# Stochastic Dual Dynamic Programming (SDDP)
+# StructDualDynProg
 
-| **Documentation** | **Build Status** | **Social** |
-|:-----------------:|:----------------:|:----------:|
-| | [![Build Status][build-img]][build-url] | [![Gitter][gitter-img]][gitter-url] |
-| [![][docs-latest-img]][docs-latest-url] | [![Coveralls branch][coveralls-img]][coveralls-url] [![Codecov branch][codecov-img]][codecov-url] | [<img src="https://upload.wikimedia.org/wikipedia/en/a/af/Discourse_logo.png" width="64">][discourse-url] |
+| **Documentation** | **PackageEvaluator** | **Build Status** | **Social** |
+|:-----------------:|:--------------------:|:----------------:|:----------:|
+| [![][docs-stable-img]][docs-stable-url] | [![][pkg-0.5-img]][pkg-0.5-url] | [![Build Status][build-img]][build-url] [![Build Status][winbuild-img]][winbuild-url] | [![Gitter][gitter-img]][gitter-url] |
+| [![][docs-latest-img]][docs-latest-url] | [![][pkg-0.6-img]][pkg-0.6-url] | [![Coveralls branch][coveralls-img]][coveralls-url] [![Codecov branch][codecov-img]][codecov-url] | [<img src="https://upload.wikimedia.org/wikipedia/en/a/af/Discourse_logo.png" width="64">][discourse-url] |
 
-Implementation of [Stochastic Dual Dynamic Programming (SDDP)](http://www.optimization-online.org/DB_FILE/2009/12/2509.pdf).
+Generic interface for the [Stochastic Dual Dynamic Programming (SDDP) algorithm](http://www.optimization-online.org/DB_FILE/2009/12/2509.pdf) as well as a generic implementation.
 The problem can either be provided using the [StructJuMP](https://github.com/joehuchette/StructJuMP.jl) modeling interface or using a lower level interface.
 
-Documentation can be found [here][docs-latest-url].
+Documentation can be found [here][docs-stable-url].
 
 This package is used by the [Entropic Cone](https://github.com/blegat/EntropicCone.jl) package.
 
 # Installation
-Neither [StructJuMP](https://github.com/joehuchette/StructJuMP.jl) nor this package are currently registered so you will need to use `Pkg.clone` to use them:
 
 ```julia
-> Pkg.clone("https://github.com/StructJuMP/StructJuMP.jl.git")
-> Pkg.clone("https://github.com/blegat/StochasticDualDynamicProgramming.jl.git")
+> Pkg.update()
+> Pkg.add("StructDualDynProg")
 ```
 
 [docs-stable-img]: https://img.shields.io/badge/docs-stable-blue.svg
 [docs-latest-img]: https://img.shields.io/badge/docs-latest-blue.svg
-[docs-stable-url]: https://blegat.github.io/StochasticDualDynamicProgramming.jl/stable
-[docs-latest-url]: https://blegat.github.io/StochasticDualDynamicProgramming.jl/latest
-[build-img]: https://travis-ci.org/blegat/StochasticDualDynamicProgramming.jl.svg?branch=master
-[build-url]: https://travis-ci.org/blegat/StochasticDualDynamicProgramming.jl
-[coveralls-img]: https://coveralls.io/repos/github/blegat/StochasticDualDynamicProgramming.jl/badge.svg
-[coveralls-url]: https://coveralls.io/github/blegat/StochasticDualDynamicProgramming.jl
-[codecov-img]: https://codecov.io/gh/blegat/StochasticDualDynamicProgramming.jl/branch/master/graph/badge.svg
-[codecov-url]: https://codecov.io/gh/blegat/StochasticDualDynamicProgramming.jl
-[gitter-url]: https://gitter.im/JuliaOpt/StochasticDualDynamicProgramming.jl
-[gitter-img]: https://badges.gitter.im/JuliaOpt/StochasticDualDynamicProgramming.jl.svg
+[docs-stable-url]: https://blegat.github.io/StructDualDynProg.jl/stable
+[docs-latest-url]: https://blegat.github.io/StructDualDynProg.jl/latest
+
+[pkg-0.5-img]: http://pkg.julialang.org/badges/StructDualDynProg_0.5.svg
+[pkg-0.5-url]: http://pkg.julialang.org/?pkg=StructDualDynProg
+[pkg-0.6-img]: http://pkg.julialang.org/badges/StructDualDynProg_0.6.svg
+[pkg-0.6-url]: http://pkg.julialang.org/?pkg=StructDualDynProg
+
+[build-img]: https://travis-ci.org/blegat/StructDualDynProg.jl.svg?branch=master
+[build-url]: https://travis-ci.org/blegat/StructDualDynProg.jl
+[winbuild-img]: https://ci.appveyor.com/api/projects/status/3lh9e6tujojgodar/branch/master?svg=true
+[winbuild-url]: https://ci.appveyor.com/project/blegat/structdualdynprog-jl/branch/master
+[coveralls-img]: https://coveralls.io/repos/github/blegat/StructDualDynProg.jl/badge.svg
+[coveralls-url]: https://coveralls.io/github/blegat/StructDualDynProg.jl
+[codecov-img]: https://codecov.io/gh/blegat/StructDualDynProg.jl/branch/master/graph/badge.svg
+[codecov-url]: https://codecov.io/gh/blegat/StructDualDynProg.jl
+
+[gitter-url]: https://gitter.im/JuliaOpt/StructDualDynProg.jl
+[gitter-img]: https://badges.gitter.im/JuliaOpt/StructDualDynProg.jl.svg
 [discourse-url]: https://discourse.julialang.org/c/domain/opt
