@@ -1,7 +1,7 @@
 import Base.|, Base.&
 export stop, AbstractStoppingCriterion, OrStoppingCriterion, AndStoppingCriterion, IterLimit, Pereira, CutLimit, TimeLimit
 
-abstract AbstractStoppingCriterion
+@compat abstract type AbstractStoppingCriterion end
 
 """
 $(SIGNATURES)

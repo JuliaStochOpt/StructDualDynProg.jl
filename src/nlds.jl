@@ -92,7 +92,7 @@ type NLDS{S}
     FCpruner::AbstractCutPruner
     OCpruners::Vector
 
-    function NLDS(W::AbstractMatrix{S}, h::AbstractVector{S}, T::AbstractMatrix{S}, K, C, c::AbstractVector{S}, solver, pruningalgo::AbstractCutPruningAlgo, newcut::Symbol=:AddImmediately)
+    function (::Type{NLDS{S}}){S}(W::AbstractMatrix{S}, h::AbstractVector{S}, T::AbstractMatrix{S}, K, C, c::AbstractVector{S}, solver, pruningalgo::AbstractCutPruningAlgo, newcut::Symbol=:AddImmediately)
         nx = size(W, 2)
         nθ = 0
         nπ = length(h)
@@ -105,7 +105,7 @@ type NLDS{S}
         else
             model = MathProgBase.LinearQuadraticModel(solver)
         end
-        nlds = new(W, h, T, K, C, c, S[], nothing, nothing, CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, Float64[], [], nothing, :NoOptimalityCut, nx, nθ, nπ, 1:nπ, 0, Int[], Int[], Vector{Int}[], model, false, false, nothing, newcut, pruningalgo, FCpruner, OCpruners)
+        nlds = new{S}(W, h, T, K, C, c, S[], nothing, nothing, CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, Float64[], [], nothing, :NoOptimalityCut, nx, nθ, nπ, 1:nπ, 0, Int[], Int[], Vector{Int}[], model, false, false, nothing, newcut, pruningalgo, FCpruner, OCpruners)
         addfollower(localFC, (nlds, (:Feasibility, 0)))
         addfollower(localOC, (nlds, (:Optimality, 1)))
         nlds

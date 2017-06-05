@@ -33,8 +33,8 @@ type CutStore{S}
 
     storecuts::Symbol
 
-    function CutStore(nvars)
-        new(spzeros(S, 0, nvars), spzeros(S, 0), NLDS{S}[], spzeros(S, 0, nvars), spzeros(S, 0), NLDS{S}[], Vector{Tuple{NLDS{S},Tuple{Symbol,Int64}}}(0), Vector{Bool}(0), :IfNeededElseDelete)
+    function (::Type{CutStore{S}}){S}(nvars)
+        new{S}(spzeros(S, 0, nvars), spzeros(S, 0), NLDS{S}[], spzeros(S, 0, nvars), spzeros(S, 0), NLDS{S}[], Vector{Tuple{NLDS{S},Tuple{Symbol,Int64}}}(0), Vector{Bool}(0), :IfNeededElseDelete)
     end
 end
 

@@ -2,6 +2,8 @@ __precompile__()
 
 module StructDualDynProg
 
+using Compat
+
 using DocStringExtensions
 
 using CutPruners
