@@ -1,10 +1,11 @@
+export SDDP
+
 type SDDPSolution
     status
     objval
     sol
     attrs
 end
-
 
 function meanstdpaths(z::Vector{Float64}, proba::Vector{Float64}, npaths::Vector{Int}, Ktot)
     if Ktot != -1
