@@ -34,11 +34,12 @@ type CutStore{S}
     storecuts::Symbol
 
     function (::Type{CutStore{S}}){S}(nvars)
-        new{S}(spzeros(S, 0, nvars), spzeros(S, 0), NLDS{S}[], spzeros(S, 0, nvars), spzeros(S, 0), NLDS{S}[], Vector{Tuple{NLDS{S},Tuple{Symbol,Int64}}}(0), Vector{Bool}(0), :IfNeededElseDelete)
+        # spzeros(S, 0) -> S[] : See julia#22225
+        new{S}(spzeros(S, 0, nvars), S[], NLDS{S}[], spzeros(S, 0, nvars), S[], NLDS{S}[], Vector{Tuple{NLDS{S},Tuple{Symbol,Int64}}}(0), Vector{Bool}(0), :IfNeededElseDelete)
     end
 end
 
-function checksparseness(a::Vector)
+function checksparseness(a::AbstractVector)
     if true || countnz(a) * 2 < length(a)
         sparse(a)
     else
@@ -46,7 +47,7 @@ function checksparseness(a::Vector)
     end
 end
 
-function addcut{S}(store::CutStore{S}, a::Vector{S}, β::S, author)
+function addcut{S}(store::CutStore{S}, a::AbstractVector{S}, β::S, author)
     a = checksparseness(a)
     store.Anew = mymatcat(store.Anew, a)
     store.bnew = myveccat(store.bnew, β)
@@ -66,7 +67,7 @@ function apply!{S}(store::CutStore{S})
         end
 
         store.Anew = spzeros(S, 0, size(store.A, 2))
-        store.bnew = spzeros(S, 0)
+        store.bnew = S[] # See julia#22225
         store.authorsnew = NLDS{S}[]
     end
 end
@@ -83,7 +84,7 @@ function noneedstored!{S}(store::CutStore{S}, nlds)
     store.needstored[findfirst(f->f[1] === nlds, store.followers)] = false
     if store.storecuts == :IfNeededElseDelete && !reduce(|, false, store.needstored)
         store.A = spzeros(S, 0, size(store.A, 2))
-        store.b = spzeros(S, 0)
+        store.b = S[] # See julia#22225
         store.authors = NLDS{S}[]
     end
 end
