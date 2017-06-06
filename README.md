@@ -19,6 +19,11 @@ This package is used by the [Entropic Cone](https://github.com/blegat/EntropicCo
 > Pkg.add("StructDualDynProg")
 ```
 
+# Notes for choice of solvers
+This package should work with any linear programming (LP) solver [supported by MathProgBase](http://www.juliaopt.org/).
+If some subproblems are infeasible, an infeasibility ray will be asked to the solver. In this case, it is advised to turn presolve off in `CPLEX` (i.e. `CPLEX.CplexSolver(CPX_PARAM_REDUCE=0)`) and to avoid using Clp since it [often cannot find the infeasibility ray](https://projects.coin-or.org/Clp/ticket/79).
+If some subproblems are unbounded, an unbounded ray and a feasible solution will be asked for the solver. Currently, only GLPK behaves correctly in that case; see [here](https://github.com/JuliaOpt/MathProgBase.jl/pull/144) and [here for Clp](https://projects.coin-or.org/Clp/ticket/82). Hopefully subproblems shouldn't be unbounded if `detectlb` is left at `true` when calling `model2lattice` and the situation should be improved by [MathProgBase#164](https://github.com/JuliaOpt/MathProgBase.jl/issues/164).
+
 [docs-stable-img]: https://img.shields.io/badge/docs-stable-blue.svg
 [docs-latest-img]: https://img.shields.io/badge/docs-latest-blue.svg
 [docs-stable-url]: https://blegat.github.io/StructDualDynProg.jl/stable

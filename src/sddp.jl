@@ -39,7 +39,7 @@ function meanstdpaths(paths::Vector{SDDPPath}, Ktot)
 end
 
 function canmerge(p::SDDPPath, q::SDDPPath, ztol)
-    myeq(p.sol.x, q.sol.x, ztol)
+    _isapprox(p.sol.x, q.sol.x, ztol)
 end
 
 function merge!(p::SDDPPath, q::SDDPPath)
@@ -89,7 +89,7 @@ function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pa
 
 	master, initialstate = getmaster(g)
 	StateT = typeof(initialstate)
-    stats.solvertime += @mytime mastersol = loadAndSolve(master)
+    stats.solvertime += @_time mastersol = loadAndSolve(master)
     stats.nsolved += 1
     stats.niterations += 1
     infeasibility_detected = mastersol.status == :Infeasible
@@ -110,7 +110,7 @@ function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pa
         if mergepaths
             before = sum([sum([sum(path.K) for path in paths]) for (state, paths) in pathsd])
             newpathsd = Tuple{StateT, Vector{SDDPPath}}[]
-            stats.mergetime += @mytime for (state, paths) in pathsd
+            stats.mergetime += @_time for (state, paths) in pathsd
                 keep = ones(Bool, length(paths))
                 merged = false
                 for i in 1:length(paths)
@@ -155,9 +155,9 @@ function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pa
         for (state, jobs) in jobsd
             for job in jobs
                 if !stopatinf || job.parent.childs_feasible
-                    stats.setxtime += @mytime setchildx(job.parentnode, job.i, job.parent.sol)
+                    stats.setxtime += @_time setchildx(job.parentnode, job.i, job.parent.sol)
                     stats.nsetx += 1
-                    stats.solvertime += @mytime job.sol = loadAndSolve(state)
+                    stats.solvertime += @_time job.sol = loadAndSolve(state)
                     job.parent.childsols[job.i] = job.sol
                     stats.nsolved += 1
                     if get(job.sol).status == :Infeasible
@@ -193,7 +193,7 @@ function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pa
                             if childsol.status == :Infeasible
                                 infeasibility_detected = true
                                 stats.nfcuts += 1
-                                stats.fcutstime += @mytime pushfeasibilitycut!(parent.children[i], a, β, parent)
+                                stats.fcutstime += @_time pushfeasibilitycut!(parent.children[i], a, β, parent)
                             end
                         elseif !(parent.nlds.cutmode == :AveragedCut && (!path.childs_bounded || !path.childs_feasible))
                             @assert childsol.status == :Optimal
@@ -204,12 +204,12 @@ function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pa
                             end
                             β += childsol.ρe
                             # This assumption is dropped now
-                           #if mylt(β - dot(aT, path.sol.x), .0, ztol)
+                           #if _lt(β - dot(aT, path.sol.x), .0, ztol)
                            #    error("The objectives are supposed to be nonnegative")
                            #end
                             if parent.nlds.cutmode == :MultiCut
-                                if path.sol.status == :Unbounded || mylt(path.sol.θ[i], β - dot(aT, path.sol.x), ztol)
-                                    stats.ocutstime += @mytime pushoptimalitycutforparent!(parent.children[i], a, β, parent)
+                                if path.sol.status == :Unbounded || _lt(path.sol.θ[i], β - dot(aT, path.sol.x), ztol)
+                                    stats.ocutstime += @_time pushoptimalitycutforparent!(parent.children[i], a, β, parent)
                                     stats.nocuts += 1
                                 end
                             elseif parent.nlds.cutmode == :AveragedCut
@@ -220,8 +220,8 @@ function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pa
                     end
                 end
                 if parent.nlds.cutmode == :AveragedCut && path.childs_feasible && path.childs_bounded
-                    if path.sol.status == :Unbounded || mylt(path.sol.θ[1], avgβ - dot(avga, path.sol.x), ztol)
-                        stats.ocutstime += @mytime pushoptimalitycut!(parent, avga, avgβ, parent)
+                    if path.sol.status == :Unbounded || _lt(path.sol.θ[1], avgβ - dot(avga, path.sol.x), ztol)
+                        stats.ocutstime += @_time pushoptimalitycut!(parent, avga, avgβ, parent)
                         stats.nocuts += 1
                     end
                 end
@@ -290,7 +290,7 @@ function SDDP(g::AbstractSDDPTree, num_stages; K::Int=25, stopcrit::AbstractStop
     stats.niterations = 1
 
     while (mastersol === nothing || mastersol.status != :Infeasible) && !stop(stopcrit, stats, totalstats)
-        itertime = @mytime mastersol, stats = iteration(g, K, num_stages, verbose, pathsampler, stopatinf, mergepaths, ztol)
+        itertime = @_time mastersol, stats = iteration(g, K, num_stages, verbose, pathsampler, stopatinf, mergepaths, ztol)
         stats.time = itertime
 
         totalstats += stats

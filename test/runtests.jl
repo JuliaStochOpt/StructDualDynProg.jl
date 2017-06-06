@@ -5,6 +5,7 @@ using StructDualDynProg
 using Base.Test
 
 # solver independent tests
+include("comp.jl")
 include("stopcrit.jl")
 include("paths.jl")
 

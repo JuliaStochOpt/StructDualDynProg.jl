@@ -36,6 +36,7 @@
 
     for cutmode in [:MultiCut, :AveragedCut]
         for detectlb in [false, true]
+            !detectlb && iscpx(solver) && continue
             lattice = model2lattice(models[1], num_stages, solver, AvgCutPruningAlgo(-1), cutmode, detectlb)
             sol = SDDP(lattice, num_stages, K = 16, stopcrit = Pereira(2, 0.5) | IterLimit(10), verbose = 0)
 

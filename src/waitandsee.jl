@@ -60,7 +60,7 @@ function waitandsee(g::AbstractSDDPTree, num_stages, solver, totalK=25, verbose=
             append!(C, [(cone, offsetnvars+idx) for (cone, idx) in nlds.C])
         end
         model = MathProgBase.LinearQuadraticModel(solver)
-        myload!(model, c, A, bs, Ks, C)
+        _load!(model, c, A, bs, Ks, C)
         MathProgBase.optimize!(model)
         status = MathProgBase.status(model)
         if status == :Error

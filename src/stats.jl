@@ -52,7 +52,7 @@ function +(a::SDDPStats, b::SDDPStats)
     b.σ_UB, a.time + b.time)
 end
 
-macro mytime(x)
+macro _time(x)
     quote
         y = @timed $(esc(x))
         # y[1] is returned value

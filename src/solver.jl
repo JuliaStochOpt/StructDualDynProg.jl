@@ -1,6 +1,6 @@
 using MathProgBase
 
-function mysetconstrB!(m::MathProgBase.AbstractConicModel, b, K)
+function _setconstrB!(m::MathProgBase.AbstractConicModel, b, K)
     error("Not supported")
 end
 
@@ -35,7 +35,7 @@ function getLPconstrbounds(bs, Ks)
     lb, ub
 end
 
-function mysetconstrB!(m::MathProgBase.AbstractLinearQuadraticModel, bs, Ks)
+function _setconstrB!(m::MathProgBase.AbstractLinearQuadraticModel, bs, Ks)
     lb, ub = getLPconstrbounds(bs, Ks)
     MathProgBase.setconstrLB!(m, lb)
     MathProgBase.setconstrUB!(m, ub)
@@ -57,11 +57,11 @@ function _addconstr!(m::MathProgBase.AbstractLinearQuadraticModel, idx, a, β, c
     MathProgBase.addconstr!(m, idx, full(a), lb, ub)
 end
 
-function myload!(model::MathProgBase.AbstractConicModel, c, A, bs, Ks, C)
+function _load!(model::MathProgBase.AbstractConicModel, c, A, bs, Ks, C)
     MathProgBase.loadproblem!(model, c, A, reduce(vcat, Float64[], bs), reduce(vcat, [], Ks), C)
 end
 
-function myload!(model::MathProgBase.AbstractLinearQuadraticModel, c, A, bs, Ks, C)
+function _load!(model::MathProgBase.AbstractLinearQuadraticModel, c, A, bs, Ks, C)
     lb, ub = getLPconstrbounds(bs, Ks)
     l  = Vector{Float64}(size(A, 2))
     u  = Vector{Float64}(size(A, 2))

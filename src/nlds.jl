@@ -349,7 +349,7 @@ function notifynewcuts{S}(nlds::NLDS{S}, A::AbstractMatrix{S}, b::AbstractVector
                     else
                         push!(idx, nlds.nx+i)
                     end
-                    a = myveccat(a, one(S), true)
+                    a = _veccat(a, one(S), true)
                 end
                 _addconstr!(nlds.model, idx, a, b[j], :NonPos)
                 nlds.solved = false
@@ -423,7 +423,7 @@ function setparentx(nlds::NLDS, x_a::AbstractVector, xuray_a, objvalxuray_a)
             nlds.loaded = false
         else
             bs, Ks = getrhs(nlds)
-            mysetconstrB!(nlds.model, bs, Ks)
+            _setconstrB!(nlds.model, bs, Ks)
         end
         nlds.solved = false
     end
@@ -497,7 +497,7 @@ function load!{S}(nlds::NLDS{S})
             bigc = [bigc; get(nlds.objvalxuray_a)]
         end
 
-        myload!(nlds.model, bigc, bigA, bs, Ks, bigC)
+        _load!(nlds.model, bigc, bigA, bs, Ks, bigC)
         nlds.loaded = true
     end
 end

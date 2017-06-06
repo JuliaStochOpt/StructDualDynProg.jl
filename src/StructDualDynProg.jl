@@ -14,7 +14,7 @@ using StructJuMP
 import Base.show, Base.isless
 
 # Utils
-include("mycomp.jl")
+include("comp.jl")
 include("stats.jl")
 
 # Abstract components

@@ -116,7 +116,7 @@ function pushfeasibilitycut!(node, coef, rhs, author)
     # Hence coef might have very large coefficients and alter
     # the numerial accuracy of the master's solver.
     # We scale it to avoid this issue
-    scaling = max(abs(rhs), maximum(abs(coef)))
+    scaling = max(abs(rhs), maximum(abs, coef))
     addcut(node.fcuts, coef/scaling, sign(rhs), author.nlds)
 end
 function pushoptimalitycut!(node, coef, rhs, author)

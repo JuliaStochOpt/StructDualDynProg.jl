@@ -1,8 +1,8 @@
-function myveccat{S}(b::AbstractVector{S}, β::S, force=false)
+function _veccat{S}(b::AbstractVector{S}, β::S, force=false)
     push!(b, β)
     b
 end
-function myveccat{S}(b::AbstractSparseVector{S}, β::S, force=false)
+function _veccat{S}(b::AbstractSparseVector{S}, β::S, force=false)
     if force || β == zero(S)
         # If only homogeneous cuts, b stays sparse
         [b; sparsevec([β])]
@@ -13,10 +13,10 @@ function myveccat{S}(b::AbstractSparseVector{S}, β::S, force=false)
 end
 
 # see https://github.com/JuliaLang/julia/issues/16661
-function mymatcat{S}(A::AbstractMatrix{S}, a::AbstractVector{S})
+function _matcat{S}(A::AbstractMatrix{S}, a::AbstractVector{S})
     [A; a']
 end
-function mymatcat{S}(A::AbstractSparseMatrix{S}, a::AbstractSparseVector{S})
+function _matcat{S}(A::AbstractSparseMatrix{S}, a::AbstractSparseVector{S})
     [A; sparse(a')]
 end
 
@@ -49,8 +49,8 @@ end
 
 function addcut{S}(store::CutStore{S}, a::AbstractVector{S}, β::S, author)
     a = checksparseness(a)
-    store.Anew = mymatcat(store.Anew, a)
-    store.bnew = myveccat(store.bnew, β)
+    store.Anew = _matcat(store.Anew, a)
+    store.bnew = _veccat(store.bnew, β)
     push!(store.authorsnew, author)
 end
 

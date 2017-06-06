@@ -3,6 +3,7 @@
     # With min ⟨[1, 1], [x, θ]⟩ s.t. no constraint with x >= 0, θ free
     # Clp is unable to return the unbounded ray which should be [0, -1]
     isclp(solver) && continue
+    iscpx(solver) && continue
     numScen = 2
     C = 1
     P = 2

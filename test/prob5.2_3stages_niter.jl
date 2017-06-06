@@ -3,15 +3,17 @@ function testniter_3stages(niter, K, maxncuts, cutmode, detectlb)
         if K == -1
             if maxncuts == -1
                 if detectlb
+                    # == 14 with Gurobi
                     # == 15 on Mac OS, == 17 on Linux
-                    @test 15 <= niter <= 17
+                    @test 14 <= niter <= 17
                 else
                     @test niter == 19
                 end
             else
                 if detectlb
+                    # down to 14 with Gurobi
                     # down to 15 and up to 19 on Mac OS, 17 <= ... <= 18 on Linux
-                    @test 15 <= niter <= 19
+                    @test 14 <= niter <= 19
                 else
                     # up to 22 on 32 bits, <= 22 on 64 bits
                     @test 19 <= niter <= 22
@@ -19,8 +21,9 @@ function testniter_3stages(niter, K, maxncuts, cutmode, detectlb)
             end
         else
             if detectlb
+                # down to 11 with CPLEX
                 # up to 16 on Windows, up to 15 on Mac OS, <= 14 on Linux
-                @test 12 <= niter <= 16
+                @test 11 <= niter <= 16
             else
                 # up to 19 on Mac OS, <= 18 on Linux
                 @test 15 <= niter <= 19
