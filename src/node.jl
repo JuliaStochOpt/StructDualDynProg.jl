@@ -40,8 +40,7 @@ function Base.show(io::IO, node::SDDPNode)
     else
         print(io, "N")
     end
-    println(io, "ode of $(node.nvars) variables and outdegree of $(length(node.children)) with proba:")
-    println(io, node.proba)
+    println(io, "ode of $(node.nvars) variables and outdegree of $(length(node.children)) with proba: $(node.proba)")
 end
 
 function setchildren!(node::SDDPNode, children, proba, cutmode, childT=nothing)

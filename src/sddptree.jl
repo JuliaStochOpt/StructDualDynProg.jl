@@ -1,4 +1,4 @@
-export AbstractSDDPTree
+export AbstractSDDPTree, haschildren, nchidren, children, getchild, getproba, getprobas, cutmode, numberofpaths
 @compat abstract type AbstractSDDPTree{S} end
 
 type GraphSDDPTree{S} <: AbstractSDDPTree{S}
@@ -17,6 +17,7 @@ getproba(g::GraphSDDPTree, node::SDDPNode, i) = node.proba[i]
 getprobas(g::GraphSDDPTree, node::SDDPNode) = node.proba
 
 # Get number of paths
+numberofpaths(g::GraphSDDPTree, num_stages) = numberofpaths(g.root, 1, num_stages)
 numberofpaths(g::GraphSDDPTree, node::SDDPNode, t, num_stages) = numberofpaths(node, t, num_stages)
 
 cutmode(g::GraphSDDPTree, node::SDDPNode) = node.nlds.cutmode
