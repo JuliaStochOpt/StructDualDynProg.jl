@@ -19,8 +19,8 @@ function testniter_3stages(niter, K, maxncuts, cutmode, detectlb)
             end
         else
             if detectlb
-                # up to 15 on Mac OS, <= 14 on Linux
-                @test 12 <= niter <= 15
+                # up to 16 on Windows, up to 15 on Mac OS, <= 14 on Linux
+                @test 12 <= niter <= 16
             else
                 # up to 19 on Mac OS, <= 18 on Linux
                 @test 15 <= niter <= 19
