@@ -319,6 +319,7 @@ function SDDP(g::AbstractSDDPTree, num_stages; K::Int=25, stopcrit::AbstractStop
     end
 
     attrs = Dict()
+    attrs[:stats] = totalstats
     attrs[:niter] = totalstats.niterations
     attrs[:nfcuts] = totalstats.nfcuts
     attrs[:nocuts] = totalstats.nocuts

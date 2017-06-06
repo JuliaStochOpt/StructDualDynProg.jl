@@ -35,6 +35,12 @@
         @test numberofpaths(lattice, 3) == 2
         @test sprint(show, lattice.root) == "Root node of 1 variables and outdegree of 2 with proba: [0.5, 0.5]\n" || sprint(show, lattice.root) == "Root node of 1 variables and outdegree of 2 with proba: [0.5,0.5]\n" # No space on Julia v0.5
         sol = SDDP(lattice, num_stages, K = K, stopcrit = Pereira(0.1) | IterLimit(10), verbose = 0)
+        sstats = sprint(show, sol.attrs[:stats])
+        @test contains(sstats, "Solving problem")
+        @test contains(sstats, "Merging paths")
+        @test contains(sstats, "Adding feasibility cuts")
+        @test contains(sstats, "Adding  optimality cuts")
+        @test contains(sstats, "Setting parent solution")
 
         # K = 10 is a multiple of 2 so with ProbaPathSampler(true), the sampling is deterministic
         # therefore we can test for sol.attrs[:niter]
