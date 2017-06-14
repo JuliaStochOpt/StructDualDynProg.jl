@@ -20,6 +20,8 @@ include("stats.jl")
 # Abstract components
 # Stopping Criterion
 include("stopcrit.jl")
+# Cut Generator
+include("cutgen.jl")
 # NLDS Model
 include("cutstore.jl")
 include("solver.jl")
