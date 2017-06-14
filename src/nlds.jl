@@ -24,14 +24,14 @@ end
 
 # Primal
 # min c x
-#     + θ                         -> :AveragedCut
-#     + sum θ_i                   -> :MultiCut
+#     + θ                         -> AvgCutGenerator
+#     + sum θ_i                   -> MultiCutGenerator
 #     + λ c_a x_a                 -> parent unbounded
 #     h -   Tx_a - Wx ∈ K         -> parent bounded
 #     h - λ Tx_a - Wx ∈ K         -> parent unbounded
 #     Dx >= d                     (feasibility cuts)
-#     Ex + θ   >= e               -> :AveragedCut
-#     Ex + θ_i >= e               -> :MultiCut
+#     Ex + θ   >= e               -> AvgCutGenerator
+#     Ex + θ_i >= e               -> MultiCutGenerator
 #     x in C
 #     λ >= 0
 
@@ -67,7 +67,7 @@ type NLDS{S}
     θlb::Vector{Float64}
     θC
     childT::Nullable{Vector{AbstractMatrix{S}}}
-    cutmode::Symbol
+    cutgen::AbstractCutGenerator
 
     nx::Int
     nθ::Int
@@ -105,7 +105,7 @@ type NLDS{S}
         else
             model = MathProgBase.LinearQuadraticModel(solver)
         end
-        nlds = new{S}(W, h, T, K, C, c, S[], nothing, nothing, CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, Float64[], [], nothing, :NoOptimalityCut, nx, nθ, nπ, 1:nπ, 0, Int[], Int[], Vector{Int}[], model, false, false, nothing, newcut, pruningalgo, FCpruner, OCpruners)
+        nlds = new{S}(W, h, T, K, C, c, S[], nothing, nothing, CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, Float64[], [], nothing, NoOptimalityCutGenerator(), nx, nθ, nπ, 1:nπ, 0, Int[], Int[], Vector{Int}[], model, false, false, nothing, newcut, pruningalgo, FCpruner, OCpruners)
         addfollower(localFC, (nlds, (:Feasibility, 0)))
         addfollower(localOC, (nlds, (:Optimality, 1)))
         nlds
@@ -116,17 +116,11 @@ function (::Type{NLDS{S}}){S}(W::AbstractMatrix, h::AbstractVector, T::AbstractM
     NLDS{S}(AbstractMatrix{S}(W), AbstractVector{S}(h), AbstractMatrix{S}(T), K, C, AbstractVector{S}(c), solver, pruningalgo, newcut)
 end
 
-function setchildren!{S}(nlds::NLDS{S}, childFC, childOC, proba, cutmode, childT)
-    nlds.cutmode = cutmode
+function setchildren!{S}(nlds::NLDS{S}, childFC, childOC, proba, cutgen::AbstractCutGenerator, childT)
+    nlds.cutgen = cutgen
     @assert length(childFC) == length(childOC) == length(proba)
     nlds.proba = proba
-    if cutmode == :MultiCut
-        nlds.nθ = length(proba)
-    elseif cutmode == :AveragedCut
-        nlds.nθ = 1
-    else
-        nlds.nθ = 0
-    end
+    nlds.nθ = nθ(nlds.cutgen, proba)
     nlds.θlb = zeros(nlds.nθ)
     nlds.θC = [(:Free, collect(nlds.nx+(1:nlds.nθ)))]
     nlds.nρ = zeros(Int, nlds.nθ)
@@ -193,9 +187,7 @@ function appendchildren!{S}(nlds::NLDS{S}, childFC, childOC, proba, childT)
     @assert length(proba) == length(nlds.childOC) + length(childOC) == length(nlds.childFC) + length(childFC)
     oldnθ = nlds.nθ
     nlds.proba = proba
-    if nlds.cutmode == :MultiCut
-        nlds.nθ = length(proba)
-    end
+    nlds.nθ = nθ(nlds.cutgen, proba)
     Δθ = nlds.nθ - oldnθ
     append!(nlds.nρ, zeros(Int, Δθ))
     append!(nlds.ρs, [Int[] for i in 1:Δθ])

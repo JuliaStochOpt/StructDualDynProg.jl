@@ -43,7 +43,7 @@ function Base.show(io::IO, node::SDDPNode)
     println(io, "ode of $(node.nvars) variables and outdegree of $(length(node.children)) with proba: $(node.proba)")
 end
 
-function setchildren!(node::SDDPNode, children, proba, cutmode, childT=nothing)
+function setchildren!(node::SDDPNode, children, proba, cutgen::AbstractCutGenerator, childT=nothing)
     @assert length(children) == length(proba)
     node.children = children
     node.proba = proba
@@ -52,7 +52,7 @@ function setchildren!(node::SDDPNode, children, proba, cutmode, childT=nothing)
     childOC = map(child -> child.ocuts, children)
     node.childT = childT
     empty!(node.npath)
-    setchildren!(node.nlds, childFC, childOC, proba, cutmode, childT)
+    setchildren!(node.nlds, childFC, childOC, proba, cutgen, childT)
 end
 
 getobjlb(node::SDDPNode) = getobjlb(node.nlds)
