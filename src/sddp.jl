@@ -142,7 +142,7 @@ function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pa
                     npaths = samplepaths(pathsampler, g, state, path.K, t, num_stages)
 					childocuts = Array{Any}(nchildren(g, state))
                     for i in 1:nchildren(g, state)
-						if t == 2 || sum(npaths[i]) != 0 || cutmode(g, state) == :AveragedCut
+                        if t == 2 || sum(npaths[i]) != 0 || needallchildsol(cutgen(g, state))
 							addjob!(jobsd, getchild(g, state, i), SDDPJob(path.proba * getproba(g, state, i), npaths[i], state, path, i))
                         end
                     end
@@ -179,51 +179,20 @@ function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pa
         # e = π h + ρ e + σ d
         for (parent, paths) in pathsd
             for path in paths
-                if parent.nlds.cutmode == :AveragedCut && path.childs_feasible && path.childs_bounded
-                    avga = zeros(parent.nlds.nx)
-                    avgβ = 0
-                end
-                for i in 1:length(parent.children)
-                    if isnull(path.childsols[i])
-                        @assert !path.childs_feasible || parent.nlds.cutmode != :AveragedCut
-                    elseif get(path.childsols[i]).status != :Unbounded
-                        childsol = get(path.childsols[i])
-                        a = childsol.πT
-                        β = childsol.πh + childsol.σd
-                        if !path.childs_feasible
+                if path.childs_feasible
+                    gencut(cutgen(g, parent), parent, path, stats, ztol)
+                else
+                    for i in 1:length(parent.children)
+                        if !isnull(path.childsols[i])
+                            childsol = get(path.childsols[i])
                             if childsol.status == :Infeasible
+                                a = childsol.πT
+                                β = childsol.πh + childsol.σd
                                 infeasibility_detected = true
                                 stats.nfcuts += 1
                                 stats.fcutstime += @_time pushfeasibilitycut!(parent.children[i], a, β, parent)
                             end
-                        elseif !(parent.nlds.cutmode == :AveragedCut && (!path.childs_bounded || !path.childs_feasible))
-                            @assert childsol.status == :Optimal
-                            if isnull(parent.childT)
-                                aT = a
-                            else
-                                aT = get(parent.childT)[i]' * a
-                            end
-                            β += childsol.ρe
-                            # This assumption is dropped now
-                           #if _lt(β - dot(aT, path.sol.x), .0, ztol)
-                           #    error("The objectives are supposed to be nonnegative")
-                           #end
-                            if parent.nlds.cutmode == :MultiCut
-                                if path.sol.status == :Unbounded || _lt(path.sol.θ[i], β - dot(aT, path.sol.x), ztol)
-                                    stats.ocutstime += @_time pushoptimalitycutforparent!(parent.children[i], a, β, parent)
-                                    stats.nocuts += 1
-                                end
-                            elseif parent.nlds.cutmode == :AveragedCut
-                                avga += parent.proba[i] * aT
-                                avgβ += parent.proba[i] * β
-                            end
                         end
-                    end
-                end
-                if parent.nlds.cutmode == :AveragedCut && path.childs_feasible && path.childs_bounded
-                    if path.sol.status == :Unbounded || _lt(path.sol.θ[1], avgβ - dot(avga, path.sol.x), ztol)
-                        stats.ocutstime += @_time pushoptimalitycut!(parent, avga, avgβ, parent)
-                        stats.nocuts += 1
                     end
                 end
             end
@@ -231,16 +200,10 @@ function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pa
 
         # Apply cut addition
         for (state, paths) in pathsd
-			for child in children(g, state)
+            for child in children(g, state)
                 applyfeasibilitycut!(child)
             end
-			if cutmode(g, state) == :MultiCut
-				for child in children(g, state)
-                    applyoptimalitycutforparent!(child)
-                end
-			elseif cutmode(g, state) == :AveragedCut
-                applyoptimalitycut!(state)
-            end
+            applycut(cutgen(g, state), state, g)
         end
 
         # Jobs -> Paths

@@ -5,7 +5,7 @@ function fulltest(m, num_stages, objval, solval, ws, wsσ, testniter, solver)
     for K in [-1, 40]
         for maxncuts in [-1, 7]
             for newcut in [:InvalidateSolver]#[:AddImmediately, :InvalidateSolver]
-                for cutmode in [:MultiCut, :AveragedCut]
+                for cutmode in [MultiCutGenerator(), AvgCutGenerator()]
                     for detectlb in [false, true]
                         !detectlb && (isgrb(solver) || iscpx(solver)) && continue
                         for pruningalgo in [AvgCutPruningAlgo(maxncuts), DecayCutPruningAlgo(maxncuts), DeMatosPruningAlgo(maxncuts)]

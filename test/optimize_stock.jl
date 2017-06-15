@@ -24,7 +24,7 @@
         end
 
         num_stages = 2
-        cutmode = :AveragedCut
+        cutmode = AvgCutGenerator()
         K = 2
         pereiracoef = 0.1
 
@@ -73,7 +73,7 @@
 
         num_stages = 2
         # Multicut wouldn't work since we are adding a node
-        cutmode = :AveragedCut
+        cutmode = AvgCutGenerator()
         K = 2
         pereiracoef = 0.1
 
@@ -95,7 +95,8 @@
         newnode = getSDDPNode(m3, 1, 1, solver, root, AvgCutPruningAlgo(-1), cutmode)
         appendchildren!(root, [newnode], [1/2, 1/2])
         sol = SDDP(lattice, num_stages, K = K, stopcrit = Pereira(0.1) | IterLimit(10), verbose = 0)
-        @test sol.attrs[:niter] == 3
+        # 2 on Mac OS and Windows, 3 otherwise
+        @test 2 <= sol.attrs[:niter] <= 3
         @test sol.status == :Optimal
         @test sol.objval == -2.0
     end

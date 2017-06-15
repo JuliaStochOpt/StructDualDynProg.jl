@@ -47,8 +47,8 @@
     #    11     | Optimal   | 339235.89 |  344363.19 |  0  |  1  | -> Pereira stops here
     #    12     | Optimal   | 339779.51 |  340949.37 |  0  |  1  |
     #    13     | Optimal   | 340315.52 |  340315.52 |  0  |  0  |
-    function testniter(niter, K, maxncuts, cutmode, detectlb)
-        if cutmode == :MultiCut
+    function testniter(niter, K, maxncuts, cutgen, detectlb)
+        if isa(cutgen, MultiCutGenerator)
             @test niter == 10
         else
             if maxncuts == -1

@@ -34,7 +34,7 @@
 		end
 	end
 
-    for cutmode in [:MultiCut, :AveragedCut]
+    for cutmode in [MultiCutGenerator(), AvgCutGenerator()]
         for detectlb in [false, true]
             !detectlb && iscpx(solver) && continue
             lattice = model2lattice(models[1], num_stages, solver, AvgCutPruningAlgo(-1), cutmode, detectlb)
