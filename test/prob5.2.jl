@@ -1,15 +1,11 @@
 function fulltest(m, num_stages, objval, solval, ws, wsσ, testniter, solver)
-    if isclp(solver)
-        return
-    end
+    isclp(solver) && return
     for K in [-1, 40]
         for maxncuts in [-1, 7]
             for newcut in [:InvalidateSolver]#[:AddImmediately, :InvalidateSolver]
                 for cutmode in [MultiCutGenerator(), AvgCutGenerator()]
                     for detectlb in [false, true]
-                        !detectlb && (isgrb(solver) || iscpx(solver)) && continue
                         for pruningalgo in [AvgCutPruningAlgo(maxncuts), DecayCutPruningAlgo(maxncuts), DeMatosPruningAlgo(maxncuts)]
-                            iscpx(solver) && K == -1 && maxncuts == -1 && cutmode == :MultiCut && isa(pruningalgo, AvgCutPruningAlgo) && continue # CPLEX fails to find infeasibility ray for the 3 problems in this exact configuration!
                             isclp(solver) && K == -1 && maxncuts == 7 && cutmode == :MultiCut && !detectlb && isa(pruningalgo, DeMatosPruningAlgo) && continue
                             root = model2lattice(m, num_stages, solver, pruningalgo, cutmode, detectlb, newcut)
 

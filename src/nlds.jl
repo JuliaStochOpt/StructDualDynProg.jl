@@ -545,10 +545,14 @@ function solve!{S}(nlds::NLDS{S})
             else
                 @assert newstatus == :Optimal
             end
-            MathProgBase.setobj!(nlds.model, c)
+            if newstatus == :Infeasible
+                sol.status = :Infeasible
+            end
+        else
+            newstatus = status
         end
 
-        if status != :Unbounded
+        if newstatus == :Infeasible || status != :Unbounded
             # if infeasible dual + λ iray is dual feasible for any λ >= 0
             # here I just take iray to build the feasibility cut
             dual = _getdual(nlds.model)
@@ -576,7 +580,7 @@ function solve!{S}(nlds::NLDS{S})
         end
 
         # Needs to be done after since if status is unbounded I do a resolve
-        if status != :Infeasible
+        if newstatus != :Infeasible
             primal = _getsolution(nlds.model)
             sol.x = primal[1:nlds.nx]
             addposition!(nlds.FCpruner, sol.x)
@@ -585,6 +589,11 @@ function solve!{S}(nlds::NLDS{S})
             end
             sol.objvalx = dot(nlds.c, sol.x)
             sol.θ = nlds.θlb + primal[nlds.nx+(1:nlds.nθ)]
+        end
+
+        if status == :Unbounded
+            # It needs to be done *after* getsolution for some solver (e.g. CPLEX)
+            MathProgBase.setobj!(nlds.model, c)
         end
 
         nlds.prevsol = sol

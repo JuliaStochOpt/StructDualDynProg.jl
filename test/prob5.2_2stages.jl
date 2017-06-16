@@ -56,10 +56,12 @@
                     if detectlb
                         @test niter == 13
                     else
-                        @test niter == 14
+                        # 10 on Gurobi/CPLEX, 14 otherwise
+                        @test niter == 10 || niter == 14
                     end
                 else
-                    @test niter == 11 # Pereira stops earlier
+                    # 9 on Gurobi/CPLEX, 11 otherwise
+                    @test niter == 9 || niter == 11 # Pereira stops earlier
                 end
             else
                 if K == -1
@@ -67,10 +69,12 @@
                         # up to 15 on Mac OS, <= 14 on Linux
                         @test 13 <= niter <= 15
                     else
-                        @test 14 <= niter <= 15
+                        # 10 on Gurobi/CPLEX, between 14 and 15 otherwise
+                        @test 10 <= niter <= 15
                     end
                 else
-                    @test 11 <= niter <= 12 # Pereira stops earlier
+                    # 9 on Gurobi/CPLEX, between 11 and 12 otherwise
+                    @test 9 <= niter <= 12 # Pereira stops earlier
                 end
             end
         end

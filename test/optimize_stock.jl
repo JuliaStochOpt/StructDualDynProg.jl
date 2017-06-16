@@ -1,7 +1,6 @@
 # See https://web.stanford.edu/~lcambier/fast/demo.php
 @testset "Optimize Stock with $solver" for solver in lp_solvers
     isclp(solver) && continue
-    iscpx(solver) && continue
     numScen = 2
     C = 1
     P = 2
