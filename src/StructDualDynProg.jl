@@ -26,11 +26,11 @@ include("cutgen.jl")
 include("cutstore.jl")
 include("solver.jl")
 include("nlds.jl")
-# SDDP Tree
+# SDDP Graph
 include("node.jl")
-include("sddptree.jl")
+include("graph.jl")
 # Path Sampler
-include("paths.jl")
+include("sampler.jl")
 
 # SDDP algorithm
 include("sddp.jl")
