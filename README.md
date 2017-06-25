@@ -29,10 +29,10 @@ If some subproblems are unbounded, an unbounded ray and a feasible solution will
 [docs-stable-url]: https://blegat.github.io/StructDualDynProg.jl/stable
 [docs-latest-url]: https://blegat.github.io/StructDualDynProg.jl/latest
 
-[pkg-0.5-img]: http://pkg.julialang.org/badges/StructDualDynProg_0.5.svg
-[pkg-0.5-url]: http://pkg.julialang.org/?pkg=StructDualDynProg
 [pkg-0.6-img]: http://pkg.julialang.org/badges/StructDualDynProg_0.6.svg
 [pkg-0.6-url]: http://pkg.julialang.org/?pkg=StructDualDynProg
+[pkg-0.7-img]: http://pkg.julialang.org/badges/StructDualDynProg_0.7.svg
+[pkg-0.7-url]: http://pkg.julialang.org/?pkg=StructDualDynProg
 
 [build-img]: https://travis-ci.org/blegat/StructDualDynProg.jl.svg?branch=master
 [build-url]: https://travis-ci.org/blegat/StructDualDynProg.jl
