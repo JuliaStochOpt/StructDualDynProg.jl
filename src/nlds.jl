@@ -20,6 +20,19 @@ mutable struct NLDSSolution
     end
 end
 
+# Feasibility cut
+# D = π T
+# d = π h + σ d
+function getfeasibilitycut(sol::NLDSSolution)
+    (sol.πT, sol.πh + sol.σd)
+end
+# Optimality cut
+# E = π T
+# e = π h + ρ e + σ d
+function getoptimalitycut(sol::NLDSSolution)
+    (sol.πT, sol.πh + sol.σd + sol.ρe)
+end
+
 # Nested L-Shaped Decomposition Subproblem (NLDS)
 
 # Primal

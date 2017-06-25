@@ -65,12 +65,6 @@ function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pa
         end
 
         # Add cuts
-        # Feasibility cut
-        # D = π T
-        # d = π h + σ d
-        # Optimality cut
-        # E = π T
-        # e = π h + ρ e + σ d
         for (parent, paths) in pathsd
             for path in paths
                 if path.childs_feasible
@@ -82,6 +76,7 @@ function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pa
         end
 
         # Apply cut addition
+        # The cut is done after so that they are added by group and duplicate detection in CutPruners works better
         for (node, paths) in pathsd
             applycut(cutgen(g, node), g, node)
             applycut(FeasibilityCutGenerator(), g, node)

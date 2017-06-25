@@ -10,10 +10,8 @@ function gencut(::FeasibilityCutGenerator, g, parent, path, stats, ztol)
         if !isnull(path.childsols[i])
             childsol = get(path.childsols[i])
             if childsol.status == :Infeasible
-                a = childsol.πT
-                β = childsol.πh + childsol.σd
                 stats.nfcuts += 1
-                stats.fcutstime += @_time pushfeasibilitycut!(parent.children[i], a, β, parent)
+                stats.fcutstime += @_time pushfeasibilitycut!(parent.children[i], getfeasibilitycut(childsol)..., parent)
             end
         end
     end
@@ -44,15 +42,13 @@ function gencut(::MultiCutGenerator, g, parent, path, stats, ztol)
     for i in 1:length(parent.children)
         if !isnull(path.childsols[i]) && get(path.childsols[i]).status != :Unbounded
             childsol = get(path.childsols[i])
-            a = childsol.πT
-            β = childsol.πh + childsol.σd
+            a, β = getoptimalitycut(childsol)
             @assert childsol.status == :Optimal
             if isnull(parent.childT)
                 aT = a
             else
                 aT = get(parent.childT)[i]' * a
             end
-            β += childsol.ρe
             if path.sol.status == :Unbounded || _lt(path.sol.θ[i], β - dot(aT, path.sol.x), ztol)
                 stats.ocutstime += @_time pushoptimalitycutforparent!(parent.children[i], a, β, parent)
                 stats.nocuts += 1
@@ -79,15 +75,13 @@ function gencut(::AvgCutGenerator, g, parent, path, stats, ztol)
         @assert !isnull(path.childsols[i])
         @assert get(path.childsols[i]).status != :Unbounded
         childsol = get(path.childsols[i])
-        a = childsol.πT
-        β = childsol.πh + childsol.σd
+        a, β = getoptimalitycut(childsol)
         @assert childsol.status == :Optimal
         if isnull(parent.childT)
             aT = a
         else
             aT = get(parent.childT)[i]' * a
         end
-        β += childsol.ρe
         avga += parent.proba[i] * aT
         avgβ += parent.proba[i] * β
     end
