@@ -19,8 +19,8 @@ When a scenario is infeasible and `stopatinf` is true then no other scenario wit
 function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pathsampler, stopatinf, mergepaths, ztol)
     stats = SDDPStats()
 
-	master, initialstate = getmaster(g)
-	NodeT = typeof(initialstate)
+	master, initialnode = getmaster(g)
+	NodeT = typeof(initialnode)
     stats.solvertime += @_time mastersol = loadAndSolve(master)
     stats.nsolved += 1
     stats.niterations += 1
@@ -28,7 +28,7 @@ function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pa
     if infeasibility_detected
         pathsd = Tuple{NodeT, Vector{SDDPPath}}[]
     else
-        pathsd = Tuple{NodeT, Vector{SDDPPath}}[(initialstate, [SDDPPath(mastersol, [mastersol.objvalx], [1.], [Ktot], length(master.children))])]
+        pathsd = Tuple{NodeT, Vector{SDDPPath}}[(initialnode, [SDDPPath(mastersol, [mastersol.objvalx], [1.], [Ktot], length(master.children))])]
     end
     endedpaths = SDDPPath[]
 
@@ -46,12 +46,12 @@ function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pa
         jobsd = childjobs(g, pathsd, pathsampler, t, num_stages)
 
         # Solve Jobs (parallelism possible here)
-        for (state, jobs) in jobsd
+        for (node, jobs) in jobsd
             for job in jobs
                 if !stopatinf || job.parent.childs_feasible
                     stats.setxtime += @_time setchildx(job.parentnode, job.i, job.parent.sol)
                     stats.nsetx += 1
-                    stats.solvertime += @_time job.sol = loadAndSolve(state)
+                    stats.solvertime += @_time job.sol = loadAndSolve(node)
                     job.parent.childsols[job.i] = job.sol
                     stats.nsolved += 1
                     if get(job.sol).status == :Infeasible

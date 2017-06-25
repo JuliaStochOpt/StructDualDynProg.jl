@@ -47,13 +47,13 @@ end
 function _samplepaths(npaths, pmf, semirandom::Bool, canmodifypmf::Bool)
     _samplepaths!(zeros(Int, length(pmf)), npaths, pmf, semirandom, canmodifypmf)
 end
-infpaths(g, state) = fill(-1, nchildren(g, state))
+infpaths(g, node) = fill(-1, nchildren(g, node))
 
-function samplepaths(pathsampler::AbstractPathSampler, g::GraphSDDPTree, state, npaths::Vector{Int}, t, num_stages)
-    npathss = Vector{Int}[similar(npaths) for i in 1:nchildren(g, state)]
+function samplepaths(pathsampler::AbstractPathSampler, g::GraphSDDPTree, node, npaths::Vector{Int}, t, num_stages)
+    npathss = Vector{Int}[similar(npaths) for i in 1:nchildren(g, node)]
     for i in 1:length(npaths)
-        _npaths = samplepaths(pathsampler, g, state, npaths[i], t, num_stages)
-        for c in 1:nchildren(g, state)
+        _npaths = samplepaths(pathsampler, g, node, npaths[i], t, num_stages)
+        for c in 1:nchildren(g, node)
             npathss[c][i] = _npaths[c]
         end
     end
@@ -63,23 +63,23 @@ end
 struct ProbaPathSampler <: AbstractPathSampler
     semirandom::Bool
 end
-function samplepaths(pathsampler::ProbaPathSampler, g::GraphSDDPTree, state, npaths::Int, t, num_stages)
+function samplepaths(pathsampler::ProbaPathSampler, g::GraphSDDPTree, node, npaths::Int, t, num_stages)
     if npaths == -1
-        infpaths(g, state)
+        infpaths(g, node)
     else
-        _samplepaths(npaths, getprobas(g, state), pathsampler.semirandom, false)
+        _samplepaths(npaths, getprobas(g, node), pathsampler.semirandom, false)
     end
 end
 
 struct NumPathsPathSampler <: AbstractPathSampler
     semirandom::Bool
 end
-function samplepaths(pathsampler::NumPathsPathSampler, g::GraphSDDPTree, state, npaths::Int, t, num_stages)
+function samplepaths(pathsampler::NumPathsPathSampler, g::GraphSDDPTree, node, npaths::Int, t, num_stages)
     if npaths == -1
-        infpaths(g, state)
+        infpaths(g, node)
     else
-        den = numberofpaths(g, state, t-1, num_stages)
-        pmf = map(child->numberofpaths(g, child, t, num_stages) / den, children(g, state))
+        den = numberofpaths(g, node, t-1, num_stages)
+        pmf = map(child->numberofpaths(g, child, t, num_stages) / den, children(g, node))
         _samplepaths(npaths, pmf, pathsampler.semirandom, true)
     end
 end
