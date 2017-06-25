@@ -1,5 +1,5 @@
 export AbstractPathSampler
-@compat abstract type AbstractPathSampler end
+abstract type AbstractPathSampler end
 
 function _samplepaths!(_npaths, npaths, pmf, semirandom::Bool, canmodifypmf::Bool)
     if semirandom
@@ -60,7 +60,7 @@ function samplepaths(pathsampler::AbstractPathSampler, g::GraphSDDPTree, state, 
     npathss
 end
 
-type ProbaPathSampler <: AbstractPathSampler
+struct ProbaPathSampler <: AbstractPathSampler
     semirandom::Bool
 end
 function samplepaths(pathsampler::ProbaPathSampler, g::GraphSDDPTree, state, npaths::Int, t, num_stages)
@@ -71,7 +71,7 @@ function samplepaths(pathsampler::ProbaPathSampler, g::GraphSDDPTree, state, npa
     end
 end
 
-type NumPathsPathSampler <: AbstractPathSampler
+struct NumPathsPathSampler <: AbstractPathSampler
     semirandom::Bool
 end
 function samplepaths(pathsampler::NumPathsPathSampler, g::GraphSDDPTree, state, npaths::Int, t, num_stages)

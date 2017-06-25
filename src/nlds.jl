@@ -2,7 +2,7 @@ export NLDS, updatemaxncuts!
 
 # π, σ and ρ do not really make sense alone so only
 # their product will T, h, d, e is stored
-type NLDSSolution
+mutable struct NLDSSolution
     status::Symbol
     objval
     objvalx
@@ -46,7 +46,7 @@ end
 #     1'ρ = 1 (or <= 1 if θ >= 0)
 #     σ >= 0
 #     ρ >= 0
-type NLDS{S}
+mutable struct NLDS{S}
     W::AbstractMatrix{S}
     h::AbstractVector{S}
     T::AbstractMatrix{S}
@@ -67,7 +67,7 @@ type NLDS{S}
     θlb::Vector{Float64}
     θC
     childT::Nullable{Vector{AbstractMatrix{S}}}
-    cutgen::AbstractCutGenerator
+    cutgen::AbstractOptimalityCutGenerator
 
     nx::Int
     nθ::Int
@@ -116,7 +116,7 @@ function (::Type{NLDS{S}}){S}(W::AbstractMatrix, h::AbstractVector, T::AbstractM
     NLDS{S}(AbstractMatrix{S}(W), AbstractVector{S}(h), AbstractMatrix{S}(T), K, C, AbstractVector{S}(c), solver, pruningalgo, newcut)
 end
 
-function setchildren!{S}(nlds::NLDS{S}, childFC, childOC, proba, cutgen::AbstractCutGenerator, childT)
+function setchildren!{S}(nlds::NLDS{S}, childFC, childOC, proba, cutgen::AbstractOptimalityCutGenerator, childT)
     nlds.cutgen = cutgen
     @assert length(childFC) == length(childOC) == length(proba)
     nlds.proba = proba

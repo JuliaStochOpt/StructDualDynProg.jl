@@ -2,7 +2,7 @@ import MathProgBase
 
 export SDDPNode, setchildren!, appendchildren!
 
-type SDDPNode{S}
+mutable struct SDDPNode{S}
     nlds::NLDS{S}
     nvars::Int
     parent::Nullable{SDDPNode{S}}

@@ -8,7 +8,7 @@ function meanstdpaths(z::Vector{Float64}, proba::Vector{Float64}, npaths::Vector
     μ, σ
 end
 
-type SDDPPath
+mutable struct SDDPPath
     sol::NLDSSolution
     z::Vector{Float64}
     proba::Vector{Float64}
@@ -67,10 +67,10 @@ function addjob!{S}(jobsd::Dict{SDDPNode{S}, Vector{SDDPJob}}, node::SDDPNode{S}
     end
 end
 
-function mergesamepaths{StateT}(pathsd::Vector{Tuple{StateT, Vector{SDDPPath}}}, stats, ztol)
-    before = sum([sum([sum(path.K) for path in paths]) for (state, paths) in pathsd])
-    newpathsd = Tuple{StateT, Vector{SDDPPath}}[]
-    stats.mergetime += @_time for (state, paths) in pathsd
+function mergesamepaths{NodeT}(pathsd::Vector{Tuple{NodeT, Vector{SDDPPath}}}, stats, ztol)
+    before = sum([sum([sum(path.K) for path in paths]) for (node, paths) in pathsd])
+    newpathsd = Tuple{NodeT, Vector{SDDPPath}}[]
+    stats.mergetime += @_time for (node, paths) in pathsd
         keep = ones(Bool, length(paths))
         merged = false
         for i in 1:length(paths)
@@ -85,9 +85,30 @@ function mergesamepaths{StateT}(pathsd::Vector{Tuple{StateT, Vector{SDDPPath}}},
                 end
             end
         end
-        push!(newpathsd, (state, paths[keep]))
+        push!(newpathsd, (node, paths[keep]))
     end
-    after = sum([sum([sum(path.K) for path in paths]) for (state, paths) in newpathsd])
+    after = sum([sum([sum(path.K) for path in paths]) for (node, paths) in newpathsd])
     @assert before == after
     newpathsd
+end
+
+function childjobs{NodeT}(g::AbstractSDDPTree, pathsd::Vector{Tuple{NodeT, Vector{SDDPPath}}}, pathsampler, t, num_stages)
+    jobsd = Dict{NodeT, Vector{SDDPJob}}()
+    for (node, paths) in pathsd
+        if haschildren(g, node)
+            for path in paths
+                # Adding Jobs
+                npaths = samplepaths(pathsampler, g, node, path.K, t, num_stages)
+                childocuts = Array{Any}(nchildren(g, node))
+                for i in 1:nchildren(g, node)
+                    if sum(npaths[i]) != 0 || needallchildsol(cutgen(g, node)) # || t == 2
+                        addjob!(jobsd, getchild(g, node, i), SDDPJob(path.proba * getproba(g, node, i), npaths[i], node, path, i))
+                    end
+                end
+            end
+        else
+            append!(endedpaths, paths)
+        end
+    end
+    jobsd
 end

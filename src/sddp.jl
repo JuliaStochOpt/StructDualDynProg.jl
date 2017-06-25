@@ -1,6 +1,6 @@
 export SDDP
 
-type SDDPSolution
+struct SDDPSolution
     status
     objval
     sol
@@ -20,15 +20,15 @@ function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pa
     stats = SDDPStats()
 
 	master, initialstate = getmaster(g)
-	StateT = typeof(initialstate)
+	NodeT = typeof(initialstate)
     stats.solvertime += @_time mastersol = loadAndSolve(master)
     stats.nsolved += 1
     stats.niterations += 1
     infeasibility_detected = mastersol.status == :Infeasible
     if infeasibility_detected
-        pathsd = Tuple{StateT, Vector{SDDPPath}}[]
+        pathsd = Tuple{NodeT, Vector{SDDPPath}}[]
     else
-        pathsd = Tuple{StateT, Vector{SDDPPath}}[(initialstate, [SDDPPath(mastersol, [mastersol.objvalx], [1.], [Ktot], length(master.children))])]
+        pathsd = Tuple{NodeT, Vector{SDDPPath}}[(initialstate, [SDDPPath(mastersol, [mastersol.objvalx], [1.], [Ktot], length(master.children))])]
     end
     endedpaths = SDDPPath[]
 
@@ -43,23 +43,7 @@ function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pa
         end
 
         # Make jobs
-        jobsd = Dict{StateT, Vector{SDDPJob}}()
-        for (state, paths) in pathsd
-			if haschildren(g, state)
-                for path in paths
-                    # Adding Jobs
-                    npaths = samplepaths(pathsampler, g, state, path.K, t, num_stages)
-					childocuts = Array{Any}(nchildren(g, state))
-                    for i in 1:nchildren(g, state)
-                        if t == 2 || sum(npaths[i]) != 0 || needallchildsol(cutgen(g, state))
-							addjob!(jobsd, getchild(g, state, i), SDDPJob(path.proba * getproba(g, state, i), npaths[i], state, path, i))
-                        end
-                    end
-                end
-			else
-                append!(endedpaths, paths)
-            end
-        end
+        jobsd = childjobs(g, pathsd, pathsampler, t, num_stages)
 
         # Solve Jobs (parallelism possible here)
         for (state, jobs) in jobsd
@@ -72,6 +56,7 @@ function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pa
                     stats.nsolved += 1
                     if get(job.sol).status == :Infeasible
                         job.parent.childs_feasible = false
+                        infeasibility_detected = true
                     elseif get(job.sol).status == :Unbounded
                         job.parent.childs_bounded = false
                     end
@@ -89,30 +74,17 @@ function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pa
         for (parent, paths) in pathsd
             for path in paths
                 if path.childs_feasible
-                    gencut(cutgen(g, parent), parent, path, stats, ztol)
+                    gencut(cutgen(g, parent), g, parent, path, stats, ztol)
                 else
-                    for i in 1:length(parent.children)
-                        if !isnull(path.childsols[i])
-                            childsol = get(path.childsols[i])
-                            if childsol.status == :Infeasible
-                                a = childsol.πT
-                                β = childsol.πh + childsol.σd
-                                infeasibility_detected = true
-                                stats.nfcuts += 1
-                                stats.fcutstime += @_time pushfeasibilitycut!(parent.children[i], a, β, parent)
-                            end
-                        end
-                    end
+                    gencut(FeasibilityCutGenerator(), g, parent, path, stats, ztol)
                 end
             end
         end
 
         # Apply cut addition
-        for (state, paths) in pathsd
-            for child in children(g, state)
-                applyfeasibilitycut!(child)
-            end
-            applycut(cutgen(g, state), state, g)
+        for (node, paths) in pathsd
+            applycut(cutgen(g, node), g, node)
+            applycut(FeasibilityCutGenerator(), g, node)
         end
 
         # Jobs -> Paths

@@ -1,10 +1,10 @@
 export model2lattice, getSDDPNode, SDDPclear
 
-type SDDPModelData
+struct SDDPModelData
     nodes::Vector{Nullable{SDDPNode}}
 end
 
-function getSDDPNode(m::Model, t, num_stages, solver, parent, pruningalgo::AbstractCutPruningAlgo, cutgen::AbstractCutGenerator, detectlb::Bool=true, newcut::Symbol=:InvalidateSolver)
+function getSDDPNode(m::Model, t, num_stages, solver, parent, pruningalgo::AbstractCutPruningAlgo, cutgen::AbstractOptimalityCutGenerator, detectlb::Bool=true, newcut::Symbol=:InvalidateSolver)
     if !(:SDDP in keys(m.ext))
         nodes = Vector{Nullable{SDDPNode}}(num_stages)
         fill!(nodes, nothing)
@@ -42,7 +42,7 @@ The master problem is assumed to have model `m` and the scenarios are considered
 The `pruningalgo` is as defined in [CutPruners](https://github.com/JuliaPolyhedra/CutPruners.jl).
 If `cutgen` is `MultiCutGenerator`, one variable `θ_i` is created for each scenario. Otherwise, if `cutgen` is `AveragedCutGenerator`, only one variable `θ` is created and it represents the expected value of the objective value of the scenarios. If `cutgen` is `NoOptimalityCut` then no `θ` is created, only use this option if the objective of all models is zero except fo the master model.
 """
-function model2lattice(m::Model, num_stages, solver, pruningalgo::AbstractCutPruningAlgo, cutgen::AbstractCutGenerator=MultiCutGenerator, detectlb::Bool=true, newcut::Symbol=:InvalidateSolver)
+function model2lattice(m::Model, num_stages, solver, pruningalgo::AbstractCutPruningAlgo, cutgen::AbstractOptimalityCutGenerator=MultiCutGenerator, detectlb::Bool=true, newcut::Symbol=:InvalidateSolver)
     root = getSDDPNode(m, 1, num_stages, solver, nothing, pruningalgo, cutgen, detectlb, newcut)
 	GraphSDDPTree(root)
 end

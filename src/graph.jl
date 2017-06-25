@@ -1,7 +1,7 @@
 export AbstractSDDPTree, haschildren, nchidren, children, getchild, getproba, getprobas, cutgen, numberofpaths
-@compat abstract type AbstractSDDPTree{S} end
+abstract type AbstractSDDPTree{S} end
 
-type GraphSDDPTree{S} <: AbstractSDDPTree{S}
+mutable struct GraphSDDPTree{S} <: AbstractSDDPTree{S}
 	root::SDDPNode{S}
 end
 

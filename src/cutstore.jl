@@ -20,7 +20,7 @@ function _matcat{S}(A::AbstractSparseMatrix{S}, a::AbstractSparseVector{S})
     [A; sparse(a')]
 end
 
-type CutStore{S}
+mutable struct CutStore{S}
     A::AbstractMatrix{S}
     b::AbstractVector{S}
     authors::Vector
@@ -33,7 +33,7 @@ type CutStore{S}
 
     storecuts::Symbol
 
-    function (::Type{CutStore{S}}){S}(nvars)
+    function CutStore{S}(nvars) where {S}
         # spzeros(S, 0) -> S[] : See julia#22225
         new{S}(spzeros(S, 0, nvars), S[], NLDS{S}[], spzeros(S, 0, nvars), S[], NLDS{S}[], Vector{Tuple{NLDS{S},Tuple{Symbol,Int64}}}(0), Vector{Bool}(0), :IfNeededElseDelete)
     end
