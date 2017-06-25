@@ -49,16 +49,9 @@ function iteration{S}(g::AbstractSDDPTree{S}, Ktot::Int, num_stages, verbose, pa
         for (node, jobs) in jobsd
             for job in jobs
                 if !stopatinf || job.parent.childs_feasible
-                    stats.setxtime += @_time setchildx(job.parentnode, job.i, job.parent.sol)
-                    stats.nsetx += 1
-                    stats.solvertime += @_time job.sol = loadAndSolve(node)
-                    job.parent.childsols[job.i] = job.sol
-                    stats.nsolved += 1
-                    if get(job.sol).status == :Infeasible
-                        job.parent.childs_feasible = false
+                    solvejob!(job, node, stats)
+                    if !job.parent.childs_feasible
                         infeasibility_detected = true
-                    elseif get(job.sol).status == :Unbounded
-                        job.parent.childs_bounded = false
                     end
                 end
             end

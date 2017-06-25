@@ -54,7 +54,6 @@ type SDDPJob
     end
 end
 
-
 function Base.isapprox(p::SDDPPath, q::SDDPPath)
     Base.isapprox(p.sol.x, q.sol.x)
 end
@@ -121,5 +120,18 @@ function jobstopaths!{NodeT}(pathsd::Vector{Tuple{NodeT, Vector{SDDPPath}}}, job
             paths = SDDPPath[SDDPPath(get(jobs[i].sol), jobs[i].parent.z[K[i]]+get(jobs[i].sol).objvalx, jobs[i].proba[K[i]], jobs[i].K[K[i]], nchildren(g, node)) for i in keep]
             push!(pathsd, (node, paths))
         end
+    end
+end
+
+function solvejob!(job::SDDPJob, node, stats)
+    stats.setxtime += @_time setchildx(job.parentnode, job.i, job.parent.sol)
+    stats.nsetx += 1
+    stats.solvertime += @_time job.sol = loadAndSolve(node)
+    job.parent.childsols[job.i] = job.sol
+    stats.nsolved += 1
+    if get(job.sol).status == :Infeasible
+        job.parent.childs_feasible = false
+    elseif get(job.sol).status == :Unbounded
+        job.parent.childs_bounded = false
     end
 end
