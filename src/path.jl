@@ -112,3 +112,14 @@ function childjobs{NodeT}(g::AbstractSDDPTree, pathsd::Vector{Tuple{NodeT, Vecto
     end
     jobsd
 end
+
+function jobstopaths!{NodeT}(pathsd::Vector{Tuple{NodeT, Vector{SDDPPath}}}, jobsd, g::AbstractSDDPTree)
+    for (state, jobs) in jobsd
+        K = [find(job.K .!= 0) for job in jobs]
+        keep = find(Bool[jobs[i].parent.childs_feasible && !isempty(K[i]) for i in 1:length(jobs)])
+        if !isempty(keep)
+            paths = SDDPPath[SDDPPath(get(jobs[i].sol), jobs[i].parent.z[K[i]]+get(jobs[i].sol).objvalx, jobs[i].proba[K[i]], jobs[i].K[K[i]], nchildren(g, state)) for i in keep]
+            push!(pathsd, (state, paths))
+        end
+    end
+end
