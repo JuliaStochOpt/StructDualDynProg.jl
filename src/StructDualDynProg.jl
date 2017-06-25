@@ -33,6 +33,7 @@ include("graph.jl")
 include("sampler.jl")
 
 # SDDP algorithm
+include("path.jl")
 include("sddp.jl")
 
 # Wait and See value
