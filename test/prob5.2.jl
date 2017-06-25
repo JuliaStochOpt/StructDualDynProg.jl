@@ -19,7 +19,7 @@ function fulltest(m, num_stages, objval, solval, ws, wsσ, testniter, solver)
                                 stopcrit = Pereira()
                             end
                             stopcrit |= IterLimit(42)
-                            sol = SDDP(root, num_stages, K = K, stopcrit = stopcrit, verbose = 0)
+                            sol = SDDP(root, num_stages, K = K, stopcrit = stopcrit, verbose = 0, forwardcuts = true, backwardcuts = false)
                             testniter(sol.attrs[:niter], K, maxncuts, cutmode, detectlb)
                             v11value = sol.sol[1:4]
                             @test sol.status == :Optimal

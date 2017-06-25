@@ -41,15 +41,15 @@ function merge!(p::SDDPPath, q::SDDPPath)
     append!(p.K, q.K)
 end
 
-type SDDPJob
+type SDDPJob{NodeT}
     sol::Nullable{NLDSSolution}
     proba::Vector{Float64}
     K::Vector{Int}
-    parentnode::SDDPNode
+    parentnode::NodeT
     parent::SDDPPath
     i::Int
 
-    function SDDPJob(proba::Vector{Float64}, K::Vector{Int}, parentnode::SDDPNode, parent::SDDPPath, i::Int)
+    function SDDPJob{NodeT}(proba::Vector{Float64}, K::Vector{Int}, parentnode::NodeT, parent::SDDPPath, i::Int) where {NodeT}
         new(nothing, proba, K, parentnode, parent, i::Int)
     end
 end
@@ -58,7 +58,7 @@ function Base.isapprox(p::SDDPPath, q::SDDPPath)
     Base.isapprox(p.sol.x, q.sol.x)
 end
 
-function addjob!{S}(jobsd::Dict{SDDPNode{S}, Vector{SDDPJob}}, node::SDDPNode{S}, job::SDDPJob)
+function addjob!{NodeT}(jobsd::Dict{NodeT, Vector{SDDPJob{NodeT}}}, node::NodeT, job::SDDPJob{NodeT})
     if node in keys(jobsd)
         push!(jobsd[node], job)
     else
@@ -92,7 +92,7 @@ function mergesamepaths{NodeT}(pathsd::Vector{Tuple{NodeT, Vector{SDDPPath}}}, s
 end
 
 function childjobs{NodeT}(g::AbstractSDDPTree, pathsd::Vector{Tuple{NodeT, Vector{SDDPPath}}}, pathsampler, t, num_stages)
-    jobsd = Dict{NodeT, Vector{SDDPJob}}()
+    jobsd = Dict{NodeT, Vector{SDDPJob{NodeT}}}()
     for (node, paths) in pathsd
         if haschildren(g, node)
             for path in paths
@@ -101,7 +101,7 @@ function childjobs{NodeT}(g::AbstractSDDPTree, pathsd::Vector{Tuple{NodeT, Vecto
                 childocuts = Array{Any}(nchildren(g, node))
                 for i in 1:nchildren(g, node)
                     if sum(npaths[i]) != 0 || needallchildsol(cutgen(g, node)) # || t == 2
-                        addjob!(jobsd, getchild(g, node, i), SDDPJob(path.proba * getproba(g, node, i), npaths[i], node, path, i))
+                        addjob!(jobsd, getchild(g, node, i), SDDPJob{NodeT}(path.proba * getproba(g, node, i), npaths[i], node, path, i))
                     end
                 end
             end
@@ -112,7 +112,8 @@ function childjobs{NodeT}(g::AbstractSDDPTree, pathsd::Vector{Tuple{NodeT, Vecto
     jobsd
 end
 
-function jobstopaths!{NodeT}(pathsd::Vector{Tuple{NodeT, Vector{SDDPPath}}}, jobsd, g::AbstractSDDPTree)
+function jobstopaths{NodeT}(jobsd::Dict{NodeT, Vector{SDDPJob{NodeT}}}, g::AbstractSDDPTree)
+    pathsd = Tuple{NodeT, Vector{SDDPPath}}[]
     for (node, jobs) in jobsd
         K = [find(job.K .!= 0) for job in jobs]
         keep = find(Bool[jobs[i].parent.childs_feasible && !isempty(K[i]) for i in 1:length(jobs)])
@@ -121,6 +122,7 @@ function jobstopaths!{NodeT}(pathsd::Vector{Tuple{NodeT, Vector{SDDPPath}}}, job
             push!(pathsd, (node, paths))
         end
     end
+    pathsd
 end
 
 function solvejob!(job::SDDPJob, node, stats)
