@@ -91,7 +91,7 @@ function mergesamepaths{NodeT}(pathsd::Vector{Tuple{NodeT, Vector{SDDPPath}}}, s
     newpathsd
 end
 
-function childjobs{NodeT}(g::AbstractSDDPTree, pathsd::Vector{Tuple{NodeT, Vector{SDDPPath}}}, pathsampler, t, num_stages)
+function childjobs{NodeT}(g::AbstractSDDPGraph, pathsd::Vector{Tuple{NodeT, Vector{SDDPPath}}}, pathsampler, t, num_stages)
     jobsd = Dict{NodeT, Vector{SDDPJob{NodeT}}}()
     for (node, paths) in pathsd
         if haschildren(g, node)
@@ -112,7 +112,7 @@ function childjobs{NodeT}(g::AbstractSDDPTree, pathsd::Vector{Tuple{NodeT, Vecto
     jobsd
 end
 
-function jobstopaths{NodeT}(jobsd::Dict{NodeT, Vector{SDDPJob{NodeT}}}, g::AbstractSDDPTree)
+function jobstopaths{NodeT}(jobsd::Dict{NodeT, Vector{SDDPJob{NodeT}}}, g::AbstractSDDPGraph)
     pathsd = Tuple{NodeT, Vector{SDDPPath}}[]
     for (node, jobs) in jobsd
         K = [find(job.K .!= 0) for job in jobs]

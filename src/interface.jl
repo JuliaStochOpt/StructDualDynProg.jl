@@ -44,7 +44,7 @@ If `cutgen` is `MultiCutGenerator`, one variable `θ_i` is created for each scen
 """
 function model2lattice(m::Model, num_stages, solver, pruningalgo::AbstractCutPruningAlgo, cutgen::AbstractOptimalityCutGenerator=MultiCutGenerator, detectlb::Bool=true, newcut::Symbol=:InvalidateSolver)
     root = getSDDPNode(m, 1, num_stages, solver, nothing, pruningalgo, cutgen, detectlb, newcut)
-	GraphSDDPTree(root)
+	SDDPGraph(root)
 end
 
 function SDDPclear(m::Model)

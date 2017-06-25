@@ -15,7 +15,7 @@ function meanstdpaths(paths::Vector{WSPath}, totalK)
     meanstdpaths(z, proba, npaths, totalK)
 end
 
-function waitandsee(g::AbstractSDDPTree, num_stages, solver, totalK=25, verbose=0)
+function waitandsee(g::AbstractSDDPGraph, num_stages, solver, totalK=25, verbose=0)
 	root = g.root
     paths = WSPath[WSPath(root, NLDS[root.nlds], .0, 1., totalK)]
     for t in 2:num_stages

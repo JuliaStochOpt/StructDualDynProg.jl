@@ -49,7 +49,7 @@ function _samplepaths(npaths, pmf, semirandom::Bool, canmodifypmf::Bool)
 end
 infpaths(g, node) = fill(-1, nchildren(g, node))
 
-function samplepaths(pathsampler::AbstractPathSampler, g::GraphSDDPTree, node, npaths::Vector{Int}, t, num_stages)
+function samplepaths(pathsampler::AbstractPathSampler, g::AbstractSDDPGraph, node, npaths::Vector{Int}, t, num_stages)
     npathss = Vector{Int}[similar(npaths) for i in 1:nchildren(g, node)]
     for i in 1:length(npaths)
         _npaths = samplepaths(pathsampler, g, node, npaths[i], t, num_stages)
@@ -63,7 +63,7 @@ end
 struct ProbaPathSampler <: AbstractPathSampler
     semirandom::Bool
 end
-function samplepaths(pathsampler::ProbaPathSampler, g::GraphSDDPTree, node, npaths::Int, t, num_stages)
+function samplepaths(pathsampler::ProbaPathSampler, g::AbstractSDDPGraph, node, npaths::Int, t, num_stages)
     if npaths == -1
         infpaths(g, node)
     else
@@ -74,7 +74,7 @@ end
 struct NumPathsPathSampler <: AbstractPathSampler
     semirandom::Bool
 end
-function samplepaths(pathsampler::NumPathsPathSampler, g::GraphSDDPTree, node, npaths::Int, t, num_stages)
+function samplepaths(pathsampler::NumPathsPathSampler, g::AbstractSDDPGraph, node, npaths::Int, t, num_stages)
     if npaths == -1
         infpaths(g, node)
     else
