@@ -1,6 +1,6 @@
 export waitandsee
 
-type WSPath
+mutable struct WSPath
     node::SDDPNode
     nlds::Vector{NLDS}
     z::Float64

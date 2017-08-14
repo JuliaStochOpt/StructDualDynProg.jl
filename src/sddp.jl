@@ -50,7 +50,7 @@ The paths will be selected according to `pathsampler` and equivalent paths might
 The parameter `ztol` is also used to check whether a new cut is useful.
 When a scenario is infeasible and `stopatinf` is true then no other scenario with the same ancestor is run. Note that since the order in which the different scenarios is run is not deterministic, this might introduce nondeterminism even if the sampling is deterministic.
 """
-function iteration{S}(g::AbstractSDDPGraph{S}, Ktot::Int, num_stages, verbose, pathsampler; ztol=1e-6, stopatinf=false, mergepaths=true, forwardcuts=false, backwardcuts=true)
+function iteration(g::AbstractSDDPGraph{S}, Ktot::Int, num_stages, verbose, pathsampler; ztol=1e-6, stopatinf=false, mergepaths=true, forwardcuts=false, backwardcuts=true) where S
     stats = SDDPStats()
 
 	master, initialnode = getmaster(g)

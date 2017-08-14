@@ -20,7 +20,7 @@ $(TYPEDEF)
 
 Stops if `lhs` *or* `rhs` want to stop.
 """
-type OrStoppingCriterion <: AbstractStoppingCriterion
+mutable struct OrStoppingCriterion <: AbstractStoppingCriterion
     lhs::AbstractStoppingCriterion
     rhs::AbstractStoppingCriterion
 end
@@ -38,7 +38,7 @@ $(TYPEDEF)
 
 Stops if `lhs` *and* `rhs` want to stop.
 """
-type AndStoppingCriterion <: AbstractStoppingCriterion
+mutable struct AndStoppingCriterion <: AbstractStoppingCriterion
     lhs::AbstractStoppingCriterion
     rhs::AbstractStoppingCriterion
 end
@@ -56,7 +56,7 @@ $(TYPEDEF)
 
 Stops if `iter` ≧ `limit`.
 """
-type IterLimit <: AbstractStoppingCriterion
+mutable struct IterLimit <: AbstractStoppingCriterion
     limit::Int
 end
 
@@ -70,7 +70,7 @@ $(TYPEDEF)
 Stops if there was less than or equal to `limit` cuts added in the iteration.
 For instance, `CutLimit(0)` stops when there are no cuts added.
 """
-type CutLimit <: AbstractStoppingCriterion
+mutable struct CutLimit <: AbstractStoppingCriterion
     limit::Int
 end
 
@@ -85,7 +85,7 @@ $(TYPEDEF)
 Stops if total time of execution is greater than the time limit specified.
 For instance, `TimeLimit(100)` stops after 100s.
 """
-type TimeLimit <: AbstractStoppingCriterion
+mutable struct TimeLimit <: AbstractStoppingCriterion
     timelimit::Float64
 end
 
@@ -99,7 +99,7 @@ $(TYPEDEF)
 
 Stops if `z_UB - α * σ/√K - tol < z_LB < z_UB + α * σ/√K + tol` and `σ / √K > β * max(1, |z_LB|))`
 """
-type Pereira <: AbstractStoppingCriterion
+mutable struct Pereira <: AbstractStoppingCriterion
     α::Float64
     β::Float64
     tol::Float64

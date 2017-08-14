@@ -2,7 +2,7 @@ export AbstractSDDPStats
 
 abstract type AbstractSDDPStats end
 
-type SDDPStats <: AbstractSDDPStats
+mutable struct SDDPStats <: AbstractSDDPStats
     # number of calls to solver
     nsolved::Int
     # total time passed inside solver
