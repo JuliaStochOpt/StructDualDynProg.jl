@@ -41,7 +41,7 @@ function merge!(p::SDDPPath, q::SDDPPath)
     append!(p.K, q.K)
 end
 
-type SDDPJob{NodeT}
+mutable struct SDDPJob{NodeT}
     sol::Nullable{NLDSSolution}
     proba::Vector{Float64}
     K::Vector{Int}
@@ -58,7 +58,7 @@ function Base.isapprox(p::SDDPPath, q::SDDPPath)
     Base.isapprox(p.sol.x, q.sol.x)
 end
 
-function addjob!{NodeT}(jobsd::Dict{NodeT, Vector{SDDPJob{NodeT}}}, node::NodeT, job::SDDPJob{NodeT})
+function addjob!(jobsd::Dict{NodeT, Vector{SDDPJob{NodeT}}}, node::NodeT, job::SDDPJob{NodeT}) where NodeT
     if node in keys(jobsd)
         push!(jobsd[node], job)
     else
@@ -66,7 +66,7 @@ function addjob!{NodeT}(jobsd::Dict{NodeT, Vector{SDDPJob{NodeT}}}, node::NodeT,
     end
 end
 
-function mergesamepaths{NodeT}(pathsd::Vector{Tuple{NodeT, Vector{SDDPPath}}}, stats, ztol)
+function mergesamepaths(pathsd::Vector{Tuple{NodeT, Vector{SDDPPath}}}, stats, ztol) where NodeT
     before = sum([sum([sum(path.K) for path in paths]) for (node, paths) in pathsd])
     newpathsd = Tuple{NodeT, Vector{SDDPPath}}[]
     stats.mergetime += @_time for (node, paths) in pathsd
@@ -91,7 +91,7 @@ function mergesamepaths{NodeT}(pathsd::Vector{Tuple{NodeT, Vector{SDDPPath}}}, s
     newpathsd
 end
 
-function childjobs{NodeT}(g::AbstractSDDPGraph, pathsd::Vector{Tuple{NodeT, Vector{SDDPPath}}}, pathsampler, t, num_stages)
+function childjobs(g::AbstractSDDPGraph, pathsd::Vector{Tuple{NodeT, Vector{SDDPPath}}}, pathsampler, t, num_stages) where NodeT
     jobsd = Dict{NodeT, Vector{SDDPJob{NodeT}}}()
     for (node, paths) in pathsd
         if haschildren(g, node)
@@ -112,7 +112,7 @@ function childjobs{NodeT}(g::AbstractSDDPGraph, pathsd::Vector{Tuple{NodeT, Vect
     jobsd
 end
 
-function jobstopaths{NodeT}(jobsd::Dict{NodeT, Vector{SDDPJob{NodeT}}}, g::AbstractSDDPGraph)
+function jobstopaths(jobsd::Dict{NodeT, Vector{SDDPJob{NodeT}}}, g::AbstractSDDPGraph) where NodeT
     pathsd = Tuple{NodeT, Vector{SDDPPath}}[]
     for (node, jobs) in jobsd
         K = [find(job.K .!= 0) for job in jobs]

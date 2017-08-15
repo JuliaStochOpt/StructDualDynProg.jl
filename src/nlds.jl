@@ -105,7 +105,7 @@ mutable struct NLDS{S}
     FCpruner::AbstractCutPruner
     OCpruners::Vector
 
-    function (::Type{NLDS{S}}){S}(W::AbstractMatrix{S}, h::AbstractVector{S}, T::AbstractMatrix{S}, K, C, c::AbstractVector{S}, solver, pruningalgo::AbstractCutPruningAlgo, newcut::Symbol=:AddImmediately)
+    function NLDS{S}(W::AbstractMatrix{S}, h::AbstractVector{S}, T::AbstractMatrix{S}, K, C, c::AbstractVector{S}, solver, pruningalgo::AbstractCutPruningAlgo, newcut::Symbol=:AddImmediately) where S
         nx = size(W, 2)
         nθ = 0
         nπ = length(h)
@@ -125,11 +125,11 @@ mutable struct NLDS{S}
     end
 end
 
-function (::Type{NLDS{S}}){S}(W::AbstractMatrix, h::AbstractVector, T::AbstractMatrix, K, C, c::AbstractVector, solver, pruningalgo::AbstractCutPruningAlgo, newcut::Symbol=:AddImmediately)
+function NLDS{S}(W::AbstractMatrix, h::AbstractVector, T::AbstractMatrix, K, C, c::AbstractVector, solver, pruningalgo::AbstractCutPruningAlgo, newcut::Symbol=:AddImmediately) where S
     NLDS{S}(AbstractMatrix{S}(W), AbstractVector{S}(h), AbstractMatrix{S}(T), K, C, AbstractVector{S}(c), solver, pruningalgo, newcut)
 end
 
-function setchildren!{S}(nlds::NLDS{S}, childFC, childOC, proba, cutgen::AbstractOptimalityCutGenerator, childT)
+function setchildren!(nlds::NLDS{S}, childFC, childOC, proba, cutgen::AbstractOptimalityCutGenerator, childT) where S
     nlds.cutgen = cutgen
     @assert length(childFC) == length(childOC) == length(proba)
     nlds.proba = proba
@@ -195,7 +195,7 @@ function setθlb!(nlds::NLDS, θlb)
     end
 end
 
-function appendchildren!{S}(nlds::NLDS{S}, childFC, childOC, proba, childT)
+function appendchildren!(nlds::NLDS{S}, childFC, childOC, proba, childT) where S
     @assert length(childFC) == length(childOC)
     @assert length(proba) == length(nlds.childOC) + length(childOC) == length(nlds.childFC) + length(childFC)
     oldnθ = nlds.nθ
@@ -240,7 +240,7 @@ function veceqeqeq(v::Vector, x)
     map(el->el === x, v)
 end
 
-function padfcut{S}(nlds::NLDS, D::AbstractMatrix{S})
+function padfcut(nlds::NLDS, D::AbstractMatrix{S}) where S
     if nlds.nθ > 0
         [D spzeros(size(D, 1), nlds.nθ)]
     else
@@ -263,29 +263,29 @@ function getfeasibilitycuts(nlds::NLDS)
 end
 
 # see https://github.com/JuliaLang/julia/issues/16661
-function padmultiocutaux{S}(nlds::NLDS, E::AbstractMatrix{S}, i, onesvec)
+function padmultiocutaux(nlds::NLDS, E::AbstractMatrix{S}, i, onesvec) where S
     nrows = size(E, 1)
     [E spzeros(S, nrows, i-1) onesvec spzeros(S, nrows, nlds.nθ-i)]
 end
-function padmultiocut{S}(nlds::NLDS, E::AbstractMatrix{S}, i)
+function padmultiocut(nlds::NLDS, E::AbstractMatrix{S}, i) where S
     nrows = size(E, 1)
     padmultiocutaux(nlds, E, i, ones(S, nrows, 1))
 end
-function padmultiocut{S}(nlds::NLDS, E::AbstractSparseMatrix{S}, i)
+function padmultiocut(nlds::NLDS, E::AbstractSparseMatrix{S}, i) where S
     nrows = size(E, 1)
     padmultiocutaux(nlds, E, i, sparse(ones(S, nrows, 1)))
 end
 
-function padavgocut{S}(nlds::NLDS, E::AbstractMatrix{S})
+function padavgocut(nlds::NLDS, E::AbstractMatrix{S}) where S
     nrows = size(E, 1)
     [E ones(S, nrows)]
 end
-function padavgocut{S}(nlds::NLDS, E::AbstractSparseMatrix{S})
+function padavgocut(nlds::NLDS, E::AbstractSparseMatrix{S}) where S
     nrows = size(E, 1)
     [E sparse(ones(S, nrows))]
 end
 
-function getoptimalitycuts{S}(nlds::NLDS{S})
+function getoptimalitycuts(nlds::NLDS{S}) where S
     function f(i)
         E = nlds.childOC[i].A
         if !isnull(nlds.childT)
@@ -307,7 +307,7 @@ function getoptimalitycuts{S}(nlds::NLDS{S})
 end
 
 
-function notifynewcuts{S}(nlds::NLDS{S}, A::AbstractMatrix{S}, b::AbstractVector{S}, attrs, authors::Vector{NLDS{S}})
+function notifynewcuts(nlds::NLDS{S}, A::AbstractMatrix{S}, b::AbstractVector{S}, attrs, authors::Vector{NLDS{S}}) where S
     @assert attrs[1] in [:Feasibility, :Optimality]
     isfc = attrs[1] == :Feasibility
     nnewcuts = size(A, 1)
@@ -377,7 +377,7 @@ function checkconsistency(nlds)
     @assert sort([nlds.πs; nlds.nπ + nlds.σs; nlds.nπ + ρs]) == collect(1:(nlds.nπ + nlds.nσ + sum(nlds.nρ)))
 end
 
-function getrhs{S}(nlds::NLDS{S})
+function getrhs(nlds::NLDS{S}) where S
     checkconsistency(nlds)
     bs = [nlds.h - nlds.T * nlds.x_a]
     Ks = [nlds.K]
@@ -451,7 +451,7 @@ function computecuts!(nlds::NLDS)
     end
 end
 
-function getcutsDE{S}(nlds::NLDS{S})
+function getcutsDE(nlds::NLDS{S}) where S
     checkconsistency(nlds)
     nc = nlds.nσ + sum(nlds.nρ)
     A = spzeros(S, nc, nlds.nx + nlds.nθ)
@@ -467,7 +467,7 @@ function getcutsDE{S}(nlds::NLDS{S})
     A
 end
 
-function load!{S}(nlds::NLDS{S})
+function load!(nlds::NLDS{S}) where S
     if !nlds.loaded
         bigA = nlds.W
         if nlds.nθ > 0
@@ -527,7 +527,7 @@ function Eθlb(nlds::NLDS)
     end
 end
 
-function solve!{S}(nlds::NLDS{S})
+function solve!(nlds::NLDS{S}) where S
     load!(nlds)
     if !nlds.solved
         MathProgBase.optimize!(nlds.model)

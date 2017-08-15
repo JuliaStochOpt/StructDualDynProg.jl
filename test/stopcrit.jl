@@ -1,4 +1,4 @@
-type InvalidStoppingCriterion <: AbstractStoppingCriterion
+mutable struct InvalidStoppingCriterion <: AbstractStoppingCriterion
 end
 
 @testset "Stopping Criterion" begin

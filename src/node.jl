@@ -19,7 +19,7 @@ mutable struct SDDPNode{S}
     # Optimality cuts
     ocuts::CutStore{S}
 
-    function (::Type{SDDPNode{S}}){S}(nlds::NLDS{S}, parent)
+    function SDDPNode{S}(nlds::NLDS{S}, parent) where S
         nvars = size(nlds.W, 2)
         root = parent === nothing
         nvars_a = root ? 0 : parent.nvars
@@ -28,7 +28,7 @@ mutable struct SDDPNode{S}
 
 end
 
-SDDPNode{S}(nlds::NLDS{S}, parent) = SDDPNode{S}(nlds, parent)
+SDDPNode(nlds::NLDS{S}, parent) where {S} = SDDPNode{S}(nlds, parent)
 
 function Base.show(io::IO, node::SDDPNode)
     if node.root

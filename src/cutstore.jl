@@ -1,8 +1,8 @@
-function _veccat{S}(b::AbstractVector{S}, β::S, force=false)
+function _veccat(b::AbstractVector{S}, β::S, force=false) where S
     push!(b, β)
     b
 end
-function _veccat{S}(b::AbstractSparseVector{S}, β::S, force=false)
+function _veccat(b::AbstractSparseVector{S}, β::S, force=false) where S
     if force || β == zero(S)
         # If only homogeneous cuts, b stays sparse
         [b; sparsevec([β])]
@@ -13,10 +13,10 @@ function _veccat{S}(b::AbstractSparseVector{S}, β::S, force=false)
 end
 
 # see https://github.com/JuliaLang/julia/issues/16661
-function _matcat{S}(A::AbstractMatrix{S}, a::AbstractVector{S})
+function _matcat(A::AbstractMatrix{S}, a::AbstractVector{S}) where S
     [A; a']
 end
-function _matcat{S}(A::AbstractSparseMatrix{S}, a::AbstractSparseVector{S})
+function _matcat(A::AbstractSparseMatrix{S}, a::AbstractSparseVector{S}) where S
     [A; sparse(a')]
 end
 
@@ -47,14 +47,14 @@ function checksparseness(a::AbstractVector)
     end
 end
 
-function addcut{S}(store::CutStore{S}, a::AbstractVector{S}, β::S, author)
+function addcut(store::CutStore{S}, a::AbstractVector{S}, β::S, author) where S
     a = checksparseness(a)
     store.Anew = _matcat(store.Anew, a)
     store.bnew = _veccat(store.bnew, β)
     push!(store.authorsnew, author)
 end
 
-function apply!{S}(store::CutStore{S})
+function apply!(store::CutStore{S}) where S
     if !isempty(store.bnew)
         if store.storecuts == :Yes || (store.storecuts != :No && reduce(|, false, store.needstored))
             store.A = [store.A; store.Anew]
@@ -80,7 +80,7 @@ end
 function needstored!(store::CutStore, nlds)
     store.needstored[findfirst(f->f[1] === nlds, store.followers)] = true
 end
-function noneedstored!{S}(store::CutStore{S}, nlds)
+function noneedstored!(store::CutStore{S}, nlds) where S
     store.needstored[findfirst(f->f[1] === nlds, store.followers)] = false
     if store.storecuts == :IfNeededElseDelete && !reduce(|, false, store.needstored)
         store.A = spzeros(S, 0, size(store.A, 2))
