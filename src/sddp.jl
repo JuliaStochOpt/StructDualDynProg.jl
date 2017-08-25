@@ -41,16 +41,7 @@ function applycuts(pathsd, g)
     end
 end
 
-"""
-$(SIGNATURES)
-
-Runs one iteration of the SDDP algorithm on the lattice given by `g`.
-A total of `Ktot` paths will be explored up to `num_stages` stages.
-The paths will be selected according to `pathsampler` and equivalent paths might be merged if their difference is smaller than `ztol` and `mergepaths` is true.
-The parameter `ztol` is also used to check whether a new cut is useful.
-When a scenario is infeasible and `stopatinf` is true then no other scenario with the same ancestor is run. Note that since the order in which the different scenarios is run is not deterministic, this might introduce nondeterminism even if the sampling is deterministic.
-"""
-function iteration(g::AbstractSDDPGraph{S}, Ktot::Int, num_stages, verbose, pathsampler; ztol=1e-6, stopatinf=false, mergepaths=true, forwardcuts=false, backwardcuts=true) where S
+function forwardpass!(g::AbstractSDDPGraph, Ktot::Int, num_stages, verbose, pathsampler; ztol=1e-6, stopatinf=false, mergepaths=true, forwardcuts=false)
     stats = SDDPStats()
 
 	master, initialnode = getmaster(g)
@@ -102,27 +93,48 @@ function iteration(g::AbstractSDDPGraph{S}, Ktot::Int, num_stages, verbose, path
         z_UB, σ = meanstdpaths(endedpaths, Ktot)
     end
 
-    if backwardcuts # We could ask a node if it has new fcuts/ocuts before resolving, that way the last stage won't be a particular case anymore
-        for t in num_stages:-1:2
-            # The last stages do not need to be resolved since it does not have any new cut
-            if t != num_stages
-                # Make jobs
-                jobsd = childjobs(g, pathsd[t-1], pathsampler, t, num_stages)
-                # Solve Jobs (parallelism possible here)
-                infeasibility_detected |= solvejobs!(jobsd, stats, stopatinf)
-            end
-
-            gencuts(pathsd[t-1], g, stats, ztol)
-            # The cut is added after so that they are added by group and duplicate detection in CutPruners works better
-            applycuts(pathsd[t-1], g)
-        end
-    end
-
     # update stats
     stats.upperbound = z_UB
     stats.σ_UB = σ
     stats.npaths = Ktot
     stats.lowerbound = mastersol.objval
+
+    pathsd, mastersol, stats
+end
+
+function backwardpass!(g::AbstractSDDPGraph, num_stages, pathsd, pathsampler, stats; ztol=1e-6, stopatinf=false)
+    # We could ask a node if it has new fcuts/ocuts before resolving, that way the last stage won't be a particular case anymore
+    for t in num_stages:-1:2
+        # The last stages do not need to be resolved since it does not have any new cut
+        if t != num_stages
+            # Make jobs
+            jobsd = childjobs(g, pathsd[t-1], pathsampler, t, num_stages) # FIXME shouldn't need pathsampler here
+            # Solve Jobs (parallelism possible here)
+            solvejobs!(jobsd, stats, stopatinf)
+        end
+
+        gencuts(pathsd[t-1], g, stats, ztol)
+        # The cut is added after so that they are added by group and duplicate detection in CutPruners works better
+        applycuts(pathsd[t-1], g)
+    end
+end
+
+"""
+$(SIGNATURES)
+
+Runs one iteration of the SDDP algorithm on the lattice given by `g`.
+A total of `Ktot` paths will be explored up to `num_stages` stages.
+The paths will be selected according to `pathsampler` and equivalent paths might be merged if their difference is smaller than `ztol` and `mergepaths` is true.
+The parameter `ztol` is also used to check whether a new cut is useful.
+When a scenario is infeasible and `stopatinf` is true then no other scenario with the same ancestor is run. Note that since the order in which the different scenarios is run is not deterministic, this might introduce nondeterminism even if the sampling is deterministic.
+"""
+function iteration!(g::AbstractSDDPGraph, Ktot::Int, num_stages, verbose, pathsampler; ztol=1e-6, stopatinf=false, mergepaths=true, forwardcuts=false, backwardcuts=true)
+
+    pathsd, mastersol, stats = forwardpass!(g, Ktot, num_stages, verbose, pathsampler; ztol=ztol, stopatinf=stopatinf, mergepaths=mergepaths, forwardcuts=forwardcuts)
+
+    if backwardcuts
+        backwardpass!(g, num_stages, pathsd, pathsampler, stats; ztol=ztol)
+    end
 
     mastersol, stats
 end
@@ -145,7 +157,7 @@ function SDDP(g::AbstractSDDPGraph, num_stages; K::Int=25, stopcrit::AbstractSto
     stats.niterations = 1
 
     while (mastersol === nothing || mastersol.status != :Infeasible) && !stop(stopcrit, stats, totalstats)
-        itertime = @_time mastersol, stats = iteration(g, K, num_stages, verbose, pathsampler, ztol=1e-6, stopatinf=stopatinf, mergepaths=mergepaths, forwardcuts=forwardcuts, backwardcuts=backwardcuts)
+        itertime = @_time mastersol, stats = iteration!(g, K, num_stages, verbose, pathsampler, ztol=1e-6, stopatinf=stopatinf, mergepaths=mergepaths, forwardcuts=forwardcuts, backwardcuts=backwardcuts)
         stats.time = itertime
 
         totalstats += stats
