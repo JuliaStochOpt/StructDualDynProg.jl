@@ -9,17 +9,16 @@ function meanstdpaths(z::Vector{Float64}, proba::Vector{Float64}, npaths::Vector
 end
 
 mutable struct SDDPPath
-    sol::NLDSSolution
+    sol::Solution
     z::Vector{Float64}
     proba::Vector{Float64}
     K::Vector{Int}
     childs_feasible::Bool
     childs_bounded::Bool
-    childsols::Vector{Nullable{NLDSSolution}}
+    childsols::Dict{Int, Solution}
 
     function SDDPPath(sol, z, proba, K, nchilds)
-        childsols = Nullable{NLDSSolution}[nothing for i in 1:nchilds]
-        new(sol, z, proba, K, true, true, childsols)
+        new(sol, z, proba, K, true, true, Dict{Int, Solution}())
     end
 end
 
@@ -42,15 +41,15 @@ function merge!(p::SDDPPath, q::SDDPPath)
 end
 
 mutable struct SDDPJob{NodeT}
-    sol::Nullable{NLDSSolution}
+    sol::Nullable{Solution}
     proba::Vector{Float64}
     K::Vector{Int}
     parentnode::NodeT
     parent::SDDPPath
-    i::Int
+    child::NodeT
 
-    function SDDPJob{NodeT}(proba::Vector{Float64}, K::Vector{Int}, parentnode::NodeT, parent::SDDPPath, i::Int) where {NodeT}
-        new(nothing, proba, K, parentnode, parent, i::Int)
+    function SDDPJob{NodeT}(proba::Vector{Float64}, K::Vector{Int}, parentnode::NodeT, parent::SDDPPath, child::NodeT) where {NodeT}
+        new(nothing, proba, K, parentnode, parent, child)
     end
 end
 
@@ -91,17 +90,17 @@ function mergesamepaths(pathsd::Vector{Tuple{NodeT, Vector{SDDPPath}}}, stats, z
     newpathsd
 end
 
-function childjobs(g::AbstractSDDPGraph, pathsd::Vector{Tuple{NodeT, Vector{SDDPPath}}}, pathsampler, t, num_stages) where NodeT
+function childjobs(g::AbstractStochasticProgram, pathsd::Vector{Tuple{NodeT, Vector{SDDPPath}}}, pathsampler, t, num_stages, endedpaths) where NodeT
     jobsd = Dict{NodeT, Vector{SDDPJob{NodeT}}}()
     for (node, paths) in pathsd
-        if haschildren(g, node)
+        if !isleaf(g, node)
             for path in paths
                 # Adding Jobs
                 npaths = samplepaths(pathsampler, g, node, path.K, t, num_stages)
-                childocuts = Array{Any}(nchildren(g, node))
-                for i in 1:nchildren(g, node)
-                    if sum(npaths[i]) != 0 || needallchildsol(cutgen(g, node)) # || t == 2
-                        addjob!(jobsd, getchild(g, node, i), SDDPJob{NodeT}(path.proba * getproba(g, node, i), npaths[i], node, path, i))
+                childocuts = Array{Any}(outdegree(g, node))
+                for (i, child) in enumerate(out_neighbors(g, node))
+                    if sum(npaths[i]) != 0 || needallchildsol(cutgenerator(g, node)) # || t == 2
+                        addjob!(jobsd, child, SDDPJob{NodeT}(path.proba * probability(g, Edge(node, child)), npaths[i], node, path, child))
                     end
                 end
             end
@@ -112,24 +111,24 @@ function childjobs(g::AbstractSDDPGraph, pathsd::Vector{Tuple{NodeT, Vector{SDDP
     jobsd
 end
 
-function jobstopaths(jobsd::Dict{NodeT, Vector{SDDPJob{NodeT}}}, g::AbstractSDDPGraph) where NodeT
+function jobstopaths(jobsd::Dict{NodeT, Vector{SDDPJob{NodeT}}}, g::AbstractStochasticProgram) where NodeT
     pathsd = Tuple{NodeT, Vector{SDDPPath}}[]
     for (node, jobs) in jobsd
         K = [find(job.K .!= 0) for job in jobs]
         keep = find(Bool[jobs[i].parent.childs_feasible && !isempty(K[i]) for i in 1:length(jobs)])
         if !isempty(keep)
-            paths = SDDPPath[SDDPPath(get(jobs[i].sol), jobs[i].parent.z[K[i]]+get(jobs[i].sol).objvalx, jobs[i].proba[K[i]], jobs[i].K[K[i]], nchildren(g, node)) for i in keep]
+            paths = SDDPPath[SDDPPath(get(jobs[i].sol), jobs[i].parent.z[K[i]]+get(jobs[i].sol).objvalx, jobs[i].proba[K[i]], jobs[i].K[K[i]], outdegree(g, node)) for i in keep]
             push!(pathsd, (node, paths))
         end
     end
     pathsd
 end
 
-function solvejob!(job::SDDPJob, node, stats)
-    stats.setxtime += @_time setchildx(job.parentnode, job.i, job.parent.sol)
+function solvejob!(sp::AbstractStochasticProgram, job::SDDPJob, node, stats)
+    stats.setxtime += @_time setchildx!(sp, job.parentnode, job.child, job.parent.sol)
     stats.nsetx += 1
-    stats.solvertime += @_time job.sol = loadAndSolve(node)
-    job.parent.childsols[job.i] = job.sol
+    stats.solvertime += @_time job.sol = solve!(sp, node)
+    job.parent.childsols[job.child] = get(job.sol)
     stats.nsolved += 1
     if get(job.sol).status == :Infeasible
         job.parent.childs_feasible = false

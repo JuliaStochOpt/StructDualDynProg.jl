@@ -13,26 +13,30 @@ import Base.show, Base.isless
 
 # Utils
 include("comp.jl")
-include("stats.jl")
 
 # Abstract components
+# Stochastic Program
+include("stochprog.jl")
+# Stats
+include("stats.jl")
 # Stopping Criterion
 include("stopcrit.jl")
 # Cut Generator
 include("cutgen.jl")
-# NLDS Model
+# Path Sampler
+include("sampler.jl")
+# Solution
+include("solution.jl")
+
+# SDDP algorithm on top of these abstract components
+include("path.jl")
+include("sddp.jl")
+
+# Generic implementation of Stochastic Program
 include("cutstore.jl")
 include("solver.jl")
 include("nlds.jl")
-# SDDP Graph
-include("node.jl")
 include("graph.jl")
-# Path Sampler
-include("sampler.jl")
-
-# SDDP algorithm
-include("path.jl")
-include("sddp.jl")
 
 # Wait and See value
 include("waitandsee.jl")

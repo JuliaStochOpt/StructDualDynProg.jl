@@ -4,3 +4,4 @@ MathProgBase 0.5
 JuMP 0.17
 StructJuMP 0.0.1
 DocStringExtensions 0.2
+LightGraphs

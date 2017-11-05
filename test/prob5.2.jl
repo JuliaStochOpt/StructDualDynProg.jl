@@ -7,9 +7,9 @@ function fulltest(m, num_stages, objval, solval, ws, wsσ, testniter, solver)
                     for detectlb in [false, true]
                         for pruningalgo in [AvgCutPruningAlgo(maxncuts), DecayCutPruningAlgo(maxncuts), DeMatosPruningAlgo(maxncuts)]
                             isclp(solver) && K == -1 && maxncuts == 7 && cutmode == :MultiCut && !detectlb && isa(pruningalgo, DeMatosPruningAlgo) && continue
-                            root = model2lattice(m, num_stages, solver, pruningalgo, cutmode, detectlb, newcut)
+                            sp = stochasticprogram(m, num_stages, solver, pruningalgo, cutmode, detectlb, newcut)
 
-                            μ, σ = waitandsee(root, num_stages, solver, K)
+                            μ, σ = waitandsee(sp, num_stages, solver, K)
                             @test abs(μ - ws) / ws < (K == -1 ? 1e-6 : .03)
                             @test abs(σ - wsσ) / wsσ <= (K == -1 ? 1e-6 : 1.)
 
@@ -19,14 +19,14 @@ function fulltest(m, num_stages, objval, solval, ws, wsσ, testniter, solver)
                                 stopcrit = Pereira()
                             end
                             stopcrit |= IterLimit(42)
-                            sol = SDDP(root, num_stages, K = K, stopcrit = stopcrit, verbose = 0, forwardcuts = true, backwardcuts = false)
+                            sol = SDDP(sp, num_stages, K = K, stopcrit = stopcrit, verbose = 0, forwardcuts = true, backwardcuts = false)
                             testniter(sol.attrs[:niter], K, maxncuts, cutmode, detectlb)
                             v11value = sol.sol[1:4]
                             @test sol.status == :Optimal
                             @test abs(sol.objval - objval) / objval < (K == -1 ? 1e-6 : .03)
                             @test norm(v11value - solval) / norm(solval) < (K == -1 ? 1e-6 : .3)
 
-                            μ, σ = waitandsee(root, num_stages, solver, K)
+                            μ, σ = waitandsee(sp, num_stages, solver, K)
                             @test abs(μ - ws) / ws < (K == -1 ? 1e-6 : .03)
                             @test abs(σ - wsσ) / wsσ <= (K == -1 ? 1e-6 : 1.)
 

@@ -1,7 +1,7 @@
 export waitandsee
 
-mutable struct WSPath
-    node::SDDPNode
+mutable struct WSPath{NodeT}
+    node::NodeT
     nlds::Vector{NLDS}
     z::Float64
     proba::Float64
@@ -15,19 +15,22 @@ function meanstdpaths(paths::Vector{WSPath}, totalK)
     meanstdpaths(z, proba, npaths, totalK)
 end
 
-function waitandsee(g::AbstractSDDPGraph, num_stages, solver, totalK=25, verbose=0)
-	root = g.root
-    paths = WSPath[WSPath(root, NLDS[root.nlds], .0, 1., totalK)]
+function waitandsee(sp::AbstractStochasticProgram, num_stages, solver, totalK=25, verbose=0)
+    master = getmaster(sp)
+    paths = WSPath[WSPath(master, NLDS[nodedata(sp, master).nlds], .0, 1., totalK)]
     for t in 2:num_stages
         newpaths = WSPath[]
         for path in paths
-            if isempty(path.node.children)
+            if isleaf(sp, path.node)
                 push!(newpaths, path)
             else
-                npaths = samplepaths(ProbaPathSampler(true), g, path.node, path.K, t, num_stages)
-                childs = totalK == -1 ? (1:length(path.node.children)) : find(npaths .> 0)
-                curpaths = WSPath[WSPath(path.node.children[i], [path.nlds; path.node.children[i].nlds], path.z, path.proba * path.node.proba[i], npaths[i]) for i in childs]
-                append!(newpaths, curpaths)
+                npaths = samplepaths(ProbaPathSampler(true), sp, path.node, path.K, t, num_stages)
+                childs = totalK == -1 ? (1:outdegree(sp, path.node)) : find(npaths .> 0)
+                for (i, child) in enumerate(out_neighbors(sp, path.node))
+                    if totalK == -1 || npaths[i] > 0
+                        push!(newpaths, WSPath(child, [path.nlds; nodedata(sp, child).nlds], path.z, path.proba * probability(sp, Edge(path.node, child)), npaths[i]))
+                    end
+                end
             end
         end
         paths = newpaths
@@ -44,7 +47,7 @@ function waitandsee(g::AbstractSDDPGraph, num_stages, solver, totalK=25, verbose
         bs = Vector{Vector}(length(path.nlds))
         Ks = []
         C = []
-        c = similar(root.nlds.c, nvars[end])
+        c = similar(nodedata(sp, master).nlds.c, nvars[end])
         for i in 1:length(path.nlds)
             offsetnvars = i == 1 ? 0 : nvars[i-1]
             offsetncons = i == 1 ? 0 : ncons[i-1]
@@ -69,13 +72,13 @@ function waitandsee(g::AbstractSDDPGraph, num_stages, solver, totalK=25, verbose
             error("The solver reached iteration limit or timed out")
         elseif status == :Infeasible
             error("The problem is infeasible for some realization of the uncertainty")
-            elseif status == :Unbounded
+        elseif status == :Unbounded
             error("The problem is unbounded for some realization of the uncertainty")
-                else
-                @assert status == :Optimal
-                objval = MathProgBase.getobjval(model)
-                push!(newpaths, WSPath(path.node, path.nlds, objval, path.proba, path.K))
-            end
+        else
+            @assert status == :Optimal
+            objval = MathProgBase.getobjval(model)
+            push!(newpaths, WSPath(path.node, path.nlds, objval, path.proba, path.K))
         end
-        meanstdpaths(newpaths, totalK)
     end
+    meanstdpaths(newpaths, totalK)
+end

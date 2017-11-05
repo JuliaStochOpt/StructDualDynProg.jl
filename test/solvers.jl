@@ -11,19 +11,18 @@ end
 
 #using ECOS
 #solver = ECOS.ECOSSolver(verbose=false)
-grb = try_import(:Gurobi)
+#grb = try_import(:Gurobi)
 isgrb(solver) = contains(string(typeof(solver)),"GurobiSolver")
-cpx = try_import(:CPLEX)
+#cpx = try_import(:CPLEX)
 iscpx(solver) = contains(string(typeof(solver)),"CplexSolver")
-xpr = try_import(:Xpress)
-clp = try_import(:Clp)
+#xpr = try_import(:Xpress)
+#clp = try_import(:Clp)
 isclp(solver) = contains(string(typeof(solver)),"ClpSolver")
 glp = try_import(:GLPKMathProgInterface)
-gur = try_import(:Gurobi)
 
 lp_solvers = Any[]
-grb && push!(lp_solvers, Gurobi.GurobiSolver(OutputFlag=0))
-cpx && push!(lp_solvers, CPLEX.CplexSolver(CPX_PARAM_SCRIND=0, CPX_PARAM_REDUCE=0))
-xpr && push!(lp_solvers, Xpress.XpressSolver(OUTPUTLOG=0))
-clp && push!(lp_solvers, Clp.ClpSolver())
+#grb && push!(lp_solvers, Gurobi.GurobiSolver(OutputFlag=0))
+#cpx && push!(lp_solvers, CPLEX.CplexSolver(CPX_PARAM_SCRIND=0, CPX_PARAM_REDUCE=0))
+#xpr && push!(lp_solvers, Xpress.XpressSolver(OUTPUTLOG=0))
+#clp && push!(lp_solvers, Clp.ClpSolver())
 glp && push!(lp_solvers, GLPKMathProgInterface.GLPKSolverLP())
