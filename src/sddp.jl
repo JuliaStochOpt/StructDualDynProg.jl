@@ -51,13 +51,15 @@ function forwardpass!(sp::AbstractStochasticProgram, Ktot::Int, num_stages, verb
     stats.niterations += 1
     infeasibility_detected = mastersol.status == :Infeasible
 
-    pathsd = Vector{Vector{Tuple{NodeT, Vector{SDDPPath}}}}(num_stages)
+    PathT = SDDPPath{typeof(mastersol)}
+    TT = Tuple{NodeT, Vector{PathT}}
+    pathsd = Vector{Vector{TT}}(num_stages)
     if infeasibility_detected
-        pathsd[1] = Tuple{NodeT, Vector{SDDPPath}}[]
+        pathsd[1] = TT[]
     else
-        pathsd[1] = Tuple{NodeT, Vector{SDDPPath}}[(master, [SDDPPath(mastersol, [mastersol.objvalx], [1.], [Ktot], outdegree(sp, master))])]
+        pathsd[1] = TT[(master, [SDDPPath(mastersol, [mastersol.objvalx], [1.], [Ktot], outdegree(sp, master))])]
     end
-    endedpaths = SDDPPath[]
+    endedpaths = PathT[]
 
     for t in 2:num_stages
         verbose >= 3 && println("Stage $t/$num_stages")

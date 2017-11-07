@@ -42,7 +42,7 @@ function setchildx! end
 """
     solve!(sp::AbstractStochasticProgram, node)
 
-Solves the program at node `node` in `sp`.
+Solves the program at node `node` in `sp` and returns the solution.
 """
 function solve! end
 

@@ -11,7 +11,7 @@ function gencut(::FeasibilityCutGenerator, sp, parent, path, stats, ztol)
             childsol = path.childsols[child]
             if childsol.status == :Infeasible
                 stats.nfcuts += 1
-                stats.fcutstime += @_time add_feasibility_cut!(sp, child, getfeasibilitycut(childsol)..., parent)
+                stats.fcutstime += @_time add_feasibility_cut!(sp, child, feasibility_cut(childsol)..., parent)
             end
         end
     end
@@ -41,7 +41,7 @@ needallchildsol(::MultiCutGenerator) = false
 function gencut(::MultiCutGenerator, sp, parent, path, stats, ztol)
     for (child, sol) in path.childsols
         if sol.status != :Unbounded
-            a, β = getoptimalitycut(sol)
+            a, β = optimality_cut(sol)
             @assert sol.status == :Optimal
             edge = Edge(parent, child)
             if haskey(sp.childT, edge)
@@ -74,7 +74,7 @@ function gencut(::AvgCutGenerator, sp, parent, path, stats, ztol)
     avgβ = 0.
     for (child, sol) in path.childsols
         @assert sol.status != :Unbounded
-        a, β = getoptimalitycut(sol)
+        a, β = optimality_cut(sol)
         @assert sol.status == :Optimal
         edge = Edge(parent, child)
         if haskey(sp.childT, edge)
