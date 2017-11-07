@@ -47,18 +47,18 @@ Solves the program at node `node` in `sp` and returns the solution.
 function solve! end
 
 """
-    getobjlb(sp::AbstractStochasticProgram, node)
+    getobjectivebound(sp::AbstractStochasticProgram, node)
 
-Gets the current lower bound to the objective of `node`.
+Gets the current bound to the objective of `node`.
 """
-function getobjlb end
+function getobjectivebound end
 
 """
-    setθlb!(sp::AbstractStochasticProgram, node, θlb)
+    setθbound!(sp::AbstractStochasticProgram, node, child, θlb)
 
-Sets the lower bounds to the objective of the children of `node` to `θlb`.
+Sets the bounds to the objective of the child `child` of `node` to `θlb`.
 """
-function setθlb! end
+function setθbound! end
 
 """
     statedim(sp::AbstractStochasticProgram, node)

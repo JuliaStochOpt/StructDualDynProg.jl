@@ -36,8 +36,8 @@ mutable struct StochasticProgram{S} <: AbstractStochasticProgram
 end
 nodedata(sp::StochasticProgram, node::Int) = sp.data[node]
 
-getobjlb(sp::StochasticProgram, node) = getobjlb(nodedata(sp, node).nlds)
-setθlb!(sp::StochasticProgram, node, θlb) = setθlb!(nodedata(sp, node).nlds, θlb)
+getobjectivebound(sp::StochasticProgram, node) = getobjectivebound(nodedata(sp, node).nlds)
+setθbound!(sp::StochasticProgram, node, child, θlb) = setθbound!(nodedata(sp, node).nlds, edgeid(sp, Edge(node, child)), θlb)
 statedim(sp::StochasticProgram, node) = nodedata(sp, node).nlds.nx
 
 # LightGraphs interface
