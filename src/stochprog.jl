@@ -91,9 +91,9 @@ function cutgenerator end
 # Modification (Optional)
 
 """
-    setprobability!(sp::AbstractStochasticProgram, edge, proba)
+    setprobability!(sp::AbstractStochasticProgram, edge, probability)
 
-Sets the probability to take the edge `edge` in the stochastic problem `sp`.
+Sets the probability to take the edge `edge` in the stochastic problem `sp` to `probability`.
 """
 function setprobability! end
 
