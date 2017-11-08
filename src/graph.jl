@@ -22,7 +22,7 @@ function Base.show(io::IO, data::NodeData)
     println(io, "Node of $(data.nlds.nx) variables")
 end
 
-ET = LightGraphs.SimpleGraphs.SimpleEdge{Int64}
+ET = LightGraphs.SimpleGraphs.SimpleEdge{Int}
 
 mutable struct StochasticProgram{S} <: AbstractStochasticProgram
     graph::LightGraphs.SimpleGraphs.SimpleDiGraph{Int}
