@@ -34,6 +34,18 @@ function optimality_cut(sol::Solution)
     (sol.πT, sol.πh + sol.σd + sol.ρe)
 end
 
+getstatus(sol::Solution) = sol.status
+
+getobjectivevalue(sol::Solution) = sol.objval
+
+getstateobjectivevalue(sol::Solution) = sol.objvalx
+
+getstatevalue(sol::Solution) = sol.x
+
+function getθvalue(sol::Solution, i)
+    sol.θ[i]
+end
+
 # Nested L-Shaped Decomposition Subproblem (NLDS)
 
 # Primal

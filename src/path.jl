@@ -29,8 +29,12 @@ function meanstdpaths(paths::Vector{<:SDDPPath}, Ktot)
     meanstdpaths(z, proba, npaths, Ktot)
 end
 
+function Base.isapprox(p::SDDPPath, q::SDDPPath)
+    Base.isapprox(getstatevalue(p.sol), getstatevalue(q.sol))
+end
+
 function canmerge(p::SDDPPath, q::SDDPPath, ztol)
-    _isapprox(p.sol.x, q.sol.x, ztol)
+    _isapprox(getstatevalue(p.sol), getstatevalue(q.sol), ztol)
 end
 
 function merge!(p::SDDPPath, q::SDDPPath)
@@ -53,10 +57,6 @@ mutable struct SDDPJob{SolT, NodeT}
     end
 end
 
-function Base.isapprox(p::SDDPPath, q::SDDPPath)
-    Base.isapprox(p.sol.x, q.sol.x)
-end
-
 function addjob!(jobsd::Dict{NodeT, Vector{SDDPJob{SolT, NodeT}}}, node::NodeT, job::SDDPJob{SolT, NodeT}) where {SolT, NodeT}
     if node in keys(jobsd)
         push!(jobsd[node], job)
@@ -74,7 +74,7 @@ function mergesamepaths(pathsd::Vector{Tuple{NodeT, Vector{SDDPPath{SolT}}}}, st
         for i in 1:length(paths)
             for j in 1:(i-1)
                 if keep[j] && canmerge(paths[i], paths[j], ztol)
-                    #println("Merging path since ||x_i - x_j||_∞ = $(norm(paths[j].sol.x - paths[i].sol.x, Inf))")
+                    #println("Merging path since ||x_i - x_j||_∞ = $(norm(getstatevalue(paths[j].sol) - getstatevalue(paths[i].sol), Inf))")
                     merge!(paths[i], paths[j])
                     keep[j] = false
                     merged = true

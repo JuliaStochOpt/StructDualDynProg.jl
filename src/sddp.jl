@@ -49,7 +49,7 @@ function forwardpass!(sp::AbstractStochasticProgram, Ktot::Int, num_stages, verb
     stats.solvertime += @_time mastersol = solve!(sp, master)
     stats.nsolved += 1
     stats.niterations += 1
-    infeasibility_detected = mastersol.status == :Infeasible
+    infeasibility_detected = getstatus(mastersol) == :Infeasible
 
     PathT = SDDPPath{typeof(mastersol)}
     TT = Tuple{NodeT, Vector{PathT}}
@@ -57,7 +57,7 @@ function forwardpass!(sp::AbstractStochasticProgram, Ktot::Int, num_stages, verb
     if infeasibility_detected
         pathsd[1] = TT[]
     else
-        pathsd[1] = TT[(master, [SDDPPath(mastersol, [mastersol.objvalx], [1.], [Ktot], outdegree(sp, master))])]
+        pathsd[1] = TT[(master, [SDDPPath(mastersol, [getstateobjectivevalue(mastersol)], [1.], [Ktot], outdegree(sp, master))])]
     end
     endedpaths = PathT[]
 
@@ -99,7 +99,7 @@ function forwardpass!(sp::AbstractStochasticProgram, Ktot::Int, num_stages, verb
     stats.upperbound = z_UB
     stats.σ_UB = σ
     stats.npaths = Ktot
-    stats.lowerbound = mastersol.objval
+    stats.lowerbound = getobjectivevalue(mastersol)
 
     pathsd, mastersol, stats
 end
@@ -159,17 +159,17 @@ function SDDP(sp::AbstractStochasticProgram, num_stages; K::Int=25, stopcrit::Ab
     stats = SDDPStats()
     stats.niterations = 1
 
-    while (mastersol === nothing || mastersol.status != :Infeasible) && !stop(stopcrit, stats, totalstats)
+    while (mastersol === nothing || getstatus(mastersol) != :Infeasible) && !stop(stopcrit, stats, totalstats)
         itertime = @_time mastersol, stats = iteration!(sp, K, num_stages, verbose, pathsampler, ztol=1e-6, stopatinf=stopatinf, mergepaths=mergepaths, forwardcuts=forwardcuts, backwardcuts=backwardcuts)
         stats.time = itertime
 
         totalstats += stats
         if verbose >= 2
             println("Iteration $(totalstats.niterations) completed in $itertime s (Total time is $(totalstats.time))")
-            println("Status: $(mastersol.status)")
+            println("Status: $(getstatus(mastersol))")
             println("Upper Bound: $(totalstats.upperbound)")
             println("Lower Bound: $(totalstats.lowerbound)")
-            #println(" Solution value: $(mastersol.x)")
+            #println(" Solution value: $(getstatevalue(mastersol))")
             println("Stats for this iteration:")
             println(stats)
             println("Total stats:")
@@ -179,11 +179,11 @@ function SDDP(sp::AbstractStochasticProgram, num_stages; K::Int=25, stopcrit::Ab
 
     if verbose >= 1
         println("SDDP completed in $(totalstats.niterations) iterations in $(totalstats.time) s")
-        println("Status: $(mastersol.status)")
-        #println("Objective value: $(mastersol.objval)")
+        println("Status: $(getstatus(mastersol))")
+        #println("Objective value: $(getobjectivevalue(mastersol))")
         println("Upper Bound: $(totalstats.upperbound)")
         println("Lower Bound: $(totalstats.lowerbound)")
-        #println(" Solution value: $(mastersol.x)")
+        #println(" Solution value: $(getstatevalue(mastersol))")
         println("Total stats:")
         println(totalstats)
     end
@@ -193,5 +193,5 @@ function SDDP(sp::AbstractStochasticProgram, num_stages; K::Int=25, stopcrit::Ab
     attrs[:niter] = totalstats.niterations
     attrs[:nfcuts] = totalstats.nfcuts
     attrs[:nocuts] = totalstats.nocuts
-    SDDPSolution(mastersol.status, mastersol.objval, mastersol.x, attrs)
+    SDDPSolution(getstatus(mastersol), getobjectivevalue(mastersol), getstatevalue(mastersol), attrs)
 end

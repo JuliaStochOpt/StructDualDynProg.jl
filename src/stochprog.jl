@@ -88,13 +88,6 @@ Returns the cut generator of node `node` in the stochastic problem `sp`.
 """
 function cutgenerator end
 
-"""
-    edgeid(sp::AbstractStochasticProgram, edge)
-
-Returns the id of `edge` for `src(edge)`. This id should be between 1 and `outdegree(src(edge))`. In case of multiple cuts, the value `θ[edgeid(sp, edge)]` at `src(edge)` corresponds to the lower bound to the objective value of `dst(edge)`.
-"""
-function edgeid end
-
 # Modification (Optional)
 
 """

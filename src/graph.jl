@@ -123,6 +123,16 @@ function setchildx!(sp::StochasticProgram, node, child, sol::Solution)
     setparentx(nodedata(sp, child).nlds, x, xuray, sol.objvalxuray)
 end
 
+function getθvalue(sp::StochasticProgram, node, child, sol::Solution)
+    @assert length(sol.θ) == outdegree(sp, node)
+    getθvalue(sol, edgeid(sp, Edge(node, child)))
+end
+
+function getθvalue(sp::StochasticProgram, node, sol::Solution)
+    @assert length(sol.θ) == 1
+    getθvalue(sol, 1)
+end
+
 function add_feasibility_cut!(sp::StochasticProgram, node, coef, rhs, author)
     # coef is a ray
     # so alpha * coef is also valid for any alpha >= 0.

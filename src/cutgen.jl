@@ -9,7 +9,7 @@ function gencut(::FeasibilityCutGenerator, sp, parent, path, stats, ztol)
     for child in out_neighbors(sp, parent)
         if haskey(path.childsols, child)
             childsol = path.childsols[child]
-            if childsol.status == :Infeasible
+            if getstatus(childsol) == :Infeasible
                 stats.nfcuts += 1
                 stats.fcutstime += @_time add_feasibility_cut!(sp, child, feasibility_cut(childsol)..., parent)
             end
@@ -40,17 +40,19 @@ nθ(::MultiCutGenerator, proba) = length(proba)
 needallchildsol(::MultiCutGenerator) = false
 function gencut(::MultiCutGenerator, sp, parent, path, stats, ztol)
     for (child, sol) in path.childsols
-        if sol.status != :Unbounded
+        status = getstatus(sol)
+        if status != :Unbounded
             a, β = optimality_cut(sol)
-            @assert sol.status == :Optimal
+            @assert status == :Optimal
             edge = Edge(parent, child)
             if haskey(sp.childT, edge)
                 aT = sp.childT[edge]' * a
             else
                 aT = a
             end
-            θ = path.sol.θ[edgeid(sp, Edge(parent, child))]
-            if path.sol.status == :Unbounded || _lt(θ, β - dot(aT, path.sol.x), ztol)
+            x = getstatevalue(path.sol)
+            θ = getθvalue(sp, parent, child, path.sol)
+            if getstatus(path.sol) == :Unbounded || _lt(θ, β - dot(aT, x), ztol)
                 stats.ocutstime += @_time add_optimality_cut_for_parent!(sp, child, a, β, parent)
                 stats.nocuts += 1
             end
@@ -73,9 +75,10 @@ function gencut(::AvgCutGenerator, sp, parent, path, stats, ztol)
     avga = zeros(statedim(sp, parent))
     avgβ = 0.
     for (child, sol) in path.childsols
-        @assert sol.status != :Unbounded
+        status = getstatus(sol)
+        @assert status != :Unbounded
         a, β = optimality_cut(sol)
-        @assert sol.status == :Optimal
+        @assert status == :Optimal
         edge = Edge(parent, child)
         if haskey(sp.childT, edge)
             aT = sp.childT[edge]' * a
@@ -86,7 +89,9 @@ function gencut(::AvgCutGenerator, sp, parent, path, stats, ztol)
         avga += proba * aT
         avgβ += proba * β
     end
-    if path.sol.status == :Unbounded || _lt(path.sol.θ[1], avgβ - dot(avga, path.sol.x), ztol)
+    x = getstatevalue(path.sol)
+    θ = getθvalue(sp, parent, path.sol)
+    if getstatus(path.sol) == :Unbounded || _lt(θ, avgβ - dot(avga, x), ztol)
         stats.ocutstime += @_time add_optimality_cut!(sp, parent, avga, avgβ, parent)
         stats.nocuts += 1
     end
