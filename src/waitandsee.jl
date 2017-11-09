@@ -1,6 +1,6 @@
 export waitandsee
 
-mutable struct WSPath{NodeT}
+mutable struct WaitAndSeePath{NodeT}
     node::NodeT
     nlds::Vector{NLDS}
     z::Float64
@@ -8,7 +8,7 @@ mutable struct WSPath{NodeT}
     K::Int
 end
 
-function meanstdpaths(paths::Vector{WSPath}, totalK)
+function meanstdpaths(paths::Vector{WaitAndSeePath}, totalK)
     z = Float64[x.z for x in paths]
     proba = Float64[x.proba for x in paths]
     npaths = Int[x.K for x in paths]
@@ -17,9 +17,9 @@ end
 
 function waitandsee(sp::AbstractStochasticProgram, num_stages, solver, totalK=25, verbose=0)
     master = getmaster(sp)
-    paths = WSPath[WSPath(master, NLDS[nodedata(sp, master).nlds], .0, 1., totalK)]
+    paths = WaitAndSeePath[WaitAndSeePath(master, NLDS[nodedata(sp, master).nlds], .0, 1., totalK)]
     for t in 2:num_stages
-        newpaths = WSPath[]
+        newpaths = WaitAndSeePath[]
         for path in paths
             if isleaf(sp, path.node)
                 push!(newpaths, path)
@@ -28,7 +28,7 @@ function waitandsee(sp::AbstractStochasticProgram, num_stages, solver, totalK=25
                 childs = totalK == -1 ? (1:outdegree(sp, path.node)) : find(npaths .> 0)
                 for (i, child) in enumerate(out_neighbors(sp, path.node))
                     if totalK == -1 || npaths[i] > 0
-                        push!(newpaths, WSPath(child, [path.nlds; nodedata(sp, child).nlds], path.z, path.proba * probability(sp, Edge(path.node, child)), npaths[i]))
+                        push!(newpaths, WaitAndSeePath(child, [path.nlds; nodedata(sp, child).nlds], path.z, path.proba * probability(sp, Edge(path.node, child)), npaths[i]))
                     end
                 end
             end
@@ -37,7 +37,7 @@ function waitandsee(sp::AbstractStochasticProgram, num_stages, solver, totalK=25
     end
 
     sumz = 0
-    newpaths = WSPath[]
+    newpaths = WaitAndSeePath[]
     for path in paths
         nvars = cumsum(Int[nlds.nx for nlds in path.nlds])
         ncons = cumsum(Int[nlds.nπ for nlds in path.nlds])
@@ -77,7 +77,7 @@ function waitandsee(sp::AbstractStochasticProgram, num_stages, solver, totalK=25
         else
             @assert status == :Optimal
             objval = MathProgBase.getobjval(model)
-            push!(newpaths, WSPath(path.node, path.nlds, objval, path.proba, path.K))
+            push!(newpaths, WaitAndSeePath(path.node, path.nlds, objval, path.proba, path.K))
         end
     end
     meanstdpaths(newpaths, totalK)
