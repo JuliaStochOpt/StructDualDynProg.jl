@@ -162,7 +162,7 @@ function SDDP(g::AbstractSDDPGraph, num_stages; K::Int=25, stopcrit::AbstractSto
 
         totalstats += stats
         if verbose >= 2
-            println("Iteration $(totalstats.niterations) completed in $itertime s (Total time is $(stats.time))")
+            println("Iteration $(totalstats.niterations) completed in $itertime s (Total time is $(totalstats.time))")
             println("Status: $(mastersol.status)")
             println("Upper Bound: $(totalstats.upperbound)")
             println("Lower Bound: $(totalstats.lowerbound)")
