@@ -2,7 +2,7 @@ export NLDS, updatemaxncuts!
 
 # π, σ and ρ do not really make sense alone so only
 # their product will T, h, d, e is stored
-mutable struct NLDSSolution
+mutable struct Solution <: AbstractSolution
     status::Symbol
     objval
     objvalx
@@ -15,7 +15,7 @@ mutable struct NLDSSolution
     πh
     σd
     ρe
-    function NLDSSolution(status::Symbol, objval)
+    function Solution(status::Symbol, objval)
         new(status, objval, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing)
     end
 end
@@ -23,14 +23,27 @@ end
 # Feasibility cut
 # D = π T
 # d = π h + σ d
-function getfeasibilitycut(sol::NLDSSolution)
+function feasibility_cut(sol::Solution)
     (sol.πT, sol.πh + sol.σd)
 end
+
 # Optimality cut
 # E = π T
 # e = π h + ρ e + σ d
-function getoptimalitycut(sol::NLDSSolution)
+function optimality_cut(sol::Solution)
     (sol.πT, sol.πh + sol.σd + sol.ρe)
+end
+
+getstatus(sol::Solution) = sol.status
+
+getobjectivevalue(sol::Solution) = sol.objval
+
+getstateobjectivevalue(sol::Solution) = sol.objvalx
+
+getstatevalue(sol::Solution) = sol.x
+
+function getθvalue(sol::Solution, i)
+    sol.θ[i]
 end
 
 # Nested L-Shaped Decomposition Subproblem (NLDS)
@@ -76,9 +89,9 @@ mutable struct NLDS{S}
     childOC::Vector{CutStore{S}}
     localFC::CutStore{S}
     localOC::CutStore{S}
-    proba
+    proba::Vector{Float64}
+    θfree::IntSet
     θlb::Vector{Float64}
-    θC
     childT::Nullable{Vector{AbstractMatrix{S}}}
     cutgen::AbstractOptimalityCutGenerator
 
@@ -98,7 +111,7 @@ mutable struct NLDS{S}
     model
     loaded
     solved
-    prevsol::Nullable{NLDSSolution}
+    prevsol::Nullable{Solution}
 
     newcut::Symbol
     pruningalgo::AbstractCutPruningAlgo
@@ -118,7 +131,7 @@ mutable struct NLDS{S}
         else
             model = MathProgBase.LinearQuadraticModel(solver)
         end
-        nlds = new{S}(W, h, T, K, C, c, S[], nothing, nothing, CutStore{S}[], CutStore{S}[], localFC, localOC, nothing, Float64[], [], nothing, NoOptimalityCutGenerator(), nx, nθ, nπ, 1:nπ, 0, Int[], Int[], Vector{Int}[], model, false, false, nothing, newcut, pruningalgo, FCpruner, OCpruners)
+        nlds = new{S}(W, h, T, K, C, c, S[], nothing, nothing, CutStore{S}[], CutStore{S}[], localFC, localOC, Float64[], IntSet(), Float64[], nothing, AvgCutGenerator(), nx, nθ, nπ, 1:nπ, 0, Int[], Int[], Vector{Int}[], model, false, false, nothing, newcut, pruningalgo, FCpruner, OCpruners)
         addfollower(localFC, (nlds, (:Feasibility, 0)))
         addfollower(localOC, (nlds, (:Optimality, 1)))
         nlds
@@ -129,30 +142,51 @@ function NLDS{S}(W::AbstractMatrix, h::AbstractVector, T::AbstractMatrix, K, C, 
     NLDS{S}(AbstractMatrix{S}(W), AbstractVector{S}(h), AbstractMatrix{S}(T), K, C, AbstractVector{S}(c), solver, pruningalgo, newcut)
 end
 
-function setchildren!(nlds::NLDS{S}, childFC, childOC, proba, cutgen::AbstractOptimalityCutGenerator, childT) where S
-    nlds.cutgen = cutgen
-    @assert length(childFC) == length(childOC) == length(proba)
-    nlds.proba = proba
-    nlds.nθ = nθ(nlds.cutgen, proba)
-    nlds.θlb = zeros(nlds.nθ)
-    nlds.θC = [(:Free, collect(nlds.nx+(1:nlds.nθ)))]
-    nlds.nρ = zeros(Int, nlds.nθ)
-    nlds.ρs = [Int[] for i in 1:nlds.nθ]
-    # θ ≧ max β - ⟨a, x⟩
-    # so we give :Max and set lazy_minus to true because it is "- ⟨a, x⟩" and not "+ ⟨a, x⟩"
-    nlds.OCpruners = [CutPruner{nlds.nx, S}(nlds.pruningalgo, :Max, true) for i in 1:nlds.nθ]
-    nlds.childFC = childFC
-    for i in 1:length(childFC)
-        addfollower(childFC[i], (nlds, (:Feasibility, i)))
+function add_childT!(nlds, childT)
+    if childT === nothing
+        @assert isnull(nlds.childT)
+    else
+        # If there isn't any child yet, node.childT is null
+        if isnull(nlds.childT)
+            nlds.childT = [childT]
+        else
+            push!(get(nlds.childT), childT)
+        end
     end
-    nlds.childOC = childOC
-    for i in 1:length(childOC)
-        addfollower(childOC[i], (nlds, (:Optimality, i)))
-    end
-    nlds.childT = childT
 end
 
-function getobjlb(nlds::NLDS)
+function add_scenario_transition!(nlds::NLDS{S}, childFC, childOC, proba, childT) where {S}
+    push!(nlds.proba, proba)
+    oldnθ = nlds.nθ
+    nlds.nθ = nθ(nlds.cutgen, nlds.proba)
+    Δθ = nlds.nθ - oldnθ
+    push!(nlds.θlb, 0)
+    push!(nlds.θfree, length(nlds.θlb))
+    if !iszero(Δθ)
+        @assert Δθ == 1
+        push!(nlds.nρ, 0)
+        push!(nlds.ρs, Int[])
+        # θ ≧ max β - ⟨a, x⟩
+        # so we give :Max and set lazy_minus to true because it is "- ⟨a, x⟩" and not "+ ⟨a, x⟩"
+        push!(nlds.OCpruners, CutPruner{nlds.nx, S}(nlds.pruningalgo, :Max, true))
+    end
+    @assert length(childFC.b) == 0
+    addfollower(childFC, (nlds, (:Feasibility, length(nlds.childFC)+1)))
+    push!(nlds.childFC, childFC)
+    @assert length(childOC.b) == 0
+    addfollower(childOC, (nlds, (:Optimality, length(nlds.childOC)+1)))
+    push!(nlds.childOC, childOC)
+    add_childT!(nlds, childT)
+end
+
+function setprobability!(nlds::NLDS, i, proba)
+    nlds.proba[i] = proba
+end
+
+function getobjectivebound(nlds::NLDS)
+    if !isempty(nlds.θfree)
+        return -Inf
+    end
     for (cone, idxs) in nlds.C
         for i in idxs
             if (cone == :NonNeg && nlds.c[i]  < 0) ||
@@ -162,69 +196,37 @@ function getobjlb(nlds::NLDS)
            end
         end
     end
-    for (cone, _) in nlds.θC
-        if cone != :NonNeg
-            return -Inf
-        end
-    end
     return Eθlb(nlds)
 end
-function setθlb!(nlds::NLDS, θlb)
-    fin = isfinite.(θlb)
-    if nlds.nθ == length(θlb)
-        fin = isfinite.(θlb)
-        if any(fin)
-            nlds.θlb = zeros(nlds.nθ)
-            nlds.θlb[fin] = θlb[fin]
-            nlds.θC = [(:NonNeg, collect(nlds.nx+(1:nlds.nθ)[fin]))]
-            if !all(fin)
-                push!(nlds.θC, (:NonNeg, collect(nlds.nx+(1:nlds.nθ)[!fin])))
-            end
-        else
-            nlds.θlb = zeros(nlds.nθ)
-            nlds.θC = [(:Free, collect(nlds.nx+(1:nlds.nθ)))]
-        end
-    elseif nlds.nθ == 1
-        if all(isfinite.(θlb))
-            nlds.θlb = [dot(nlds.proba, θlb)]
-            nlds.θC = [(:NonNeg, [nlds.nx+1])]
-        else
-            nlds.θlb = [0.]
-            nlds.θC = [(:Free, [nlds.nx+1])]
-        end
+function setθbound!(nlds::NLDS, i, θlb)
+    if isfinite(θlb)
+        delete!(nlds.θfree, i)
+        nlds.θlb[i] = θlb
     end
 end
-
-function appendchildren!(nlds::NLDS{S}, childFC, childOC, proba, childT) where S
-    @assert length(childFC) == length(childOC)
-    @assert length(proba) == length(nlds.childOC) + length(childOC) == length(nlds.childFC) + length(childFC)
-    oldnθ = nlds.nθ
-    nlds.proba = proba
-    nlds.nθ = nθ(nlds.cutgen, proba)
-    Δθ = nlds.nθ - oldnθ
-    append!(nlds.nρ, zeros(Int, Δθ))
-    append!(nlds.ρs, [Int[] for i in 1:Δθ])
-    append!(nlds.OCpruners, [CutPruner{nlds.nx, S}(nlds.pruningalgo) for i in 1:Δθ])
-    for i in 1:length(childFC)
-        @assert length(childFC[i].b) == 0
-        addfollower(childFC[i], (nlds, (:Feasibility, length(nlds.childFC)+i)))
-    end
-    append!(nlds.childFC, childFC)
-    for i in 1:length(childOC)
-        @assert length(childFC[i].b) == 0
-        addfollower(childOC[i], (nlds, (:Optimality, length(nlds.childOC)+i)))
-    end
-    append!(nlds.childOC, childOC)
-    if childT === nothing
-        @assert isnull(nlds.childT)
-    else
-        # If there isn't any child yet, nlds.childT is null
-        if isnull(nlds.childT)
-            nlds.childT = childT
+function θC(nlds::NLDS)
+    if nlds.nθ == length(nlds.θlb)
+        θlb = nlds.θlb
+        if length(nlds.θfree) < nlds.nθ
+            bounded = collect(setdiff(IntSet(1:nlds.nθ), nlds.θfree))
+            θC = [(:NonNeg, collect(nlds.nx .+ bounded))]
+            if !isempty(nlds.θfree)
+                free = collect(nlds.θfree)
+                push!(nlds.θC, (:Free, collect(nlds.nx .+ free)))
+            end
         else
-            append!(get(nlds.childT), childT)
+            θC = [(:Free, collect(nlds.nx+(1:nlds.nθ)))]
+        end
+    elseif nlds.nθ == 1
+        if isempty(nlds.θfree)
+            θlb = [dot(nlds.proba, nlds.θlb)]
+            θC = [(:NonNeg, [nlds.nx+1])]
+        else
+            θlb = [0.]
+            θC = [(:Free, [nlds.nx+1])]
         end
     end
+    θlb, θC
 end
 
 function updatemaxncuts!(nlds::NLDS, maxncuts, i)
@@ -490,7 +492,7 @@ function load!(nlds::NLDS{S}) where S
         bigC = nlds.C
         bigc = nlds.c
         if nlds.nθ > 0
-            bigC = [bigC; nlds.θC]
+            bigC = [bigC; θC(nlds)[2]]
             if nlds.nθ == 1
                 bigc = [bigc; 1]
             else
@@ -522,7 +524,9 @@ function Eθlb(nlds::NLDS)
         if nlds.nθ == length(nlds.proba)
             dot(nlds.proba, nlds.θlb)
         else
-            nlds.θlb[1]
+            θlb, _ = θC(nlds)
+            @assert length(θlb) == 1
+            θlb[1]
         end
     end
 end
@@ -533,7 +537,7 @@ function solve!(nlds::NLDS{S}) where S
         MathProgBase.optimize!(nlds.model)
         status = MathProgBase.status(nlds.model)
         checkstatus(status)
-        sol = NLDSSolution(status, _getobjval(nlds.model) + Eθlb(nlds))
+        sol = Solution(status, _getobjval(nlds.model) + Eθlb(nlds))
 
         if status == :Unbounded
             uray = _getunboundedray(nlds.model)
@@ -601,7 +605,7 @@ function solve!(nlds::NLDS{S}) where S
                 addposition!(nlds.OCpruners[i], sol.x)
             end
             sol.objvalx = dot(nlds.c, sol.x)
-            sol.θ = nlds.θlb + primal[nlds.nx+(1:nlds.nθ)]
+            sol.θ = θC(nlds)[1] + primal[nlds.nx+(1:nlds.nθ)]
         end
 
         if status == :Unbounded

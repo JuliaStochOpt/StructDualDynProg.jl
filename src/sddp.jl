@@ -7,12 +7,12 @@ struct SDDPSolution
     attrs
 end
 
-function solvejobs!(jobsd, stats, stopatinf)
+function solvejobs!(sp, jobsd, stats, stopatinf)
     infeasibility_detected = false
     for (node, jobs) in jobsd
         for job in jobs
             if !stopatinf || job.parent.childs_feasible
-                solvejob!(job, node, stats)
+                solvejob!(sp, job, node, stats)
                 if !job.parent.childs_feasible
                     infeasibility_detected = true
                 end
@@ -22,42 +22,44 @@ function solvejobs!(jobsd, stats, stopatinf)
     infeasibility_detected
 end
 
-function gencuts(pathsd, g, stats, ztol)
+function gencuts(pathsd, sp, stats, ztol)
     for (parent, paths) in pathsd
         for path in paths
             if path.childs_feasible
-                gencut(cutgen(g, parent), g, parent, path, stats, ztol)
+                gencut(cutgenerator(sp, parent), sp, parent, path, stats, ztol)
             else
-                gencut(FeasibilityCutGenerator(), g, parent, path, stats, ztol)
+                gencut(FeasibilityCutGenerator(), sp, parent, path, stats, ztol)
             end
         end
     end
 end
 
-function applycuts(pathsd, g)
+function applycuts(pathsd, sp)
     for (node, _) in pathsd
-        applycut(FeasibilityCutGenerator(), g, node)
-        applycut(cutgen(g, node), g, node)
+        applycut(FeasibilityCutGenerator(), sp, node)
+        applycut(cutgenerator(sp, node), sp, node)
     end
 end
 
-function forwardpass!(g::AbstractSDDPGraph, Ktot::Int, num_stages, verbose, pathsampler; ztol=1e-6, stopatinf=false, mergepaths=true, forwardcuts=false)
+function forwardpass!(sp::AbstractStochasticProgram, Ktot::Int, num_stages, verbose, pathsampler; ztol=1e-6, stopatinf=false, mergepaths=true, forwardcuts=false)
     stats = SDDPStats()
 
-	master, initialnode = getmaster(g)
-	NodeT = typeof(initialnode)
-    stats.solvertime += @_time mastersol = loadAndSolve(master)
+    master = getmaster(sp)
+    NodeT = typeof(master)
+    stats.solvertime += @_time mastersol = solve!(sp, master)
     stats.nsolved += 1
     stats.niterations += 1
-    infeasibility_detected = mastersol.status == :Infeasible
+    infeasibility_detected = getstatus(mastersol) == :Infeasible
 
-    pathsd = Vector{Vector{Tuple{NodeT, Vector{SDDPPath}}}}(num_stages)
+    PathT = SDDPPath{typeof(mastersol)}
+    TT = Tuple{NodeT, Vector{PathT}}
+    pathsd = Vector{Vector{TT}}(num_stages)
     if infeasibility_detected
-        pathsd[1] = Tuple{NodeT, Vector{SDDPPath}}[]
+        pathsd[1] = TT[]
     else
-        pathsd[1] = Tuple{NodeT, Vector{SDDPPath}}[(initialnode, [SDDPPath(mastersol, [mastersol.objvalx], [1.], [Ktot], length(master.children))])]
+        pathsd[1] = TT[(master, [SDDPPath(mastersol, [getstateobjectivevalue(mastersol)], [1.], [Ktot], outdegree(sp, master))])]
     end
-    endedpaths = SDDPPath[]
+    endedpaths = PathT[]
 
     for t in 2:num_stages
         verbose >= 3 && println("Stage $t/$num_stages")
@@ -68,19 +70,19 @@ function forwardpass!(g::AbstractSDDPGraph, Ktot::Int, num_stages, verbose, path
         end
 
         # Make jobs
-        jobsd = childjobs(g, pathsd[t-1], pathsampler, t, num_stages)
+        jobsd = childjobs(sp, pathsd[t-1], pathsampler, t, num_stages, endedpaths)
 
         # Solve Jobs (parallelism possible here)
-        infeasibility_detected |= solvejobs!(jobsd, stats, stopatinf)
+        infeasibility_detected |= solvejobs!(sp, jobsd, stats, stopatinf)
 
         if forwardcuts
-            gencuts(pathsd[t-1], g, stats, ztol)
+            gencuts(pathsd[t-1], sp, stats, ztol)
             # The cut is added after so that they are added by group and duplicate detection in CutPruners works better
-            applycuts(pathsd[t-1], g)
+            applycuts(pathsd[t-1], sp)
         end
 
         # Jobs -> Paths
-        pathsd[t] = jobstopaths(jobsd, g)
+        pathsd[t] = jobstopaths(jobsd, sp)
     end
 
     if infeasibility_detected
@@ -97,25 +99,26 @@ function forwardpass!(g::AbstractSDDPGraph, Ktot::Int, num_stages, verbose, path
     stats.upperbound = z_UB
     stats.σ_UB = σ
     stats.npaths = Ktot
-    stats.lowerbound = mastersol.objval
+    stats.lowerbound = getobjectivevalue(mastersol)
 
     pathsd, mastersol, stats
 end
 
-function backwardpass!(g::AbstractSDDPGraph, num_stages, pathsd, pathsampler, stats; ztol=1e-6, stopatinf=false)
+function backwardpass!(sp::AbstractStochasticProgram, num_stages, pathsd, pathsampler, stats; ztol=1e-6, stopatinf=false)
     # We could ask a node if it has new fcuts/ocuts before resolving, that way the last stage won't be a particular case anymore
     for t in num_stages:-1:2
         # The last stages do not need to be resolved since it does not have any new cut
         if t != num_stages
             # Make jobs
-            jobsd = childjobs(g, pathsd[t-1], pathsampler, t, num_stages) # FIXME shouldn't need pathsampler here
+            endedpaths = SDDPPath[]
+            jobsd = childjobs(sp, pathsd[t-1], pathsampler, t, num_stages, endedpaths) # FIXME shouldn't need pathsampler here
             # Solve Jobs (parallelism possible here)
-            solvejobs!(jobsd, stats, stopatinf)
+            solvejobs!(sp, jobsd, stats, stopatinf)
         end
 
-        gencuts(pathsd[t-1], g, stats, ztol)
+        gencuts(pathsd[t-1], sp, stats, ztol)
         # The cut is added after so that they are added by group and duplicate detection in CutPruners works better
-        applycuts(pathsd[t-1], g)
+        applycuts(pathsd[t-1], sp)
     end
 end
 
@@ -128,12 +131,12 @@ The paths will be selected according to `pathsampler` and equivalent paths might
 The parameter `ztol` is also used to check whether a new cut is useful.
 When a scenario is infeasible and `stopatinf` is true then no other scenario with the same ancestor is run. Note that since the order in which the different scenarios is run is not deterministic, this might introduce nondeterminism even if the sampling is deterministic.
 """
-function iteration!(g::AbstractSDDPGraph, Ktot::Int, num_stages, verbose, pathsampler; ztol=1e-6, stopatinf=false, mergepaths=true, forwardcuts=false, backwardcuts=true)
+function iteration!(sp::AbstractStochasticProgram, Ktot::Int, num_stages, verbose, pathsampler; ztol=1e-6, stopatinf=false, mergepaths=true, forwardcuts=false, backwardcuts=true)
 
-    pathsd, mastersol, stats = forwardpass!(g, Ktot, num_stages, verbose, pathsampler; ztol=ztol, stopatinf=stopatinf, mergepaths=mergepaths, forwardcuts=forwardcuts)
+    pathsd, mastersol, stats = forwardpass!(sp, Ktot, num_stages, verbose, pathsampler; ztol=ztol, stopatinf=stopatinf, mergepaths=mergepaths, forwardcuts=forwardcuts)
 
     if backwardcuts
-        backwardpass!(g, num_stages, pathsd, pathsampler, stats; ztol=ztol)
+        backwardpass!(sp, num_stages, pathsd, pathsampler, stats; ztol=ztol)
     end
 
     mastersol, stats
@@ -150,23 +153,23 @@ The parameter `ztol` is also used to check whether a new cut is useful.
 When a scenario is infeasible and `stopatinf` is true then no other scenario with the same ancestor is run. Note that since the order in which the different scenarios is run is not deterministic, this might introduce nondeterminism even if the sampling is deterministic.
 By default, the cuts are added backward. However, if `forwardcuts` is set to `true` and `backwardcuts` is set to `false` the cuts are added forward.
 """
-function SDDP(g::AbstractSDDPGraph, num_stages; K::Int=25, stopcrit::AbstractStoppingCriterion=Pereira(), verbose=0, pathsampler::AbstractPathSampler=ProbaPathSampler(true), ztol=1e-6, stopatinf=false, mergepaths=true, forwardcuts=false, backwardcuts=true)
+function SDDP(sp::AbstractStochasticProgram, num_stages; K::Int=25, stopcrit::AbstractStoppingCriterion=Pereira(), verbose=0, pathsampler::AbstractPathSampler=ProbaPathSampler(true), ztol=1e-6, stopatinf=false, mergepaths=true, forwardcuts=false, backwardcuts=true)
     mastersol = nothing
     totalstats = SDDPStats()
     stats = SDDPStats()
     stats.niterations = 1
 
-    while (mastersol === nothing || mastersol.status != :Infeasible) && !stop(stopcrit, stats, totalstats)
-        itertime = @_time mastersol, stats = iteration!(g, K, num_stages, verbose, pathsampler, ztol=1e-6, stopatinf=stopatinf, mergepaths=mergepaths, forwardcuts=forwardcuts, backwardcuts=backwardcuts)
+    while (mastersol === nothing || getstatus(mastersol) != :Infeasible) && !stop(stopcrit, stats, totalstats)
+        itertime = @_time mastersol, stats = iteration!(sp, K, num_stages, verbose, pathsampler, ztol=1e-6, stopatinf=stopatinf, mergepaths=mergepaths, forwardcuts=forwardcuts, backwardcuts=backwardcuts)
         stats.time = itertime
 
         totalstats += stats
         if verbose >= 2
             println("Iteration $(totalstats.niterations) completed in $itertime s (Total time is $(totalstats.time))")
-            println("Status: $(mastersol.status)")
+            println("Status: $(getstatus(mastersol))")
             println("Upper Bound: $(totalstats.upperbound)")
             println("Lower Bound: $(totalstats.lowerbound)")
-            #println(" Solution value: $(mastersol.x)")
+            #println(" Solution value: $(getstatevalue(mastersol))")
             println("Stats for this iteration:")
             println(stats)
             println("Total stats:")
@@ -176,11 +179,11 @@ function SDDP(g::AbstractSDDPGraph, num_stages; K::Int=25, stopcrit::AbstractSto
 
     if verbose >= 1
         println("SDDP completed in $(totalstats.niterations) iterations in $(totalstats.time) s")
-        println("Status: $(mastersol.status)")
-        #println("Objective value: $(mastersol.objval)")
+        println("Status: $(getstatus(mastersol))")
+        #println("Objective value: $(getobjectivevalue(mastersol))")
         println("Upper Bound: $(totalstats.upperbound)")
         println("Lower Bound: $(totalstats.lowerbound)")
-        #println(" Solution value: $(mastersol.x)")
+        #println(" Solution value: $(getstatevalue(mastersol))")
         println("Total stats:")
         println(totalstats)
     end
@@ -190,5 +193,5 @@ function SDDP(g::AbstractSDDPGraph, num_stages; K::Int=25, stopcrit::AbstractSto
     attrs[:niter] = totalstats.niterations
     attrs[:nfcuts] = totalstats.nfcuts
     attrs[:nocuts] = totalstats.nocuts
-    SDDPSolution(mastersol.status, mastersol.objval, mastersol.x, attrs)
+    SDDPSolution(getstatus(mastersol), getobjectivevalue(mastersol), getstatevalue(mastersol), attrs)
 end

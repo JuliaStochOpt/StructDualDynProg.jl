@@ -5,20 +5,20 @@ abstract type AbstractOptimalityCutGenerator <: AbstractCutGenerator end
 
 struct FeasibilityCutGenerator <: AbstractCutGenerator
 end
-function gencut(::FeasibilityCutGenerator, g, parent, path, stats, ztol)
-    for i in 1:nchildren(g, parent)
-        if !isnull(path.childsols[i])
-            childsol = get(path.childsols[i])
-            if childsol.status == :Infeasible
+function gencut(::FeasibilityCutGenerator, sp, parent, path, stats, ztol)
+    for child in out_neighbors(sp, parent)
+        if haskey(path.childsols, child)
+            childsol = path.childsols[child]
+            if getstatus(childsol) == :Infeasible
                 stats.nfcuts += 1
-                stats.fcutstime += @_time pushfeasibilitycut!(parent.children[i], getfeasibilitycut(childsol)..., parent)
+                stats.fcutstime += @_time add_feasibility_cut!(sp, child, feasibility_cut(childsol)..., parent)
             end
         end
     end
 end
-function applycut(::FeasibilityCutGenerator, g, node)
-    for child in children(g, node)
-        applyfeasibilitycut!(child)
+function applycut(::FeasibilityCutGenerator, sp, node)
+    for child in out_neighbors(sp, node)
+        apply_feasibility_cuts!(sp, child)
     end
 end
 
@@ -27,10 +27,10 @@ struct NoOptimalityCutGenerator <: AbstractOptimalityCutGenerator
 end
 nθ(::NoOptimalityCutGenerator, proba) = 0
 needallchildsol(::NoOptimalityCutGenerator) = false
-function gencut(::NoOptimalityCutGenerator, g, parent, path, stats, ztol)
+function gencut(::NoOptimalityCutGenerator, sp, parent, path, stats, ztol)
 end
-function applycut(::NoOptimalityCutGenerator, g, node)
-    applyoptimalitycut!(node)
+function applycut(::NoOptimalityCutGenerator, sp, node)
+    apply_optimality_cuts!(sp, node)
 end
 
 # Multi Cut Generator
@@ -38,27 +38,30 @@ struct MultiCutGenerator <: AbstractOptimalityCutGenerator
 end
 nθ(::MultiCutGenerator, proba) = length(proba)
 needallchildsol(::MultiCutGenerator) = false
-function gencut(::MultiCutGenerator, g, parent, path, stats, ztol)
-    for i in 1:length(parent.children)
-        if !isnull(path.childsols[i]) && get(path.childsols[i]).status != :Unbounded
-            childsol = get(path.childsols[i])
-            a, β = getoptimalitycut(childsol)
-            @assert childsol.status == :Optimal
-            if isnull(parent.childT)
-                aT = a
+function gencut(::MultiCutGenerator, sp, parent, path, stats, ztol)
+    for (child, sol) in path.childsols
+        status = getstatus(sol)
+        if status != :Unbounded
+            a, β = optimality_cut(sol)
+            @assert status == :Optimal
+            edge = Edge(parent, child)
+            if haskey(sp.childT, edge)
+                aT = sp.childT[edge]' * a
             else
-                aT = get(parent.childT)[i]' * a
+                aT = a
             end
-            if path.sol.status == :Unbounded || _lt(path.sol.θ[i], β - dot(aT, path.sol.x), ztol)
-                stats.ocutstime += @_time pushoptimalitycutforparent!(parent.children[i], a, β, parent)
+            x = getstatevalue(path.sol)
+            θ = getθvalue(sp, parent, child, path.sol)
+            if getstatus(path.sol) == :Unbounded || _lt(θ, β - dot(aT, x), ztol)
+                stats.ocutstime += @_time add_optimality_cut_for_parent!(sp, child, a, β, parent)
                 stats.nocuts += 1
             end
         end
     end
 end
-function applycut(::MultiCutGenerator, g, node)
-    for child in children(g, node)
-        applyoptimalitycutforparent!(child)
+function applycut(::MultiCutGenerator, sp, node)
+    for child in out_neighbors(sp, node)
+        apply_optimality_cuts_for_parent!(sp, child)
     end
 end
 
@@ -67,29 +70,32 @@ struct AvgCutGenerator <: AbstractOptimalityCutGenerator
 end
 nθ(::AvgCutGenerator, proba) = 1
 needallchildsol(::AvgCutGenerator) = true
-function gencut(::AvgCutGenerator, g, parent, path, stats, ztol)
+function gencut(::AvgCutGenerator, sp, parent, path, stats, ztol)
     (!path.childs_feasible || !path.childs_bounded) && return
-    avga = zeros(parent.nlds.nx)
-    avgβ = 0
-    for i in 1:length(parent.children)
-        @assert !isnull(path.childsols[i])
-        @assert get(path.childsols[i]).status != :Unbounded
-        childsol = get(path.childsols[i])
-        a, β = getoptimalitycut(childsol)
-        @assert childsol.status == :Optimal
-        if isnull(parent.childT)
-            aT = a
+    avga = zeros(statedim(sp, parent))
+    avgβ = 0.
+    for (child, sol) in path.childsols
+        status = getstatus(sol)
+        @assert status != :Unbounded
+        a, β = optimality_cut(sol)
+        @assert status == :Optimal
+        edge = Edge(parent, child)
+        if haskey(sp.childT, edge)
+            aT = sp.childT[edge]' * a
         else
-            aT = get(parent.childT)[i]' * a
+            aT = a
         end
-        avga += parent.proba[i] * aT
-        avgβ += parent.proba[i] * β
+        proba = probability(sp, edge)
+        avga += proba * aT
+        avgβ += proba * β
     end
-    if path.sol.status == :Unbounded || _lt(path.sol.θ[1], avgβ - dot(avga, path.sol.x), ztol)
-        stats.ocutstime += @_time pushoptimalitycut!(parent, avga, avgβ, parent)
+    x = getstatevalue(path.sol)
+    θ = getθvalue(sp, parent, path.sol)
+    if getstatus(path.sol) == :Unbounded || _lt(θ, avgβ - dot(avga, x), ztol)
+        stats.ocutstime += @_time add_optimality_cut!(sp, parent, avga, avgβ, parent)
         stats.nocuts += 1
     end
 end
-function applycut(::AvgCutGenerator, g, node)
-    applyoptimalitycut!(node)
+function applycut(::AvgCutGenerator, sp, node)
+    apply_optimality_cuts!(sp, node)
 end

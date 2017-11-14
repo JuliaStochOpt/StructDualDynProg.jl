@@ -35,7 +35,7 @@ mutable struct CutStore{S}
 
     function CutStore{S}(nvars) where {S}
         # spzeros(S, 0) -> S[] : See julia#22225
-        new{S}(spzeros(S, 0, nvars), S[], NLDS{S}[], spzeros(S, 0, nvars), S[], NLDS{S}[], Vector{Tuple{NLDS{S},Tuple{Symbol,Int64}}}(0), Vector{Bool}(0), :IfNeededElseDelete)
+        new{S}(spzeros(S, 0, nvars), S[], NLDS{S}[], spzeros(S, 0, nvars), S[], NLDS{S}[], Vector{Tuple{NLDS{S},Tuple{Symbol,Int}}}(0), Vector{Bool}(0), :IfNeededElseDelete)
     end
 end
 

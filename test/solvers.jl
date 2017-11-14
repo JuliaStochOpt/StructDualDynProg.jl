@@ -19,7 +19,6 @@ xpr = try_import(:Xpress)
 clp = try_import(:Clp)
 isclp(solver) = contains(string(typeof(solver)),"ClpSolver")
 glp = try_import(:GLPKMathProgInterface)
-gur = try_import(:Gurobi)
 
 lp_solvers = Any[]
 grb && push!(lp_solvers, Gurobi.GurobiSolver(OutputFlag=0))

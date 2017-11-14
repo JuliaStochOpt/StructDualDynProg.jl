@@ -30,12 +30,12 @@
         # detectlb should change anything here since m2 is min -2s and s is bounded above by x with is unknown so it is unbounded
         for forwardcuts in [false, true]
             for detectlb in [false, true]
-                lattice = model2lattice(m1, num_stages, solver, AvgCutPruningAlgo(-1), cutmode, detectlb)
-                @test numberofpaths(lattice, 1) == 1
-                @test numberofpaths(lattice, 2) == 2
-                @test numberofpaths(lattice, 3) == 2
-                @test sprint(show, lattice.root) == "Root node of 1 variables and outdegree of 2 with proba: [0.5, 0.5]\n" || sprint(show, lattice.root) == "Root node of 1 variables and outdegree of 2 with proba: [0.5,0.5]\n" # No space on Julia v0.5
-                sol = SDDP(lattice, num_stages, K = K, stopcrit = Pereira(0.1) | IterLimit(10), verbose = 0, forwardcuts = forwardcuts, backwardcuts = !forwardcuts)
+                sp = stochasticprogram(m1, num_stages, solver, AvgCutPruningAlgo(-1), cutmode, detectlb)
+                @test numberofpaths(sp, 0) == 1
+                @test numberofpaths(sp, 1) == 2
+                @test numberofpaths(sp, 2) == 2
+                @test sprint(show, StructDualDynProg.nodedata(sp, 1)) == "Node of 1 variables\n"
+                sol = SDDP(sp, num_stages, K = K, stopcrit = Pereira(0.1) | IterLimit(10), verbose = 0, forwardcuts = forwardcuts, backwardcuts = !forwardcuts)
                 sstats = sprint(show, sol.attrs[:stats])
                 @test contains(sstats, "Solving problem")
                 @test contains(sstats, "Merging paths")
@@ -80,8 +80,8 @@
             K = 2
             pereiracoef = 0.1
 
-            lattice = model2lattice(m1, num_stages, solver, AvgCutPruningAlgo(-1), cutmode)
-            sol = SDDP(lattice, num_stages, K = K, stopcrit = Pereira(0.1) | IterLimit(10), verbose = 0)
+            sp = stochasticprogram(m1, num_stages, solver, AvgCutPruningAlgo(-1), cutmode)
+            sol = SDDP(sp, num_stages, K = K, stopcrit = Pereira(0.1) | IterLimit(10), verbose = 0)
             @test sol.attrs[:niter] == 3
             @test sol.status == :Optimal
             @test sol.objval == -3.0
@@ -94,10 +94,11 @@
             end
             @objective(m3, Max, P * s)
 
-            root = lattice.root
-            newnode = getSDDPNode(m3, 1, 1, solver, root, AvgCutPruningAlgo(-1), cutmode)
-            appendchildren!(root, [newnode], [1/2, 1/2])
-            sol = SDDP(lattice, num_stages, K = K, stopcrit = Pereira(0.1) | IterLimit(10), verbose = 0)
+            root = 1
+            newnode = getSDDPNode(sp, m3, 1, 1, solver, root, AvgCutPruningAlgo(-1), cutmode)
+            setprobability!(sp, LightGraphs.Edge(root, 2), 1/2)
+            add_scenario_transition!(sp, root, newnode, 1/2)
+            sol = SDDP(sp, num_stages, K = K, stopcrit = Pereira(0.1) | IterLimit(10), verbose = 0)
             # 2 on Mac OS and Windows, 3 otherwise
             @test 2 <= sol.attrs[:niter] <= 3
             @test sol.status == :Optimal
