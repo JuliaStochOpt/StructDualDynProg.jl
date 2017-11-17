@@ -43,6 +43,6 @@ If some subproblems are unbounded, an unbounded ray and a feasible solution will
 [codecov-img]: https://codecov.io/gh/blegat/StructDualDynProg.jl/branch/master/graph/badge.svg
 [codecov-url]: https://codecov.io/gh/blegat/StructDualDynProg.jl
 
-[gitter-url]: https://gitter.im/JuliaOpt/StructDualDynProg.jl
-[gitter-img]: https://badges.gitter.im/JuliaOpt/StructDualDynProg.jl.svg
+[gitter-url]: https://gitter.im/JuliaOpt/StochasticDualDynamicProgramming.jl?utm_source=share-link&utm_medium=link&utm_campaign=share-link
+[gitter-img]: https://badges.gitter.im/JuliaOpt/StochasticDualDynamicProgramming.jl.svg
 [discourse-url]: https://discourse.julialang.org/c/domain/opt
