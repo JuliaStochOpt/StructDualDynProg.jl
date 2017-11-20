@@ -1,20 +1,38 @@
-function meanstdpaths(z::Vector{Float64}, proba::Vector{Float64}, npaths::Vector{Int}, Ktot)
-    if Ktot != -1
+function getproba(proba::Vector{Float64}, npaths::Vector{Int}, Ktot)
+    if Ktot == -1
+        # We have thrown one walk per possible path so npaths does not represent the probability.
+        # Therefore we use proba instead.
+        proba
+    else
+        # npaths is representative since the paths were sampled using the probabilities.
         @assert sum(npaths) == Ktot
-        proba = npaths / Ktot
+        npaths ./ Ktot
     end
+end
+function meanstdpaths(z::Vector{Float64}, proba::Vector{Float64}, npaths::Vector{Int}, Ktot)
+    proba = getproba(proba, npaths, Ktot)
     μ = dot(proba, z)
     σ = sqrt(dot(proba, (z - μ).^2))
     μ, σ
 end
 
 mutable struct SDDPPath{SolT}
+    # Solution of the last node of the path
     sol::SolT
+    # The three following arguments are vectors since when we merge paths,
+    # we need to keep track of the difference of `z` that they have accumulated
+    # while diverging for computing the variance `σ^2` in [`meanstdpaths`](@ref) at the end.
+    # Sum of the objective solution (without θ) at each node of the path
     z::Vector{Float64}
+    # Probability of the path
     proba::Vector{Float64}
+    # Number of walks in the path
     K::Vector{Int}
+    # Are all the child jobs solved feasible ?
     childs_feasible::Bool
+    # Are all the child jobs solved bounded ?
     childs_bounded::Bool
+    # List of children solutions
     childsols::Dict{Int, SolT}
 
     function SDDPPath(sol::SolT, z, proba, K, nchilds) where SolT
@@ -65,6 +83,12 @@ function addjob!(jobsd::Dict{NodeT, Vector{SDDPJob{SolT, NodeT}}}, node::NodeT, 
     end
 end
 
+"""
+    mergesamepaths(pathsd::Vector{Tuple{NodeT, Vector{SDDPPath{SolT}}}}, stats, ztol) where {SolT, NodeT}
+
+Find paths that are at the same node with the same parent solution and merge them.
+It could happend that two path diverges (go to different node) but then meet again at the same node, if their parent solution is the same then each path will do exactly the same computation so merging them should save time.
+"""
 function mergesamepaths(pathsd::Vector{Tuple{NodeT, Vector{SDDPPath{SolT}}}}, stats, ztol) where {SolT, NodeT}
     before = sum([sum([sum(path.K) for path in paths]) for (node, paths) in pathsd])
     newpathsd = Tuple{NodeT, Vector{SDDPPath{SolT}}}[]
@@ -90,6 +114,11 @@ function mergesamepaths(pathsd::Vector{Tuple{NodeT, Vector{SDDPPath{SolT}}}}, st
     newpathsd
 end
 
+"""
+    childjobs(g::AbstractStochasticProgram, pathsd::Vector{Tuple{NodeT, Vector{SDDPPath{SolT}}}}, pathsampler, t, num_stages, endedpaths) where {SolT, NodeT}
+
+Given paths in `pathsd`, put the paths that have no child in `endedpaths` and sample child jobs using `pathsample` for other paths.
+"""
 function childjobs(g::AbstractStochasticProgram, pathsd::Vector{Tuple{NodeT, Vector{SDDPPath{SolT}}}}, pathsampler, t, num_stages, endedpaths) where {SolT, NodeT}
     jobsd = Dict{NodeT, Vector{SDDPJob{SolT, NodeT}}}()
     for (node, paths) in pathsd
@@ -97,9 +126,8 @@ function childjobs(g::AbstractStochasticProgram, pathsd::Vector{Tuple{NodeT, Vec
             for path in paths
                 # Adding Jobs
                 npaths = samplepaths(pathsampler, g, node, path.K, t, num_stages)
-                childocuts = Array{Any}(outdegree(g, node))
                 for (i, child) in enumerate(out_neighbors(g, node))
-                    if sum(npaths[i]) != 0 || needallchildsol(cutgenerator(g, node)) # || t == 2
+                    if !iszero(sum(npaths[i])) || needallchildsol(cutgenerator(g, node)) # || t == 2
                         addjob!(jobsd, child, SDDPJob{NodeT}(path.proba * probability(g, Edge(node, child)), npaths[i], node, path, child))
                     end
                 end
@@ -111,9 +139,17 @@ function childjobs(g::AbstractStochasticProgram, pathsd::Vector{Tuple{NodeT, Vec
     jobsd
 end
 
+"""
+    jobstopath(jobsd::Dict{NodeT, Vector{SDDPJob{SolT, NodeT}}}, g::AbstractStochasticProgram) where {SolT, NodeT}
+
+Transforms the jobs `jobsd` created by [`childjobs`](@ref) to to paths.
+"""
 function jobstopaths(jobsd::Dict{NodeT, Vector{SDDPJob{SolT, NodeT}}}, g::AbstractStochasticProgram) where {SolT, NodeT}
     pathsd = Tuple{NodeT, Vector{SDDPPath{SolT}}}[]
     for (node, jobs) in jobsd
+        # We create a job even if there is no path going to the node in case
+        # we want to create an AveragedCut (since in this case we need to solve all children).
+        # However we do not want to create a path for these jobs so we filter them out.
         K = [find(job.K .!= 0) for job in jobs]
         keep = find(Bool[jobs[i].parent.childs_feasible && !isempty(K[i]) for i in 1:length(jobs)])
         if !isempty(keep)
@@ -124,6 +160,11 @@ function jobstopaths(jobsd::Dict{NodeT, Vector{SDDPJob{SolT, NodeT}}}, g::Abstra
     pathsd
 end
 
+"""
+    solvejob!(sp::AbstractStochasticProgram, job::SDDPJob, node, stats)
+
+Solves the job `job` of node `node`.
+"""
 function solvejob!(sp::AbstractStochasticProgram, job::SDDPJob, node, stats)
     stats.setxtime += @_time setchildx!(sp, job.parentnode, job.child, job.parent.sol)
     stats.nsetx += 1
