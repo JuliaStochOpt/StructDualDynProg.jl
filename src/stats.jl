@@ -78,7 +78,7 @@ function showtime(t::Float64)
 end
 
 function Base.show(io::IO, stat::SDDPStats)
-    println(io, "                        |     Total time [s]      |  Number  | Average time [s]")
+    println(io, "                        |     Total time          |  Number  | Average time")
     @printf io "        Solving problem | %s | %8d | %s\n" showtime(stat.solvertime) stat.nsolved showtime(stat.solvertime / stat.nsolved)
     @printf io "          Merging paths | %s | %8d | %s\n" showtime(stat.mergetime ) stat.nmerged showtime(stat.mergetime  / stat.nmerged)
     @printf io "Adding feasibility cuts | %s | %8d | %s\n" showtime(stat.fcutstime ) stat.nfcuts  showtime(stat.fcutstime  / stat.nfcuts )
