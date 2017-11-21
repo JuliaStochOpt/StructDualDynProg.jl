@@ -125,7 +125,7 @@ end
 """
 $(SIGNATURES)
 
-Runs one iteration of the SDDP algorithm on the lattice given by `g`.
+Runs one iteration of the SDDP algorithm on the stochastic program given by `sp`.
 A total of `Ktot` paths will be explored up to `num_stages` stages.
 The paths will be selected according to `pathsampler` and equivalent paths might be merged if their difference is smaller than `ztol` and `mergepaths` is true.
 The parameter `ztol` is also used to check whether a new cut is useful.
@@ -145,7 +145,7 @@ end
 """
 $(SIGNATURES)
 
-Runs the SDDP algorithms on the lattice given by `g`.
+Runs the SDDP algorithms on the stochastic program given by `sp`.
 The algorithm will do iterations until `stopcrit` decides to stop or when the root node is infeasible.
 In each iterations, `K` paths will be explored up to `num_stages` stages.
 The paths will be selected according to `pathsampler` and equivalent paths might be merged if their difference is smaller than `ztol` and `mergepaths` is true.
