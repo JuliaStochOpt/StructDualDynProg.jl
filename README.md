@@ -8,18 +8,21 @@
 Generic interface for the [Stochastic Dual Dynamic Programming (SDDP) algorithm](http://www.optimization-online.org/DB_FILE/2009/12/2509.pdf) as well as a generic implementation.
 The problem can either be provided using the [StructJuMP](https://github.com/joehuchette/StructJuMP.jl) modeling interface or using a lower level interface.
 
-Documentation can be found [here][docs-stable-url].
-
 This package is used by the [Entropic Cone](https://github.com/blegat/EntropicCone.jl) package.
 
-# Installation
+## Documentation
+
+- [**STABLE**][docs-stable-url] &mdash; **most recently tagged version of the documentation.**
+- [**LATEST**][docs-latest-url] &mdash; *in-development version of the documentation.*
+
+## Installation
 
 ```julia
 > Pkg.update()
 > Pkg.add("StructDualDynProg")
 ```
 
-# Notes for choice of solvers
+## Notes for choice of solvers
 This package should work with any linear programming (LP) solver [supported by MathProgBase](http://www.juliaopt.org/).
 If some subproblems are infeasible, an infeasibility ray will be asked to the solver. In this case, it is advised to turn presolve off in `CPLEX` (i.e. `CPLEX.CplexSolver(CPX_PARAM_REDUCE=0)`) and to avoid using Clp since it [often cannot find the infeasibility ray](https://projects.coin-or.org/Clp/ticket/79).
 If some subproblems are unbounded, an unbounded ray and a feasible solution will be asked for the solver. Again, [avoid using Clp in that case](https://projects.coin-or.org/Clp/ticket/82). Hopefully subproblems shouldn't be unbounded if `detectlb` is left at `true` when calling `model2lattice`.
