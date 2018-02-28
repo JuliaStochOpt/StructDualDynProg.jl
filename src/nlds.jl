@@ -573,7 +573,7 @@ function solve!(nlds::NLDS{S}) where S
             # if infeasible dual + λ iray is dual feasible for any λ >= 0
             # here I just take iray to build the feasibility cut
             dual = _getdual(nlds.model)
-            if length(dual) == 0
+            if isempty(dual)
                 error("Dual vector returned by the solver is empty while the status is $status")
             end
             @assert length(dual) == nlds.nπ + nlds.nσ + sum(nlds.nρ)

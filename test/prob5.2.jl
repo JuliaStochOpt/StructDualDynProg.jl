@@ -9,10 +9,16 @@ function fulltest(m, num_stages, objval, solval, ws, wsσ, testniter, solver)
                             isclp(solver) && K == -1 && maxncuts == 7 && cutmode == :MultiCut && !detectlb && isa(pruningalgo, DeMatosPruningAlgo) && continue
                             sp = stochasticprogram(m, num_stages, solver, pruningalgo, cutmode, detectlb, newcut)
 
-                            μ, σ = waitandsee(sp, num_stages, solver, K)
-                            @test abs(μ - ws) / ws < (K == -1 ? 1e-6 : .03)
-                            @test abs(σ - wsσ) / wsσ <= (K == -1 ? 1e-6 : 1.)
+                            #μ, σ = waitandsee(sp, num_stages, solver, K)
+                            #@test abs(μ - ws) / ws < (K == -1 ? 1e-6 : .03)
+                            #@test abs(σ - wsσ) / wsσ <= (K == -1 ? 1e-6 : 1.)
 
+                            @show K
+                            @show maxncuts
+                            @show newcut
+                            @show cutmode
+                            @show detectlb
+                            @show pruningalgo
                             if K == -1
                                 stopcrit = CutLimit(0)
                             else
@@ -41,6 +47,6 @@ end
 
 @testset "Problem 5.2" begin
     include("prob5.2_2stages.jl")
-    include("prob5.2_3stages.jl")
-    include("prob5.2_3stages_serial.jl")
+    #include("prob5.2_3stages.jl")
+    #include("prob5.2_3stages_serial.jl")
 end
