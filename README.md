@@ -24,7 +24,8 @@ This package is used by the [Entropic Cone](https://github.com/blegat/EntropicCo
 
 ## Notes for choice of solvers
 This package should work with any linear programming (LP) solver [supported by MathProgBase](http://www.juliaopt.org/).
-If some subproblems are infeasible, an infeasibility ray will be asked to the solver. In this case, it is advised to turn presolve off in `CPLEX` (i.e. `CPLEX.CplexSolver(CPX_PARAM_REDUCE=0)`) and to avoid using Clp since it [often cannot find the infeasibility ray](https://projects.coin-or.org/Clp/ticket/79).
+If some subproblems are infeasible, an infeasibility ray will be asked to the solver.
+In this case, it is advised to turn presolve off in `CPLEX` (i.e. `CPLEX.CplexSolver(CPX_PARAM_REDUCE=0)`) and to avoid using Clp since it [often cannot find the infeasibility ray](https://projects.coin-or.org/Clp/ticket/79).
 If some subproblems are unbounded, an unbounded ray and a feasible solution will be asked for the solver. Again, [avoid using Clp in that case](https://projects.coin-or.org/Clp/ticket/82). Hopefully subproblems shouldn't be unbounded if `detectlb` is left at `true` when calling `model2lattice`.
 
 [docs-stable-img]: https://img.shields.io/badge/docs-stable-blue.svg
