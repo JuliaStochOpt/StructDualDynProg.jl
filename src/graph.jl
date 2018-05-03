@@ -41,7 +41,7 @@ setθbound!(sp::StochasticProgram, node, child, θlb) = setθbound!(nodedata(sp,
 statedim(sp::StochasticProgram, node) = nodedata(sp, node).nlds.nx
 
 # LightGraphs interface
-LightGraphs.out_neighbors(sp::StochasticProgram, node::Int) = out_neighbors(sp.graph, node)
+LightGraphs.outneighbors(sp::StochasticProgram, node::Int) = outneighbors(sp.graph, node)
 
 getmaster(sp::StochasticProgram) = 1
 
@@ -53,7 +53,7 @@ function numberofpaths(sp::StochasticProgram, node, len)
     else
         npath = nodedata(sp, node).npath
         if !(len in keys(npath))
-            npath[len] = sum(map(c -> numberofpaths(sp, c, len-1), out_neighbors(sp, node)))
+            npath[len] = sum(map(c -> numberofpaths(sp, c, len-1), outneighbors(sp, node)))
         end
         npath[len]
     end

@@ -26,7 +26,7 @@ function waitandsee(sp::AbstractStochasticProgram, num_stages, solver, totalK=25
             else
                 npaths = samplepaths(ProbaPathSampler(true), sp, path.node, path.K, t, num_stages)
                 childs = totalK == -1 ? (1:outdegree(sp, path.node)) : find(npaths .> 0)
-                for (i, child) in enumerate(out_neighbors(sp, path.node))
+                for (i, child) in enumerate(outneighbors(sp, path.node))
                     if totalK == -1 || npaths[i] > 0
                         push!(newpaths, WaitAndSeePath(child, [path.nlds; nodedata(sp, child).nlds], path.z, path.proba * probability(sp, Edge(path.node, child)), npaths[i]))
                     end

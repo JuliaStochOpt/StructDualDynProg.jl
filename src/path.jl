@@ -126,7 +126,7 @@ function childjobs(g::AbstractStochasticProgram, pathsd::Vector{Tuple{NodeT, Vec
             for path in paths
                 # Adding Jobs
                 npaths = samplepaths(pathsampler, g, node, path.K, t, num_stages)
-                for (i, child) in enumerate(out_neighbors(g, node))
+                for (i, child) in enumerate(outneighbors(g, node))
                     if !iszero(sum(npaths[i])) || needallchildsol(cutgenerator(g, node)) # || t == 2
                         addjob!(jobsd, child, SDDPJob{NodeT}(path.proba * probability(g, Edge(node, child)), npaths[i], node, path, child))
                     end
