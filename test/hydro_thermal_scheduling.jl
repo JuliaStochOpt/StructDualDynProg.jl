@@ -41,7 +41,7 @@
         for cutmode in [MultiCutGenerator(), AvgCutGenerator()]
             for detectlb in [false, true]
                 sp = stochasticprogram(models[1], num_stages, solver, AvgCutPruningAlgo(-1), cutmode, detectlb)
-                sol = SDDP(sp, num_stages, K = 16, stopcrit = Pereira(2, 0.5) | IterLimit(10), verbose = 3, forwardcuts = forwardcuts, backwardcuts = !forwardcuts)
+                sol = SDDP(sp, num_stages, K = 16, stopcrit = Pereira(2, 0.5) | IterLimit(10), verbose = 0, forwardcuts = forwardcuts, backwardcuts = !forwardcuts)
                 #sol = SDDP(sp, num_stages, K = 16, stopcrit = IterLimit(10), verbose = 3, forwardcuts = forwardcuts, backwardcuts = !forwardcuts)
 
                 @test sol.status == :Optimal
