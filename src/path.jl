@@ -166,7 +166,7 @@ end
 Solves the job `job` of node `node`.
 """
 function solvejob!(sp::AbstractStochasticProgram, job::Job, node, stats)
-    stats.setxtime += @_time setchildx!(sp, job.parentnode, target(sp, job.tr), job.parent.sol)
+    stats.setxtime += @_time setchildx!(sp, job.parentnode, job.tr, job.parent.sol)
     stats.nsetx += 1
     stats.solvertime += @_time job.sol = solve!(sp, node)
     job.parent.childsols[job.tr] = get(job.sol)

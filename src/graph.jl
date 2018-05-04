@@ -24,6 +24,7 @@ end
 
 ET = LightGraphs.SimpleGraphs.SimpleEdge{Int}
 
+source(sp::AbstractStochasticProgram, edge::ET) = edge.src
 target(sp::AbstractStochasticProgram, edge::ET) = edge.dst
 
 mutable struct StochasticProgram{S} <: AbstractStochasticProgram
@@ -111,11 +112,11 @@ function solve!(sp::StochasticProgram, node)
     getsolution(nodedata(sp, node).nlds)
 end
 
-function setchildx!(sp::StochasticProgram, node, child, sol::Solution)
+function setchildx!(sp::StochasticProgram, node, tr, sol::Solution)
+    @assert source(sp, tr) == node
     data = nodedata(sp, node)
-    edge = Edge(node, child)
-    if haskey(sp.childT, edge)
-        T = data.childT[edge]
+    if haskey(sp.childT, tr)
+        T = data.childT[tr]
         x = T * sol.x
         if sol.xuray !== nothing
             xuray = T * sol.xuray
@@ -124,10 +125,11 @@ function setchildx!(sp::StochasticProgram, node, child, sol::Solution)
         x = sol.x
         xuray = sol.xuray
     end
-    setparentx(nodedata(sp, child).nlds, x, xuray, sol.objvalxuray)
+    setparentx(nodedata(sp, target(sp, tr)).nlds, x, xuray, sol.objvalxuray)
 end
 
 function getθvalue(sp::StochasticProgram, node, tr, sol::Solution)
+    @assert source(sp, tr) == node
     @assert length(sol.θ) == outdegree(sp, node)
     getθvalue(sol, edgeid(sp, tr))
 end

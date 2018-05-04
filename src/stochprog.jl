@@ -33,9 +33,9 @@ Returns the probability to take the edge `edge` in the stochastic problem `sp`.
 function probability end
 
 """
-    setchildx!(sp::AbstractStochasticProgram, node, child, sol)
+    setchildx!(sp::AbstractStochasticProgram, node, tr, sol)
 
-Sets the parent solution of `child` as `sol`, the solution obtained at `node`.
+Sets the parent solution of the transition `tr` as `sol`, the solution obtained at `node`.
 """
 function setchildx! end
 
