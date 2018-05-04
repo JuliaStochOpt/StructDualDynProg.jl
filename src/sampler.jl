@@ -80,7 +80,7 @@ function samplepaths(pathsampler::NumPathsPathSampler, g::AbstractStochasticProg
         infpaths(g, node)
     else
         den = numberofpaths(g, node, t-1, num_stages)
-        pmf = map(tr->numberofpaths(g, target(tr), t, num_stages) / den, out_transitions(g, node))
+        pmf = map(tr->numberofpaths(g, target(g, tr), t, num_stages) / den, out_transitions(g, node))
         _samplepaths(npaths, pmf, pathsampler.semirandom, true)
     end
 end

@@ -24,6 +24,8 @@ end
 
 ET = LightGraphs.SimpleGraphs.SimpleEdge{Int}
 
+target(sp::AbstractStochasticProgram, edge::ET) = edge.dst
+
 mutable struct StochasticProgram{S} <: AbstractStochasticProgram
     graph::LightGraphs.SimpleGraphs.SimpleDiGraph{Int}
     eid::Dict{ET, Int}
@@ -44,7 +46,6 @@ statedim(sp::StochasticProgram, node) = nodedata(sp, node).nlds.nx
 out_transitions(sp::StochasticProgram, node::Int) = Edge.(node, outneighbors(sp.graph, node))
 # May be different from the number of out-neighbors if there are multiple transitions with the same target
 LightGraphs.outdegree(sp::StochasticProgram, node::Int) = length(out_transitions(sp, node))
-target(edge::ET) = edge.dst
 
 getmaster(sp::StochasticProgram) = 1
 
@@ -56,7 +57,7 @@ function numberofpaths(sp::StochasticProgram, node, len)
     else
         npath = nodedata(sp, node).npath
         if !(len in keys(npath))
-            npath[len] = sum(map(tr -> numberofpaths(sp, target(tr), len-1), out_transitions(sp, node)))
+            npath[len] = sum(map(tr -> numberofpaths(sp, target(sp, tr), len-1), out_transitions(sp, node)))
         end
         npath[len]
     end

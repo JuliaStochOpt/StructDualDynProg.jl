@@ -7,7 +7,7 @@ struct FeasibilityCutGenerator <: AbstractCutGenerator
 end
 function gencut(::FeasibilityCutGenerator, sp, parent, path, stats, ztol)
     for tr in out_transitions(sp, parent)
-        child = target(tr)
+        child = target(sp, tr)
         if haskey(path.childsols, child)
             childsol = path.childsols[child]
             if getstatus(childsol) == :Infeasible
@@ -19,7 +19,7 @@ function gencut(::FeasibilityCutGenerator, sp, parent, path, stats, ztol)
 end
 function applycut(::FeasibilityCutGenerator, sp, node)
     for tr in out_transitions(sp, node)
-        apply_feasibility_cuts!(sp, target(tr))
+        apply_feasibility_cuts!(sp, target(sp, tr))
     end
 end
 
@@ -62,7 +62,7 @@ function gencut(::MultiCutGenerator, sp, parent, path, stats, ztol)
 end
 function applycut(::MultiCutGenerator, sp, node)
     for tr in out_transitions(sp, node)
-        apply_optimality_cuts_for_parent!(sp, target(tr))
+        apply_optimality_cuts_for_parent!(sp, target(sp, tr))
     end
 end
 
