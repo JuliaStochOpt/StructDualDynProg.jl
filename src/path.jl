@@ -62,7 +62,7 @@ function merge!(p::SDDPPath, q::SDDPPath)
     append!(p.K, q.K)
 end
 
-mutable struct SDDPJob{SolT, NodeT}
+mutable struct Job{SolT, NodeT}
     sol::Nullable{SolT}
     proba::Vector{Float64}
     K::Vector{Int}
@@ -70,12 +70,12 @@ mutable struct SDDPJob{SolT, NodeT}
     parent::SDDPPath{SolT}
     child::NodeT
 
-    function SDDPJob{NodeT}(proba::Vector{Float64}, K::Vector{Int}, parentnode::NodeT, parent::SDDPPath{SolT}, child::NodeT) where {SolT, NodeT}
+    function Job{NodeT}(proba::Vector{Float64}, K::Vector{Int}, parentnode::NodeT, parent::SDDPPath{SolT}, child::NodeT) where {SolT, NodeT}
         new{SolT, NodeT}(nothing, proba, K, parentnode, parent, child)
     end
 end
 
-function addjob!(jobsd::Dict{NodeT, Vector{SDDPJob{SolT, NodeT}}}, node::NodeT, job::SDDPJob{SolT, NodeT}) where {SolT, NodeT}
+function addjob!(jobsd::Dict{NodeT, Vector{Job{SolT, NodeT}}}, node::NodeT, job::Job{SolT, NodeT}) where {SolT, NodeT}
     if node in keys(jobsd)
         push!(jobsd[node], job)
     else
@@ -120,7 +120,7 @@ end
 Given paths in `pathsd`, put the paths that have no child in `endedpaths` and sample child jobs using `pathsample` for other paths.
 """
 function childjobs(g::AbstractStochasticProgram, pathsd::Vector{Tuple{NodeT, Vector{SDDPPath{SolT}}}}, pathsampler, t, num_stages, endedpaths) where {SolT, NodeT}
-    jobsd = Dict{NodeT, Vector{SDDPJob{SolT, NodeT}}}()
+    jobsd = Dict{NodeT, Vector{Job{SolT, NodeT}}}()
     for (node, paths) in pathsd
         if !isleaf(g, node)
             for path in paths
@@ -129,7 +129,7 @@ function childjobs(g::AbstractStochasticProgram, pathsd::Vector{Tuple{NodeT, Vec
                 for (i, tr) in enumerate(out_transitions(g, node))
                     child = target(tr)
                     if !iszero(sum(npaths[i])) || needallchildsol(cutgenerator(g, node)) # || t == 2
-                        addjob!(jobsd, child, SDDPJob{NodeT}(path.proba * probability(g, Edge(node, child)), npaths[i], node, path, child))
+                        addjob!(jobsd, child, Job{NodeT}(path.proba * probability(g, Edge(node, child)), npaths[i], node, path, child))
                     end
                 end
             end
@@ -141,11 +141,11 @@ function childjobs(g::AbstractStochasticProgram, pathsd::Vector{Tuple{NodeT, Vec
 end
 
 """
-    jobstopath(jobsd::Dict{NodeT, Vector{SDDPJob{SolT, NodeT}}}, g::AbstractStochasticProgram) where {SolT, NodeT}
+    jobstopath(jobsd::Dict{NodeT, Vector{Job{SolT, NodeT}}}, g::AbstractStochasticProgram) where {SolT, NodeT}
 
 Transforms the jobs `jobsd` created by [`childjobs`](@ref) to to paths.
 """
-function jobstopaths(jobsd::Dict{NodeT, Vector{SDDPJob{SolT, NodeT}}}, g::AbstractStochasticProgram) where {SolT, NodeT}
+function jobstopaths(jobsd::Dict{NodeT, Vector{Job{SolT, NodeT}}}, g::AbstractStochasticProgram) where {SolT, NodeT}
     pathsd = Tuple{NodeT, Vector{SDDPPath{SolT}}}[]
     for (node, jobs) in jobsd
         # We create a job even if there is no path going to the node in case
@@ -162,11 +162,11 @@ function jobstopaths(jobsd::Dict{NodeT, Vector{SDDPJob{SolT, NodeT}}}, g::Abstra
 end
 
 """
-    solvejob!(sp::AbstractStochasticProgram, job::SDDPJob, node, stats)
+    solvejob!(sp::AbstractStochasticProgram, job::Job, node, stats)
 
 Solves the job `job` of node `node`.
 """
-function solvejob!(sp::AbstractStochasticProgram, job::SDDPJob, node, stats)
+function solvejob!(sp::AbstractStochasticProgram, job::Job, node, stats)
     stats.setxtime += @_time setchildx!(sp, job.parentnode, job.child, job.parent.sol)
     stats.nsetx += 1
     stats.solvertime += @_time job.sol = solve!(sp, node)
