@@ -44,9 +44,9 @@ Returns the value of the state of solution `sol`.
 function getstatevalue end
 
 """
-    getθvalue(sp::AbstractStochasticProgram, node, child, sol::AbstractSolution)
+    getθvalue(sp::AbstractStochasticProgram, node, tr, sol::AbstractSolution)
 
-Returns the value of the θ in the solution `sol` of node `node` for its child `child`.
+Returns the value of the θ in the solution `sol` of node `node` for its transition `tr`.
 This assumes that `node` is using `MultiCutGenerator`.
 
     getθvalue(sp::AbstractStochasticProgram, node, sol::AbstractSolution)

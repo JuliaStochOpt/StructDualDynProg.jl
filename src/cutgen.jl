@@ -50,7 +50,7 @@ function gencut(::MultiCutGenerator, sp, parent, path, stats, ztol)
                 aT = a
             end
             x = getstatevalue(path.sol)
-            θ = getθvalue(sp, parent, target(sp, tr), path.sol)
+            θ = getθvalue(sp, parent, tr, path.sol)
             if getstatus(path.sol) == :Unbounded || _lt(θ, β - dot(aT, x), ztol)
                 stats.ocutstime += @_time add_optimality_cut_for_parent!(sp, target(sp, tr), a, β, parent)
                 stats.nocuts += 1

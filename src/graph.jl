@@ -127,9 +127,9 @@ function setchildx!(sp::StochasticProgram, node, child, sol::Solution)
     setparentx(nodedata(sp, child).nlds, x, xuray, sol.objvalxuray)
 end
 
-function getθvalue(sp::StochasticProgram, node, child, sol::Solution)
+function getθvalue(sp::StochasticProgram, node, tr, sol::Solution)
     @assert length(sol.θ) == outdegree(sp, node)
-    getθvalue(sol, edgeid(sp, Edge(node, child)))
+    getθvalue(sol, edgeid(sp, tr))
 end
 
 function getθvalue(sp::StochasticProgram, node, sol::Solution)
