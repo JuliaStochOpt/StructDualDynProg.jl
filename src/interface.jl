@@ -25,9 +25,9 @@ function getSDDPNode(sp::StochasticProgram, m::Model, t, num_stages, solver, par
             num_scen = length(struc.children)
             for id in keys(struc.children)
                 child = getSDDPNode(sp, struc.children[id], t+1, num_stages, solver, newnode, pruningalgo, cutgen, detectlb, newcut)
-                add_scenario_transition!(sp, newnode, child, struc.probability[id])
+                tr = add_scenario_transition!(sp, newnode, child, struc.probability[id])
                 if detectlb
-                    setθbound!(sp, newnode, Edge(newnode, child), getobjectivebound(sp, child))
+                    setθbound!(sp, newnode, tr, getobjectivebound(sp, child))
                 end
             end
         end

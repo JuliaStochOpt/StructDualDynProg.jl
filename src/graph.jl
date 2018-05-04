@@ -95,6 +95,7 @@ function add_scenario_transition!(sp::StochasticProgram, parent, child, proba, c
     childdata = nodedata(sp, child)
     add_scenario_transition!(data.nlds, childdata.fcuts, childdata.ocuts, proba, childT)
     @assert length(data.nlds.childFC) == length(data.nlds.proba) == outdegree(sp, parent)
+    edge
 end
 
 probability(sp::StochasticProgram, edge) = sp.proba[edge]
