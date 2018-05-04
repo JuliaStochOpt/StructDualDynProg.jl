@@ -45,6 +45,7 @@ statedim(sp::StochasticProgram, node) = nodedata(sp, node).nlds.nx
 
 # LightGraphs interface
 out_transitions(sp::StochasticProgram, node::Int) = Edge.(node, outneighbors(sp.graph, node))
+transitiontype(sp::StochasticProgram) = ET
 # May be different from the number of out-neighbors if there are multiple transitions with the same target
 LightGraphs.outdegree(sp::StochasticProgram, node::Int) = length(out_transitions(sp, node))
 

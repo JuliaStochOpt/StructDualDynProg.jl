@@ -16,7 +16,7 @@ function meanstdpaths(z::Vector{Float64}, proba::Vector{Float64}, npaths::Vector
     μ, σ
 end
 
-mutable struct SDDPPath{SolT}
+mutable struct SDDPPath{TT, SolT}
     # Solution of the last node of the path
     sol::SolT
     # The three following arguments are vectors since when we merge paths,
@@ -33,10 +33,10 @@ mutable struct SDDPPath{SolT}
     # Are all the child jobs solved bounded ?
     childs_bounded::Bool
     # List of children solutions
-    childsols::Dict{LightGraphs.SimpleGraphs.SimpleEdge{Int}, SolT}
+    childsols::Dict{TT, SolT}
 
-    function SDDPPath(sol::SolT, z, proba, K, nchilds) where SolT
-        new{SolT}(sol, z, proba, K, true, true, Dict{Int, SolT}())
+    function SDDPPath{TT}(sol::SolT, z, proba, K, nchilds) where {TT, SolT}
+        new{TT, SolT}(sol, z, proba, K, true, true, Dict{TT, SolT}())
     end
 end
 
@@ -62,20 +62,20 @@ function merge!(p::SDDPPath, q::SDDPPath)
     append!(p.K, q.K)
 end
 
-mutable struct Job{SolT, NodeT}
+mutable struct Job{SolT, NodeT, TT}
     sol::Nullable{SolT}
     proba::Vector{Float64}
     K::Vector{Int}
     parentnode::NodeT
-    parent::SDDPPath{SolT}
-    tr::LightGraphs.SimpleGraphs.SimpleEdge{Int}
+    parent::SDDPPath{TT, SolT}
+    tr::TT
 
-    function Job{NodeT}(proba::Vector{Float64}, K::Vector{Int}, parentnode::NodeT, parent::SDDPPath{SolT}, tr::LightGraphs.SimpleGraphs.SimpleEdge{Int}) where {SolT, NodeT}
-        new{SolT, NodeT}(nothing, proba, K, parentnode, parent, tr)
+    function Job{NodeT}(proba::Vector{Float64}, K::Vector{Int}, parentnode::NodeT, parent::SDDPPath{TT, SolT}, tr::TT) where {SolT, NodeT, TT}
+        new{SolT, NodeT, TT}(nothing, proba, K, parentnode, parent, tr)
     end
 end
 
-function addjob!(jobsd::Dict{NodeT, Vector{Job{SolT, NodeT}}}, node::NodeT, job::Job{SolT, NodeT}) where {SolT, NodeT}
+function addjob!(jobsd::Dict{NodeT, Vector{Job{SolT, NodeT, TT}}}, node::NodeT, job::Job{SolT, NodeT, TT}) where {SolT, NodeT, TT}
     if node in keys(jobsd)
         push!(jobsd[node], job)
     else
@@ -84,14 +84,14 @@ function addjob!(jobsd::Dict{NodeT, Vector{Job{SolT, NodeT}}}, node::NodeT, job:
 end
 
 """
-    mergesamepaths(pathsd::Vector{Tuple{NodeT, Vector{SDDPPath{SolT}}}}, stats, ztol) where {SolT, NodeT}
+    mergesamepaths(pathsd::Vector{Tuple{NodeT, Vector{<:SDDPPath}}}, stats, ztol) where NodeT
 
 Find paths that are at the same node with the same parent solution and merge them.
 It could happend that two path diverges (go to different node) but then meet again at the same node, if their parent solution is the same then each path will do exactly the same computation so merging them should save time.
 """
-function mergesamepaths(pathsd::Vector{Tuple{NodeT, Vector{SDDPPath{SolT}}}}, stats, ztol) where {SolT, NodeT}
+function mergesamepaths(pathsd::Vector{Tuple{NodeT, Vector{SDDPPath{TT, SolT}}}}, stats, ztol) where {SolT, NodeT, TT}
     before = sum([sum([sum(path.K) for path in paths]) for (node, paths) in pathsd])
-    newpathsd = Tuple{NodeT, Vector{SDDPPath{SolT}}}[]
+    newpathsd = Tuple{NodeT, Vector{SDDPPath{TT, SolT}}}[]
     stats.mergetime += @_time for (node, paths) in pathsd
         keep = ones(Bool, length(paths))
         merged = false
@@ -115,12 +115,12 @@ function mergesamepaths(pathsd::Vector{Tuple{NodeT, Vector{SDDPPath{SolT}}}}, st
 end
 
 """
-    childjobs(g::AbstractStochasticProgram, pathsd::Vector{Tuple{NodeT, Vector{SDDPPath{SolT}}}}, pathsampler, t, num_stages, endedpaths) where {SolT, NodeT}
+    childjobs(g::AbstractStochasticProgram, pathsd::Vector{Tuple{NodeT, Vector{<:SDDPPath}}}, pathsampler, t, num_stages, endedpaths) where SolT
 
 Given paths in `pathsd`, put the paths that have no child in `endedpaths` and sample child jobs using `pathsample` for other paths.
 """
-function childjobs(g::AbstractStochasticProgram, pathsd::Vector{Tuple{NodeT, Vector{SDDPPath{SolT}}}}, pathsampler, t, num_stages, endedpaths) where {SolT, NodeT}
-    jobsd = Dict{NodeT, Vector{Job{SolT, NodeT}}}()
+function childjobs(g::AbstractStochasticProgram, pathsd::Vector{Tuple{NodeT, Vector{SDDPPath{TT, SolT}}}}, pathsampler, t, num_stages, endedpaths) where {SolT, NodeT, TT}
+    jobsd = Dict{NodeT, Vector{Job{SolT, NodeT, transitiontype(g)}}}()
     for (node, paths) in pathsd
         if !isleaf(g, node)
             for path in paths
@@ -140,12 +140,12 @@ function childjobs(g::AbstractStochasticProgram, pathsd::Vector{Tuple{NodeT, Vec
 end
 
 """
-    jobstopath(jobsd::Dict{NodeT, Vector{Job{SolT, NodeT}}}, g::AbstractStochasticProgram) where {SolT, NodeT}
+    jobstopath(jobsd::Dict{NodeT, Vector{<:Job}}, g::AbstractStochasticProgram)
 
 Transforms the jobs `jobsd` created by [`childjobs`](@ref) to to paths.
 """
-function jobstopaths(jobsd::Dict{NodeT, Vector{Job{SolT, NodeT}}}, g::AbstractStochasticProgram) where {SolT, NodeT}
-    pathsd = Tuple{NodeT, Vector{SDDPPath{SolT}}}[]
+function jobstopaths(jobsd::Dict{NodeT, Vector{Job{SolT, NodeT, TT}}}, g::AbstractStochasticProgram) where {SolT, NodeT, TT}
+    pathsd = Tuple{NodeT, Vector{SDDPPath{TT, SolT}}}[]
     for (node, jobs) in jobsd
         # We create a job even if there is no path going to the node in case
         # we want to create an AveragedCut (since in this case we need to solve all children).
@@ -153,7 +153,7 @@ function jobstopaths(jobsd::Dict{NodeT, Vector{Job{SolT, NodeT}}}, g::AbstractSt
         K = [find(job.K .!= 0) for job in jobs]
         keep = find(Bool[jobs[i].parent.childs_feasible && !isempty(K[i]) for i in 1:length(jobs)])
         if !isempty(keep)
-            paths = SDDPPath{SolT}[SDDPPath(get(jobs[i].sol), jobs[i].parent.z[K[i]]+get(jobs[i].sol).objvalx, jobs[i].proba[K[i]], jobs[i].K[K[i]], outdegree(g, node)) for i in keep]
+            paths = SDDPPath{TT, SolT}[SDDPPath{TT}(get(jobs[i].sol), jobs[i].parent.z[K[i]]+get(jobs[i].sol).objvalx, jobs[i].proba[K[i]], jobs[i].K[K[i]], outdegree(g, node)) for i in keep]
             push!(pathsd, (node, paths))
         end
     end

@@ -51,13 +51,13 @@ function forwardpass!(sp::AbstractStochasticProgram, Ktot::Int, num_stages, verb
     stats.niterations += 1
     infeasibility_detected = getstatus(mastersol) == :Infeasible
 
-    PathT = SDDPPath{typeof(mastersol)}
+    PathT = SDDPPath{transitiontype(sp), typeof(mastersol)}
     TT = Tuple{NodeT, Vector{PathT}}
     pathsd = Vector{Vector{TT}}(num_stages)
     if infeasibility_detected
         pathsd[1] = TT[]
     else
-        pathsd[1] = TT[(master, [SDDPPath(mastersol, [getstateobjectivevalue(mastersol)], [1.], [Ktot], outdegree(sp, master))])]
+        pathsd[1] = TT[(master, [SDDPPath{transitiontype(sp)}(mastersol, [getstateobjectivevalue(mastersol)], [1.], [Ktot], outdegree(sp, master))])]
     end
     endedpaths = PathT[]
 
@@ -110,7 +110,7 @@ function backwardpass!(sp::AbstractStochasticProgram, num_stages, pathsd, pathsa
         # The last stages do not need to be resolved since it does not have any new cut
         if t != num_stages
             # Make jobs
-            endedpaths = SDDPPath[]
+            endedpaths = SDDPPath{transitiontype(sp)}[]
             jobsd = childjobs(sp, pathsd[t-1], pathsampler, t, num_stages, endedpaths) # FIXME shouldn't need pathsampler here
             # Solve Jobs (parallelism possible here)
             solvejobs!(sp, jobsd, stats, stopatinf)
