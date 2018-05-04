@@ -41,7 +41,10 @@ setθbound!(sp::StochasticProgram, node, child, θlb) = setθbound!(nodedata(sp,
 statedim(sp::StochasticProgram, node) = nodedata(sp, node).nlds.nx
 
 # LightGraphs interface
-LightGraphs.outneighbors(sp::StochasticProgram, node::Int) = outneighbors(sp.graph, node)
+out_transitions(sp::StochasticProgram, node::Int) = Edge.(node, outneighbors(sp.graph, node))
+# May be different from the number of out-neighbors if there are multiple transitions with the same target
+LightGraphs.outdegree(sp::StochasticProgram, node::Int) = length(out_transitions(sp, node))
+target(edge::ET) = edge.dst
 
 getmaster(sp::StochasticProgram) = 1
 
@@ -53,7 +56,7 @@ function numberofpaths(sp::StochasticProgram, node, len)
     else
         npath = nodedata(sp, node).npath
         if !(len in keys(npath))
-            npath[len] = sum(map(c -> numberofpaths(sp, c, len-1), outneighbors(sp, node)))
+            npath[len] = sum(map(tr -> numberofpaths(sp, target(tr), len-1), out_transitions(sp, node)))
         end
         npath[len]
     end

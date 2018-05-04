@@ -67,7 +67,7 @@ function samplepaths(pathsampler::ProbaPathSampler, g::AbstractStochasticProgram
     if npaths == -1
         infpaths(g, node)
     else
-        pmf = probability.(g, Edge.(node, outneighbors(g, node)))
+        pmf = probability.(g, out_transitions(g, node))
         _samplepaths(npaths, pmf, pathsampler.semirandom, false)
     end
 end
@@ -80,7 +80,7 @@ function samplepaths(pathsampler::NumPathsPathSampler, g::AbstractStochasticProg
         infpaths(g, node)
     else
         den = numberofpaths(g, node, t-1, num_stages)
-        pmf = map(child->numberofpaths(g, child, t, num_stages) / den, outneighbors(g, node))
+        pmf = map(tr->numberofpaths(g, target(tr), t, num_stages) / den, out_transitions(g, node))
         _samplepaths(npaths, pmf, pathsampler.semirandom, true)
     end
 end
