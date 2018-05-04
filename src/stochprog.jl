@@ -54,9 +54,9 @@ Gets the current bound to the objective of `node`.
 function getobjectivebound end
 
 """
-    setθbound!(sp::AbstractStochasticProgram, node, child, θlb)
+    setθbound!(sp::AbstractStochasticProgram, node, tr, θlb)
 
-Sets the bounds to the objective of the child `child` of `node` to `θlb`.
+Sets the bounds to the objective of the transition `tr` of `node` to `θlb`.
 """
 function setθbound! end
 

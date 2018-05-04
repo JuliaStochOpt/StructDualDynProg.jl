@@ -40,7 +40,7 @@ end
 nodedata(sp::StochasticProgram, node::Int) = sp.data[node]
 
 getobjectivebound(sp::StochasticProgram, node) = getobjectivebound(nodedata(sp, node).nlds)
-setθbound!(sp::StochasticProgram, node, child, θlb) = setθbound!(nodedata(sp, node).nlds, edgeid(sp, Edge(node, child)), θlb)
+setθbound!(sp::StochasticProgram, node, tr, θlb) = setθbound!(nodedata(sp, node).nlds, edgeid(sp, tr), θlb)
 statedim(sp::StochasticProgram, node) = nodedata(sp, node).nlds.nx
 
 # LightGraphs interface
