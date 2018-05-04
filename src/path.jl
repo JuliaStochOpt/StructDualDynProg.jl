@@ -33,7 +33,7 @@ mutable struct SDDPPath{SolT}
     # Are all the child jobs solved bounded ?
     childs_bounded::Bool
     # List of children solutions
-    childsols::Dict{Int, SolT}
+    childsols::Dict{LightGraphs.SimpleGraphs.SimpleEdge{Int}, SolT}
 
     function SDDPPath(sol::SolT, z, proba, K, nchilds) where SolT
         new{SolT}(sol, z, proba, K, true, true, Dict{Int, SolT}())
@@ -68,10 +68,10 @@ mutable struct Job{SolT, NodeT}
     K::Vector{Int}
     parentnode::NodeT
     parent::SDDPPath{SolT}
-    child::NodeT
+    tr::LightGraphs.SimpleGraphs.SimpleEdge{Int}
 
-    function Job{NodeT}(proba::Vector{Float64}, K::Vector{Int}, parentnode::NodeT, parent::SDDPPath{SolT}, child::NodeT) where {SolT, NodeT}
-        new{SolT, NodeT}(nothing, proba, K, parentnode, parent, child)
+    function Job{NodeT}(proba::Vector{Float64}, K::Vector{Int}, parentnode::NodeT, parent::SDDPPath{SolT}, tr::LightGraphs.SimpleGraphs.SimpleEdge{Int}) where {SolT, NodeT}
+        new{SolT, NodeT}(nothing, proba, K, parentnode, parent, tr)
     end
 end
 
@@ -127,9 +127,8 @@ function childjobs(g::AbstractStochasticProgram, pathsd::Vector{Tuple{NodeT, Vec
                 # Adding Jobs
                 npaths = samplepaths(pathsampler, g, node, path.K, t, num_stages)
                 for (i, tr) in enumerate(out_transitions(g, node))
-                    child = target(g, tr)
                     if !iszero(sum(npaths[i])) || needallchildsol(cutgenerator(g, node)) # || t == 2
-                        addjob!(jobsd, child, Job{NodeT}(path.proba * probability(g, Edge(node, child)), npaths[i], node, path, child))
+                        addjob!(jobsd, target(g, tr), Job{NodeT}(path.proba * probability(g, tr), npaths[i], node, path, tr))
                     end
                 end
             end
@@ -167,10 +166,10 @@ end
 Solves the job `job` of node `node`.
 """
 function solvejob!(sp::AbstractStochasticProgram, job::Job, node, stats)
-    stats.setxtime += @_time setchildx!(sp, job.parentnode, job.child, job.parent.sol)
+    stats.setxtime += @_time setchildx!(sp, job.parentnode, target(sp, job.tr), job.parent.sol)
     stats.nsetx += 1
     stats.solvertime += @_time job.sol = solve!(sp, node)
-    job.parent.childsols[job.child] = get(job.sol)
+    job.parent.childsols[job.tr] = get(job.sol)
     stats.nsolved += 1
     if get(job.sol).status == :Infeasible
         job.parent.childs_feasible = false
