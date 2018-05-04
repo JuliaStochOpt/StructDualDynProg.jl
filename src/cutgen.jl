@@ -44,8 +44,8 @@ function gencut(::MultiCutGenerator, sp, parent, path, stats, ztol)
         if status != :Unbounded
             a, β = optimality_cut(sol)
             @assert status == :Optimal
-            if !isnull(sp.out_transitions[tr.src][edgeid(sp, tr)].childT)
-                aT = get(sp.out_transitions[tr.src][edgeid(sp, tr)].childT)' * a
+            if !isnull(tr.childT)
+                aT = get(tr.childT)' * a
             else
                 aT = a
             end
@@ -78,8 +78,8 @@ function gencut(::AvgCutGenerator, sp, parent, path, stats, ztol)
         @assert status != :Unbounded
         a, β = optimality_cut(sol)
         @assert status == :Optimal
-        if !isnull(sp.out_transitions[tr.src][edgeid(sp, tr)].childT)
-            aT = get(sp.out_transitions[tr.src][edgeid(sp, tr)].childT)' * a
+        if !isnull(tr.childT)
+            aT = get(tr.childT)' * a
         else
             aT = a
         end

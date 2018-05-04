@@ -96,7 +96,8 @@
 
             root = 1
             newnode = getSDDPNode(sp, m3, 1, 1, solver, root, AvgCutPruningAlgo(-1), cutmode)
-            setprobability!(sp, LightGraphs.Edge(root, 2), 1/2)
+            @test length(sp.out_transitions[1]) == 1
+            setprobability!(sp, sp.out_transitions[1][1], 1/2)
             add_scenario_transition!(sp, root, newnode, 1/2)
             sol = SDDP(sp, num_stages, K = K, stopcrit = Pereira(0.1) | IterLimit(10), verbose = 0)
             # 2 on Mac OS and Windows, 3 otherwise
