@@ -22,21 +22,42 @@ function Base.show(io::IO, data::NodeData)
     println(io, "Node of $(data.nlds.nx) variables")
 end
 
-ET = LightGraphs.SimpleGraphs.SimpleEdge{Int}
-
-source(sp::AbstractStochasticProgram, edge::ET) = edge.src
-target(sp::AbstractStochasticProgram, edge::ET) = edge.dst
-
-mutable struct StochasticProgram{S} <: AbstractStochasticProgram
-    graph::LightGraphs.SimpleGraphs.SimpleDiGraph{Int}
-    eid::Dict{ET, Int}
-    proba::Dict{ET, S}
-    childT::Dict{ET, AbstractMatrix{S}}
-    data::Vector{NodeData{S}}
-    function StochasticProgram{S}() where S
-        new{S}(DiGraph(), Dict{ET, Int}(), Dict{ET, S}(), Dict{ET, AbstractMatrix{S}}(), NodeData{S}[])
+# Mutable for setprobability!
+mutable struct Transition{S}
+    source::Int
+    target::Int
+    σ::Int # FIXME NLDS is the only one who needs to map out_transitions to 1:n when it uses AveragedCut, it should have an internal dictionary
+    proba::S
+    childT::Nullable{AbstractMatrix{S}}
+    function Transition(source::Int, target::Int, σ::Int, proba::S, childT) where S
+        new{S}(source, target, σ, proba, childT)
     end
 end
+#source(sp::AbstractStochasticProgram, tr::Transition) = tr.source
+#target(sp::AbstractStochasticProgram, tr::Transition) = tr.target
+#probability(sp::AbstractStochasticProgram, tr::Transition) = tr.proba
+
+ET = LightGraphs.SimpleGraphs.SimpleEdge{Int}
+
+source(sp::AbstractStochasticProgram, tr::ET) = tr.src
+target(sp::AbstractStochasticProgram, tr::ET) = tr.dst
+probability(sp::AbstractStochasticProgram, tr::ET) = sp.out_transitions[tr.src][edgeid(sp, tr)].proba
+
+"""
+    StochasticProgram{S, TT}
+
+StochasticProgram of coefficient type `S` and transition type `TT`.
+"""
+mutable struct StochasticProgram{S} <: AbstractStochasticProgram
+    graph::LightGraphs.SimpleGraphs.SimpleDiGraph{Int}
+    out_transitions::Vector{Vector{Transition{S}}}
+    data::Vector{NodeData{S}}
+    function StochasticProgram{S}() where S
+        new{S}(DiGraph(), Transition{S}[], NodeData{S}[])
+    end
+end
+#StochasticProgram{S}() where S = StochasticProgram{S, Transition{S}}()
+
 nodedata(sp::StochasticProgram, node::Int) = sp.data[node]
 
 getobjectivebound(sp::StochasticProgram, node) = getobjectivebound(nodedata(sp, node).nlds)
@@ -70,27 +91,21 @@ function setcutgenerator!(sp::StochasticProgram, node, cutgen::AbstractOptimalit
     nodedata(sp, node).nlds.cutgen = cutgen
 end
 
-function add_scenario_state!(sp::StochasticProgram, data::NodeData)
+function add_scenario_state!(sp::StochasticProgram{S}, data::NodeData) where S
+    push!(sp.out_transitions, Transition{S}[])
     @assert add_vertex!(sp.graph)
     push!(sp.data, data)
-    @assert nv(sp.graph) == length(sp.data)
+    @assert length(sp.out_transitions) == nv(sp.graph) == length(sp.data)
     length(sp.data)
 end
 
 function add_scenario_transition!(sp::StochasticProgram, parent, child, proba, childT=nothing)
+    push!(sp.out_transitions[parent], Transition(parent, child, outdegree(sp, parent)+1, proba, childT))
     edge = Edge(parent, child)
     if !add_edge!(sp.graph, edge)
         error("Edge already in the graph, multiple edges not supported yet")
     end
-    @assert !haskey(sp.eid, edge)
-    @assert !haskey(sp.proba, edge)
-    @assert !haskey(sp.childT, edge)
     data = nodedata(sp, parent)
-    sp.eid[edge] = outdegree(sp, parent)
-    sp.proba[edge] = proba
-    if childT !== nothing
-        sp.childT[edge] = childT
-    end
     empty!(data.npath)
     childdata = nodedata(sp, child)
     add_scenario_transition!(data.nlds, childdata.fcuts, childdata.ocuts, proba, childT)
@@ -98,16 +113,16 @@ function add_scenario_transition!(sp::StochasticProgram, parent, child, proba, c
     edge
 end
 
-probability(sp::StochasticProgram, edge) = sp.proba[edge]
-
 function setprobability!(sp::StochasticProgram, edge, proba)
-    sp.proba[edge] = proba
+    sp.out_transitions[edge.src][edgeid(sp, edge)].proba = proba
     data = nodedata(sp, src(edge))
     setprobability!(data.nlds, edgeid(sp, edge), proba)
 end
 
-function edgeid(sp::StochasticProgram, edge)
-    sp.eid[edge]
+function edgeid(sp::StochasticProgram, edge::ET)
+    i = findfirst(tr -> tr.target == edge.dst, sp.out_transitions[edge.src])
+    @assert i == sp.out_transitions[edge.src][i].σ
+    i
 end
 
 function solve!(sp::StochasticProgram, node)
@@ -117,8 +132,8 @@ end
 function setchildx!(sp::StochasticProgram, node, tr, sol::Solution)
     @assert source(sp, tr) == node
     data = nodedata(sp, node)
-    if haskey(sp.childT, tr)
-        T = data.childT[tr]
+    if !isnull(sp.out_transitions[tr.src][edgeid(sp, tr)].childT)
+        T = get(sp.out_transitions[tr.src][edgeid(sp, tr)].childT)
         x = T * sol.x
         if sol.xuray !== nothing
             xuray = T * sol.xuray
