@@ -22,8 +22,10 @@ function Base.show(io::IO, data::NodeData)
     println(io, "Node of $(data.nlds.nx) variables")
 end
 
+abstract type AbstractTransition end
+
 # Mutable for setprobability!
-mutable struct Transition{S}
+mutable struct Transition{S} <: AbstractTransition
     source::Int
     target::Int
     σ::Int # FIXME NLDS is the only one who needs to map out_transitions to 1:n when it uses AveragedCut, it should have an internal dictionary
@@ -114,9 +116,8 @@ function solve!(sp::StochasticProgram, node)
     getsolution(nodedata(sp, node).nlds)
 end
 
-function setchildx!(sp::StochasticProgram, node, tr, sol::Solution)
-    @assert source(sp, tr) == node
-    data = nodedata(sp, node)
+function setchildx!(sp::StochasticProgram, tr, sol::Solution)
+    data = nodedata(sp, source(sp, tr))
     if !isnull(tr.childT)
         T = get(tr.childT)
         x = T * sol.x
@@ -130,9 +131,8 @@ function setchildx!(sp::StochasticProgram, node, tr, sol::Solution)
     setparentx(nodedata(sp, target(sp, tr)).nlds, x, xuray, sol.objvalxuray)
 end
 
-function getθvalue(sp::StochasticProgram, node, tr, sol::Solution)
-    @assert source(sp, tr) == node
-    @assert length(sol.θ) == outdegree(sp, node)
+function getθvalue(sp::StochasticProgram, tr::AbstractTransition, sol::Solution)
+    @assert length(sol.θ) == outdegree(sp, source(sp, tr))
     getθvalue(sol, edgeid(sp, tr))
 end
 
