@@ -204,8 +204,10 @@ function setθbound!(nlds::NLDS, i, θlb)
         nlds.θlb[i] = θlb
     end
 end
+# Returns the lower bounds and cones for θ
 function θC(nlds::NLDS)
     if nlds.nθ == length(nlds.θlb)
+        # Multi cut
         θlb = nlds.θlb
         if length(nlds.θfree) < nlds.nθ
             bounded = collect(setdiff(IntSet(1:nlds.nθ), nlds.θfree))
@@ -218,6 +220,7 @@ function θC(nlds::NLDS)
             θC = [(:Free, collect(nlds.nx+(1:nlds.nθ)))]
         end
     elseif nlds.nθ == 1
+        # Averaged cut
         if isempty(nlds.θfree)
             θlb = [dot(nlds.proba, nlds.θlb)]
             θC = [(:NonNeg, [nlds.nx+1])]
@@ -225,6 +228,9 @@ function θC(nlds::NLDS)
             θlb = [0.]
             θC = [(:Free, [nlds.nx+1])]
         end
+    else
+        θlb = Float64[]
+        θC = Tuple{Symbol, Vector{Int}}[]
     end
     θlb, θC
 end
