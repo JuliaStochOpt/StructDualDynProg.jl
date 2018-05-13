@@ -121,7 +121,8 @@ function setchildx!(sp::StochasticProgram, tr, sol::Solution)
     if !isnull(tr.childT)
         T = get(tr.childT)
         x = T * sol.x
-        if sol.xuray !== nothing
+        xuray = sol.xuray
+        if xuray !== nothing
             xuray = T * sol.xuray
         end
     else
