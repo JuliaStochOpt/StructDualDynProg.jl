@@ -1,4 +1,3 @@
-export AbstractPathSampler
 abstract type AbstractPathSampler end
 
 function _samplepaths!(_npaths, npaths, pmf, semirandom::Bool, canmodifypmf::Bool)
@@ -67,7 +66,7 @@ function samplepaths(pathsampler::ProbaPathSampler, g::AbstractStochasticProgram
     if npaths == -1
         infpaths(g, node)
     else
-        pmf = probability.(g, out_transitions(g, node))
+        pmf = get.(g, Probability(), out_transitions(g, node))
         _samplepaths(npaths, pmf, pathsampler.semirandom, false)
     end
 end
@@ -79,8 +78,9 @@ function samplepaths(pathsampler::NumPathsPathSampler, g::AbstractStochasticProg
     if npaths == -1
         infpaths(g, node)
     else
-        den = numberofpaths(g, node, t-1, num_stages)
-        pmf = map(tr->numberofpaths(g, target(g, tr), t, num_stages) / den, out_transitions(g, node))
+        # TODO check if needs +-1 in argument of NumberOfPathsFrom
+        den = get(g, NumberOfPathsFrom(num_stages - (t-1)), node)
+        pmf = map(tr->get(g, NumberOfPathsFrom(num_stages - t), target(g, tr)) / den, out_transitions(g, node))
         _samplepaths(npaths, pmf, pathsampler.semirandom, true)
     end
 end

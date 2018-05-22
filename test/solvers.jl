@@ -9,12 +9,12 @@ function try_import(name::Symbol)
     end
 end
 
-grb = try_import(:Gurobi)
+grb = false && try_import(:Gurobi)
 isgrb(solver) = contains(string(typeof(solver)),"GurobiSolver")
-cpx = try_import(:CPLEX)
+cpx = false && try_import(:CPLEX)
 iscpx(solver) = contains(string(typeof(solver)),"CplexSolver")
-xpr = try_import(:Xpress)
-clp = try_import(:Clp)
+xpr = false && try_import(:Xpress)
+clp = false && try_import(:Clp)
 isclp(solver) = contains(string(typeof(solver)),"ClpSolver")
 glp = try_import(:GLPKMathProgInterface)
 msk = false && try_import(:Mosek)

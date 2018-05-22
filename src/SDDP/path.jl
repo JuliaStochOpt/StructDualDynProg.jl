@@ -48,11 +48,11 @@ function meanstdpaths(paths::Vector{<:SDDPPath}, Ktot)
 end
 
 function Base.isapprox(p::SDDPPath, q::SDDPPath)
-    Base.isapprox(getstatevalue(p.sol), getstatevalue(q.sol))
+    Base.isapprox(SOI.getstatevalue(p.sol), SOI.getstatevalue(q.sol))
 end
 
 function canmerge(p::SDDPPath, q::SDDPPath, ztol)
-    _isapprox(getstatevalue(p.sol), getstatevalue(q.sol), ztol)
+    SOI._isapprox(SOI.getstatevalue(p.sol), SOI.getstatevalue(q.sol), ztol)
 end
 
 function merge!(p::SDDPPath, q::SDDPPath)
@@ -92,7 +92,7 @@ It could happend that two path diverges (go to different node) but then meet aga
 function mergesamepaths(pathsd::Vector{Tuple{NodeT, Vector{SDDPPath{TT, SolT}}}}, stats, ztol) where {SolT, NodeT, TT}
     before = sum([sum([sum(path.K) for path in paths]) for (node, paths) in pathsd])
     newpathsd = Tuple{NodeT, Vector{SDDPPath{TT, SolT}}}[]
-    stats.mergetime += @_time for (node, paths) in pathsd
+    stats.mergetime += SOI.@_time for (node, paths) in pathsd
         keep = ones(Bool, length(paths))
         merged = false
         for i in 1:length(paths)
@@ -115,11 +115,11 @@ function mergesamepaths(pathsd::Vector{Tuple{NodeT, Vector{SDDPPath{TT, SolT}}}}
 end
 
 """
-    childjobs(g::AbstractStochasticProgram, pathsd::Vector{Tuple{NodeT, Vector{<:SDDPPath}}}, pathsampler, t, num_stages, endedpaths) where SolT
+    childjobs(g::SOI.AbstractStochasticProgram, pathsd::Vector{Tuple{NodeT, Vector{<:SDDPPath}}}, pathsampler, t, num_stages, endedpaths) where SolT
 
 Given paths in `pathsd`, put the paths that have no child in `endedpaths` and sample child jobs using `pathsample` for other paths.
 """
-function childjobs(g::AbstractStochasticProgram, pathsd::Vector{Tuple{NodeT, Vector{SDDPPath{TT, SolT}}}}, pathsampler, t, num_stages, endedpaths) where {SolT, NodeT, TT}
+function childjobs(g::SOI.AbstractStochasticProgram, pathsd::Vector{Tuple{NodeT, Vector{SDDPPath{TT, SolT}}}}, pathsampler, t, num_stages, endedpaths) where {SolT, NodeT, TT}
     jobsd = Dict{NodeT, Vector{Job{SolT, NodeT, transitiontype(g)}}}()
     for (node, paths) in pathsd
         if !isleaf(g, node)
@@ -140,11 +140,11 @@ function childjobs(g::AbstractStochasticProgram, pathsd::Vector{Tuple{NodeT, Vec
 end
 
 """
-    jobstopath(jobsd::Dict{NodeT, Vector{<:Job}}, g::AbstractStochasticProgram)
+    jobstopath(jobsd::Dict{NodeT, Vector{<:Job}}, g::SOI.AbstractStochasticProgram)
 
 Transforms the jobs `jobsd` created by [`childjobs`](@ref) to to paths.
 """
-function jobstopaths(jobsd::Dict{NodeT, Vector{Job{SolT, NodeT, TT}}}, g::AbstractStochasticProgram) where {SolT, NodeT, TT}
+function jobstopaths(jobsd::Dict{NodeT, Vector{Job{SolT, NodeT, TT}}}, g::SOI.AbstractStochasticProgram) where {SolT, NodeT, TT}
     pathsd = Tuple{NodeT, Vector{SDDPPath{TT, SolT}}}[]
     for (node, jobs) in jobsd
         # We create a job even if there is no path going to the node in case
@@ -161,14 +161,14 @@ function jobstopaths(jobsd::Dict{NodeT, Vector{Job{SolT, NodeT, TT}}}, g::Abstra
 end
 
 """
-    solvejob!(sp::AbstractStochasticProgram, job::Job, node, stats)
+    solvejob!(sp::SOI.AbstractStochasticProgram, job::Job, node, stats)
 
 Solves the job `job` of node `node`.
 """
-function solvejob!(sp::AbstractStochasticProgram, job::Job, node, stats)
-    stats.setxtime += @_time setchildx!(sp, job.tr, job.parent.sol)
+function solvejob!(sp::SOI.AbstractStochasticProgram, job::Job, node, stats)
+    stats.setxtime += SOI.@_time SOI.set!(sp, SOI.SourceSolution(), job.tr, job.parent.sol)
     stats.nsetx += 1
-    stats.solvertime += @_time job.sol = solve!(sp, node)
+    stats.solvertime += SOI.@_time job.sol = SOI.solve!(sp, node)
     job.parent.childsols[job.tr] = get(job.sol)
     stats.nsolved += 1
     if get(job.sol).status == :Infeasible

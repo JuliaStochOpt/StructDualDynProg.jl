@@ -1,11 +1,24 @@
 export AbstractCutGenerator, AbstractOptimalityCutGenerator, NoOptimalityCutGenerator, MultiCutGenerator, AvgCutGenerator
 export nθ, solveallchildren, needallchildsol
-abstract type AbstractCutGenerator end
-abstract type AbstractOptimalityCutGenerator <: AbstractCutGenerator end
 
-struct FeasibilityCutGenerator <: AbstractCutGenerator
-end
-function gencut(::FeasibilityCutGenerator, sp, parent, path, stats, ztol)
+abstract type AbstractCutGenerator end
+abstract type AbstractCut end
+abstract type AbstractOptimalityCutGenerator <: AbstractCutGenerator end
+abstract type AbstractOptimalityCut <: AbstractCut end
+
+"""
+    add_cut!(sp::AbstractStochasticProgram, tr::AbstractTransition, cut::AbstractCut)
+
+At the cut `cut` to the transition `tr`.
+"""
+function add_cut! end
+
+struct FeasibilityCutGenerator <: AbstractCutGenerator end
+#struct FeasibilityCut{T, VT::AbstractVector{T}} <: AbstractCut
+#    a::VT
+#    β::T
+#end
+function gencut(::FeasibilityCutGenerator, sp::AbstractStochasticProgram, parent, path, stats, ztol)
     for tr in out_transitions(sp, parent)
         if haskey(path.childsols, tr)
             childsol = path.childsols[tr]
@@ -83,7 +96,7 @@ function gencut(::AvgCutGenerator, sp, parent, path, stats, ztol)
         else
             aT = a
         end
-        proba = probability(sp, tr)
+        proba = get(sp, Probability(), tr)
         avga += proba * aT
         avgβ += proba * β
     end

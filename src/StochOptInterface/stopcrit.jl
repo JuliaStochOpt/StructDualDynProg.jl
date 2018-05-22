@@ -1,6 +1,3 @@
-import Base.|, Base.&
-export stop, AbstractStoppingCriterion, OrStoppingCriterion, AndStoppingCriterion, IterLimit, Pereira, CutLimit, TimeLimit
-
 abstract type AbstractStoppingCriterion end
 
 """
@@ -29,7 +26,7 @@ function stop(s::OrStoppingCriterion, stats::AbstractSDDPStats, totalstats::Abst
     stop(s.lhs, stats, totalstats) || stop(s.rhs, stats, totalstats)
 end
 
-function (|)(lhs::AbstractStoppingCriterion, rhs::AbstractStoppingCriterion)
+function Base.:(|)(lhs::AbstractStoppingCriterion, rhs::AbstractStoppingCriterion)
     OrStoppingCriterion(lhs, rhs)
 end
 
@@ -47,7 +44,7 @@ function stop(s::AndStoppingCriterion, stats::AbstractSDDPStats, totalstats::Abs
     stop(s.lhs, stats, totalstats) && stop(s.rhs, stats, totalstats)
 end
 
-function (&)(lhs::AbstractStoppingCriterion, rhs::AbstractStoppingCriterion)
+function Base.:(&)(lhs::AbstractStoppingCriterion, rhs::AbstractStoppingCriterion)
     AndStoppingCriterion(lhs, rhs)
 end
 

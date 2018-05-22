@@ -15,7 +15,7 @@ function meanstdpaths(paths::Vector{WaitAndSeePath}, totalK)
     meanstdpaths(z, proba, npaths, totalK)
 end
 
-function waitandsee(sp::AbstractStochasticProgram, num_stages, solver, totalK=25, verbose=0)
+function waitandsee(sp::SOI.AbstractStochasticProgram, num_stages, solver, totalK=25, verbose=0)
     master = getmaster(sp)
     paths = WaitAndSeePath[WaitAndSeePath(master, NLDS[nodedata(sp, master).nlds], .0, 1., totalK)]
     for t in 2:num_stages

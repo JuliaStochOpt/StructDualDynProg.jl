@@ -1,5 +1,3 @@
-export AbstractSDDPStats
-
 abstract type AbstractSDDPStats end
 
 mutable struct SDDPStats <: AbstractSDDPStats
@@ -34,14 +32,12 @@ mutable struct SDDPStats <: AbstractSDDPStats
     time::Float64
 end
 
-SDDPStats() = SDDPStats(0, .0, 0, .0, 0, .0, 0, .0, 0, .0, 0, 0, 0, Inf, 0, 0)
-
-import Base: +, show
+SDDPStats() = SDDPStats(0, 0.0, 0, 0.0, 0, 0.0, 0, 0.0, 0, 0.0, 0, 0, 0, Inf, 0, 0)
 
 # Add two `SDDPStats` objects and return a new `SDDPStats`
 # The second SDDPStats is supposed to be more up to date that the first one
 # WARNING: the addition is currently non commutative !
-function +(a::SDDPStats, b::SDDPStats)
+function Base.:(+)(a::SDDPStats, b::SDDPStats)
     SDDPStats(a.nsolved + b.nsolved, a.solvertime + b.solvertime,
     a.nmerged + b.nmerged, a.mergetime  + b.mergetime,
     a.nfcuts  + b.nfcuts , a.fcutstime  + b.fcutstime,

@@ -22,10 +22,8 @@ function Base.show(io::IO, data::NodeData)
     println(io, "Node of $(data.nlds.nx) variables")
 end
 
-abstract type AbstractTransition end
-
 # Mutable for setprobability!
-mutable struct Transition{S} <: AbstractTransition
+mutable struct Transition{S} <: SOI.AbstractTransition
     source::Int
     target::Int
     σ::Int # FIXME NLDS is the only one who needs to map out_transitions to 1:n when it uses AveragedCut, it should have an internal dictionary
@@ -35,16 +33,16 @@ mutable struct Transition{S} <: AbstractTransition
         new{S}(source, target, σ, proba, childT)
     end
 end
-source(sp::AbstractStochasticProgram, tr::Transition) = tr.source
-target(sp::AbstractStochasticProgram, tr::Transition) = tr.target
-probability(sp::AbstractStochasticProgram, tr::Transition) = tr.proba
+source(::SOI.AbstractStochasticProgram, tr::Transition) = tr.source
+target(::SOI.AbstractStochasticProgram, tr::Transition) = tr.target
+SOI.get(::SOI.AbstractStochasticProgram, ::SOI.Probability, tr::Transition) = tr.proba
 
 """
     StochasticProgram{S, TT}
 
 StochasticProgram of coefficient type `S` and transition type `TT`.
 """
-mutable struct StochasticProgram{S, TT} <: AbstractStochasticProgram
+mutable struct StochasticProgram{S, TT} <: SOI.AbstractStochasticProgram
     out_transitions::Vector{Vector{TT}} # out_transitions[i] : outgoing transitions for node i
     data::Vector{NodeData{S}}           # data[i] : data for node i
     function StochasticProgram{S, TT}() where {S, TT}
@@ -55,9 +53,9 @@ StochasticProgram{S}() where S = StochasticProgram{S, Transition{S}}()
 
 nodedata(sp::StochasticProgram, node::Int) = sp.data[node]
 
-getobjectivebound(sp::StochasticProgram, node) = getobjectivebound(nodedata(sp, node).nlds)
-setθbound!(sp::StochasticProgram, node, tr, θlb) = setθbound!(nodedata(sp, node).nlds, edgeid(sp, tr), θlb)
-statedim(sp::StochasticProgram, node) = nodedata(sp, node).nlds.nx
+SOI.get(::StochasticProgram, ::SOI.StateObjectiveValueBound, state) = getobjectivebound(nodedata(sp, node).nlds)
+SOI.set!(::StochasticProgram, ::SOI.TransitionObjectiveValueBound, tr::Transition, θlb) = setθbound!(nodedata(sp, source(sp, tr)), edgeid(sp, tr), θlb)
+SOI.get(sp::StochasticProgram, ::SOI.Dimension, state) = nodedata(sp, state).nlds.nx
 
 # LightGraphs interface
 out_transitions(sp::StochasticProgram, node::Int) = sp.out_transitions[node]
@@ -65,10 +63,11 @@ transitiontype(::StochasticProgram{S, TT}) where {S, TT} = TT
 # May be different from the number of out-neighbors if there are multiple transitions with the same target
 LightGraphs.outdegree(sp::StochasticProgram, node::Int) = length(out_transitions(sp, node))
 
-getmaster(sp::StochasticProgram) = 1
+SOI.get(::StochasticProgram, ::SOI.MasterState) = 1
 
 # If the graph is not a tree, this will loop if I don't use a num_stages limit
-function numberofpaths(sp::StochasticProgram, node, len)
+function SOI.get(sp::StochasticProgram, nop::SOI.NumberOfPathsFrom, node)
+    len = nop.length
     @assert len >= 0
     if iszero(len) || isleaf(sp, node)
         1
@@ -81,19 +80,19 @@ function numberofpaths(sp::StochasticProgram, node, len)
     end
 end
 
-cutgenerator(sp::StochasticProgram, node) = nodedata(sp, node).nlds.cutgen
-function setcutgenerator!(sp::StochasticProgram, node, cutgen::AbstractOptimalityCutGenerator)
+SOI.get(sp::StochasticProgram, ::SOI.CutGenerator, node) = nodedata(sp, node).nlds.cutgen
+function SOI.set!(sp::StochasticProgram, ::SOI.CutGenerator, node, cutgen::SOI.AbstractOptimalityCutGenerator)
     nodedata(sp, node).nlds.cutgen = cutgen
 end
 
-function add_scenario_state!(sp::StochasticProgram{S}, data::NodeData) where S
+function SOI.add_scenario_state!(sp::StochasticProgram{S}, data::NodeData) where S
     push!(sp.out_transitions, Transition{S}[])
     push!(sp.data, data)
     @assert length(sp.out_transitions) == length(sp.data)
     length(sp.data)
 end
 
-function add_scenario_transition!(sp::StochasticProgram, parent, child, proba, childT=nothing)
+function SOI.add_scenario_transition!(sp::StochasticProgram, parent, child, proba, childT=nothing)
     tr = Transition(parent, child, outdegree(sp, parent)+1, proba, childT)
     push!(sp.out_transitions[parent], tr)
     data = nodedata(sp, parent)
@@ -104,7 +103,7 @@ function add_scenario_transition!(sp::StochasticProgram, parent, child, proba, c
     tr
 end
 
-function setprobability!(sp::StochasticProgram, tr, proba)
+function SOI.set!(sp::StochasticProgram, ::SOI.Probability, tr, proba)
     tr.proba = proba
     data = nodedata(sp, source(sp, tr))
     setprobability!(data.nlds, edgeid(sp, tr), proba)
@@ -112,11 +111,11 @@ end
 
 edgeid(sp::StochasticProgram, tr::Transition) = tr.σ
 
-function solve!(sp::StochasticProgram, node)
+function SOI.get(sp::StochasticProgram, ::SOI.Solution, node)
     getsolution(nodedata(sp, node).nlds)
 end
 
-function setchildx!(sp::StochasticProgram, tr, sol::Solution)
+function SOI.set!(sp::StochasticProgram, ::SOI.SourceSolution, tr, sol::Solution)
     data = nodedata(sp, source(sp, tr))
     if !isnull(tr.childT)
         T = get(tr.childT)
@@ -132,7 +131,7 @@ function setchildx!(sp::StochasticProgram, tr, sol::Solution)
     setparentx(nodedata(sp, target(sp, tr)).nlds, x, xuray, sol.objvalxuray)
 end
 
-function getθvalue(sp::StochasticProgram, tr::AbstractTransition, sol::Solution)
+function getθvalue(sp::StochasticProgram, tr::SOI.AbstractTransition, sol::Solution)
     @assert length(sol.θ) == outdegree(sp, source(sp, tr))
     getθvalue(sol, edgeid(sp, tr))
 end

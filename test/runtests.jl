@@ -3,6 +3,7 @@ using CutPruners
 using StructJuMP
 using StructDualDynProg
 using Base.Test
+SOI = StructDualDynProg.StochOptInterface
 
 # solver independent tests
 include("comp.jl")

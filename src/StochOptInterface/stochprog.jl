@@ -1,15 +1,13 @@
 using LightGraphs
 
-export AbstractStochasticProgram, stochasticprogram
-export isleaf, probability, cutgenerator, numberofpaths
-export setprobability!, add_scenario_state!, add_scenario_transition!
+## Stochastic Program
 
 """
-    AbstractStochasticProgram
+    AbstractStochasticProgram <: LightGraphs.AbstractGraph{Int}
 
 Stochastic program instance
 """
-abstract type AbstractStochasticProgram <: AbstractGraph{Int} end
+abstract type AbstractStochasticProgram <: LightGraphs.AbstractGraph{Int} end
 
 """
     stochasticprogram(args...)
@@ -18,88 +16,29 @@ Creates a stochastic program from the arguments
 """
 function stochasticprogram end
 
-"""
-    getmaster(sp::AbstractStochasticProgram)
+## State
 
-Returns the master node of stochastic problem `sp`.
-"""
-function getmaster end
+# The type of states is `Int` for compatibility with LightGraphs' nodes
 
 """
-    probability(sp::AbstractStochasticProgram, edge)
+    add_scenario_state!(sp::AbstractStochasticProgram, ...)
 
-Returns the probability to take the edge `edge` in the stochastic problem `sp`.
+Add a new state to the stochastic program `sp` and returns it.
 """
-function probability end
+function add_scenario_state! end
 
-"""
-    setchildx!(sp::AbstractStochasticProgram, tr, sol)
-
-Sets the parent solution of `target(sp, tr)` as `sol`, the solution obtained at `source(sp, tr)`.
-"""
-function setchildx! end
+## Transition
 
 """
-    solve!(sp::AbstractStochasticProgram, node)
+    AbstractTransition <: LightGraphs.AbstractEdge{Int}
 
-Solves the program at node `node` in `sp` and returns the solution.
+Transition between two states of the stochastic program
 """
-function solve! end
-
-"""
-    getobjectivebound(sp::AbstractStochasticProgram, node)
-
-Gets the current bound to the objective of `node`.
-"""
-function getobjectivebound end
+abstract type AbstractTransition <: LightGraphs.AbstractEdge{Int} end
 
 """
-    setθbound!(sp::AbstractStochasticProgram, node, tr, θlb)
+    add_scenario_transition!(sp::AbstractStochasticProgram, ...)
 
-Sets the bounds to the objective of the transition `tr` of `node` to `θlb`.
+Add a new transition to the stochastic program `sp` and returns it.
 """
-function setθbound! end
-
-"""
-    statedim(sp::AbstractStochasticProgram, node)
-
-Returns the dimension of the state at `node`.
-"""
-function statedim end
-
-"""
-    isleaf(sp::AbstractStochasticProgram, node)
-
-Returns whether `node` has no outgoing edge in `sp`.
-"""
-isleaf(sp::AbstractStochasticProgram, node) = iszero(outdegree(sp, node))
-
-"""
-    numberofpaths(sp::AbstractStochasticProgram, node, len::Integer)
-
-Returns number of paths of length `len` starting at node `node` in `sp`. It should return 1 of `len` is zero.
-"""
-numberofpaths(sp::AbstractStochasticProgram, len) = numberofpaths(sp, getmaster(sp), len)
-
-"""
-    cutgenerator(sp::AbstractStochasticProgram, node)
-
-Returns the cut generator of node `node` in the stochastic problem `sp`.
-"""
-function cutgenerator end
-
-# Modification (Optional)
-
-"""
-    setprobability!(sp::AbstractStochasticProgram, edge, probability)
-
-Sets the probability to take the edge `edge` in the stochastic problem `sp` to `probability`.
-"""
-function setprobability! end
-
-"""
-    setcutgenerator!(sp::AbstractStochasticProgram, node, cutgen::AbstractOptimalityCutGenerator)
-
-Sets the cut generator of node `node` to `cutgen` in the stochastic problem `sp`.
-"""
-function setcutgenerator! end
+function add_scenario_transition! end
