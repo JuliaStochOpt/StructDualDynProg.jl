@@ -127,7 +127,7 @@ function childjobs(g::SOI.AbstractStochasticProgram, pathsd::Vector{Tuple{NodeT,
                 # Adding Jobs
                 npaths = samplepaths(pathsampler, g, node, path.K, t, num_stages)
                 for (i, tr) in enumerate(SOI.get(g, SOI.OutTransitions(), node))
-                    if !iszero(sum(npaths[i])) || needallchildsol(cutgenerator(g, node)) # || t == 2
+                    if !iszero(sum(npaths[i])) || SOI.needallchildsol(SOI.get(g, SOI.CutGenerator(), node)) # || t == 2
                         addjob!(jobsd, SOI.target(g, tr), Job{NodeT}(path.proba * SOI.get(g, SOI.Probability(), tr), npaths[i], node, path, tr))
                     end
                 end
