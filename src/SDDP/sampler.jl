@@ -48,7 +48,7 @@ function _samplepaths(npaths, pmf, semirandom::Bool, canmodifypmf::Bool)
 end
 infpaths(g, node) = fill(-1, outdegree(g, node))
 
-function samplepaths(pathsampler::AbstractPathSampler, sp::AbstractStochasticProgram, node, npaths::Vector{Int}, t, num_stages)
+function samplepaths(pathsampler::AbstractPathSampler, sp::SOI.AbstractStochasticProgram, node, npaths::Vector{Int}, t, num_stages)
     npathss = Vector{Int}[similar(npaths) for i in 1:outdegree(sp, node)]
     for i in 1:length(npaths)
         _npaths = samplepaths(pathsampler, sp, node, npaths[i], t, num_stages)
@@ -62,11 +62,11 @@ end
 struct ProbaPathSampler <: AbstractPathSampler
     semirandom::Bool
 end
-function samplepaths(pathsampler::ProbaPathSampler, g::AbstractStochasticProgram, node, npaths::Int, t, num_stages)
+function samplepaths(pathsampler::ProbaPathSampler, g::SOI.AbstractStochasticProgram, node, npaths::Int, t, num_stages)
     if npaths == -1
         infpaths(g, node)
     else
-        pmf = get.(g, Probability(), out_transitions(g, node))
+        pmf = SOI.get.(g, SOI.Probability(), SOI.get(g, SOI.OutTransitions(), node))
         _samplepaths(npaths, pmf, pathsampler.semirandom, false)
     end
 end
@@ -74,13 +74,13 @@ end
 struct NumPathsPathSampler <: AbstractPathSampler
     semirandom::Bool
 end
-function samplepaths(pathsampler::NumPathsPathSampler, g::AbstractStochasticProgram, node, npaths::Int, t, num_stages)
+function samplepaths(pathsampler::NumPathsPathSampler, g::SOI.AbstractStochasticProgram, node, npaths::Int, t, num_stages)
     if npaths == -1
         infpaths(g, node)
     else
         # TODO check if needs +-1 in argument of NumberOfPathsFrom
-        den = get(g, NumberOfPathsFrom(num_stages - (t-1)), node)
-        pmf = map(tr->get(g, NumberOfPathsFrom(num_stages - t), target(g, tr)) / den, out_transitions(g, node))
+        den = SOI.get(g, SOI.NumberOfPathsFrom(num_stages - (t-1)), node)
+        pmf = map(tr->SOI.get(g, SOI.NumberOfPathsFrom(num_stages - t), SOI.target(g, tr)) / den, SOI.get(g, SOI.OutTransitions(), node))
         _samplepaths(npaths, pmf, pathsampler.semirandom, true)
     end
 end

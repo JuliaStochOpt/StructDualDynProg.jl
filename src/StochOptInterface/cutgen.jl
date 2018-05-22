@@ -13,13 +13,20 @@ At the cut `cut` to the transition `tr`.
 """
 function add_cut! end
 
+function add_feasibility_cut! end
+function add_optimality_cut! end
+function add_optimality_cut_for_parent! end
+function apply_feasibility_cuts! end
+function apply_optimality_cuts! end
+function apply_optimality_cuts_for_parent! end
+
 struct FeasibilityCutGenerator <: AbstractCutGenerator end
 #struct FeasibilityCut{T, VT::AbstractVector{T}} <: AbstractCut
 #    a::VT
 #    β::T
 #end
 function gencut(::FeasibilityCutGenerator, sp::AbstractStochasticProgram, parent, path, stats, ztol)
-    for tr in out_transitions(sp, parent)
+    for tr in get(sp, OutTransitions(), parent)
         if haskey(path.childsols, tr)
             childsol = path.childsols[tr]
             if getstatus(childsol) == :Infeasible
@@ -30,7 +37,7 @@ function gencut(::FeasibilityCutGenerator, sp::AbstractStochasticProgram, parent
     end
 end
 function applycut(::FeasibilityCutGenerator, sp, node)
-    for tr in out_transitions(sp, node)
+    for tr in get(sp, OutTransitions(), node)
         apply_feasibility_cuts!(sp, target(sp, tr))
     end
 end
@@ -72,7 +79,7 @@ function gencut(::MultiCutGenerator, sp, parent, path, stats, ztol)
     end
 end
 function applycut(::MultiCutGenerator, sp, node)
-    for tr in out_transitions(sp, node)
+    for tr in get(sp, OutTransitions(), node)
         apply_optimality_cuts_for_parent!(sp, target(sp, tr))
     end
 end
@@ -84,7 +91,7 @@ nθ(::AvgCutGenerator, proba) = 1
 needallchildsol(::AvgCutGenerator) = true
 function gencut(::AvgCutGenerator, sp, parent, path, stats, ztol)
     (!path.childs_feasible || !path.childs_bounded) && return
-    avga = zeros(statedim(sp, parent))
+    avga = zeros(get(sp, Dimension(), parent))
     avgβ = 0.
     for (tr, sol) in path.childsols
         status = getstatus(sol)

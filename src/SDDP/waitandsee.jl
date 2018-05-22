@@ -16,19 +16,19 @@ function meanstdpaths(paths::Vector{WaitAndSeePath}, totalK)
 end
 
 function waitandsee(sp::SOI.AbstractStochasticProgram, num_stages, solver, totalK=25, verbose=0)
-    master = getmaster(sp)
+    master = SOI.get(sp, SOI.MasterState())
     paths = WaitAndSeePath[WaitAndSeePath(master, NLDS[nodedata(sp, master).nlds], .0, 1., totalK)]
     for t in 2:num_stages
         newpaths = WaitAndSeePath[]
         for path in paths
-            if isleaf(sp, path.node)
+            if iszero(outdegree(sp, path.node))
                 push!(newpaths, path)
             else
                 npaths = samplepaths(ProbaPathSampler(true), sp, path.node, path.K, t, num_stages)
                 childs = totalK == -1 ? (1:outdegree(sp, path.node)) : find(npaths .> 0)
-                for (i, tr) in enumerate(out_transitions(sp, path.node))
+                for (i, tr) in enumerate(SOI.get(sp, SOI.OutTransitions(), path.node))
                     if totalK == -1 || npaths[i] > 0
-                        push!(newpaths, WaitAndSeePath(target(sp, tr), [path.nlds; nodedata(sp, target(sp, tr)).nlds], path.z, path.proba * probability(sp, tr), npaths[i]))
+                        push!(newpaths, WaitAndSeePath(SOI.target(sp, tr), [path.nlds; nodedata(sp, SOI.target(sp, tr)).nlds], path.z, path.proba * probability(sp, tr), npaths[i]))
                     end
                 end
             end

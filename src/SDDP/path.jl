@@ -122,13 +122,13 @@ Given paths in `pathsd`, put the paths that have no child in `endedpaths` and sa
 function childjobs(g::SOI.AbstractStochasticProgram, pathsd::Vector{Tuple{NodeT, Vector{SDDPPath{TT, SolT}}}}, pathsampler, t, num_stages, endedpaths) where {SolT, NodeT, TT}
     jobsd = Dict{NodeT, Vector{Job{SolT, NodeT, transitiontype(g)}}}()
     for (node, paths) in pathsd
-        if !isleaf(g, node)
+        if !iszero(outdegree(g, node))
             for path in paths
                 # Adding Jobs
                 npaths = samplepaths(pathsampler, g, node, path.K, t, num_stages)
-                for (i, tr) in enumerate(out_transitions(g, node))
+                for (i, tr) in enumerate(SOI.get(g, SOI.OutTransitions(), node))
                     if !iszero(sum(npaths[i])) || needallchildsol(cutgenerator(g, node)) # || t == 2
-                        addjob!(jobsd, target(g, tr), Job{NodeT}(path.proba * probability(g, tr), npaths[i], node, path, tr))
+                        addjob!(jobsd, SOI.target(g, tr), Job{NodeT}(path.proba * SOI.get(g, SOI.Probability(), tr), npaths[i], node, path, tr))
                     end
                 end
             end
@@ -168,7 +168,7 @@ Solves the job `job` of node `node`.
 function solvejob!(sp::SOI.AbstractStochasticProgram, job::Job, node, stats)
     stats.setxtime += SOI.@_time SOI.set!(sp, SOI.SourceSolution(), job.tr, job.parent.sol)
     stats.nsetx += 1
-    stats.solvertime += SOI.@_time job.sol = SOI.solve!(sp, node)
+    stats.solvertime += SOI.@_time job.sol = SOI.get(sp, SOI.Solution(), node)
     job.parent.childsols[job.tr] = get(job.sol)
     stats.nsolved += 1
     if get(job.sol).status == :Infeasible

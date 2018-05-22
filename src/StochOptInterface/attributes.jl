@@ -91,11 +91,14 @@ get(sp::AbstractStochasticProgram, nop::NumberOfPaths) = get(sp, NumberOfPathsFr
 
 # Graph-related
 """
-    IsLeaf <: AbstractStateAttribute
+    struct OutTransitions
 
-Whether the state has no outgoing transitions.
+The outgoing transitions from the state.
 """
-struct IsLeaf <: AbstractStateAttribute end
+struct OutTransitions <: AbstractStateAttribute end
+
+# May be different from the number of out-neighbors if there are multiple transitions with the same target
+LightGraphs.outdegree(sp::AbstractStochasticProgram, state::Int) = length(get(sp, OutTransitions(), state))
 
 """
     struct NumberOfPathsFrom <: AbstractStateAttribute
@@ -104,7 +107,7 @@ struct IsLeaf <: AbstractStateAttribute end
 
 The number of paths of length `length` starting from the state.
 """
-struct NumberOfPathsFrom <: AbstractStochasticProgramAttribute
+struct NumberOfPathsFrom <: AbstractStateAttribute
     length::Int
 end
 
@@ -142,6 +145,9 @@ If the program at state `state` is bounded and the objective value of its outgoi
 struct StateObjectiveValueBound <: AbstractStateAttribute end
 
 ## Transition attributes
+
+function source end
+function target end
 
 """
     Probability <: AbstractTransitionAttribute

@@ -33,9 +33,12 @@ mutable struct Transition{S} <: SOI.AbstractTransition
         new{S}(source, target, σ, proba, childT)
     end
 end
-source(::SOI.AbstractStochasticProgram, tr::Transition) = tr.source
-target(::SOI.AbstractStochasticProgram, tr::Transition) = tr.target
+SOI.source(::SOI.AbstractStochasticProgram, tr::Transition) = tr.source
+SOI.target(::SOI.AbstractStochasticProgram, tr::Transition) = tr.target
 SOI.get(::SOI.AbstractStochasticProgram, ::SOI.Probability, tr::Transition) = tr.proba
+
+Base.:(==)(t1::Transition, t2::Transition) = t1.source == t2.source && t1.target == t2.target && t1.σ == t2.σ
+Base.hash(t::Transition, u::UInt) = hash(t.source, hash(t.target, hash(t.σ, u)))
 
 """
     StochasticProgram{S, TT}
@@ -53,15 +56,12 @@ StochasticProgram{S}() where S = StochasticProgram{S, Transition{S}}()
 
 nodedata(sp::StochasticProgram, node::Int) = sp.data[node]
 
-SOI.get(::StochasticProgram, ::SOI.StateObjectiveValueBound, state) = getobjectivebound(nodedata(sp, node).nlds)
-SOI.set!(::StochasticProgram, ::SOI.TransitionObjectiveValueBound, tr::Transition, θlb) = setθbound!(nodedata(sp, source(sp, tr)), edgeid(sp, tr), θlb)
+SOI.get(sp::StochasticProgram, ::SOI.StateObjectiveValueBound, state) = getobjectivebound(nodedata(sp, state).nlds)
+SOI.set!(sp::StochasticProgram, ::SOI.TransitionObjectiveValueBound, tr::Transition, θlb) = setθbound!(nodedata(sp, SOI.source(sp, tr)).nlds, edgeid(sp, tr), θlb)
 SOI.get(sp::StochasticProgram, ::SOI.Dimension, state) = nodedata(sp, state).nlds.nx
 
-# LightGraphs interface
-out_transitions(sp::StochasticProgram, node::Int) = sp.out_transitions[node]
+SOI.get(sp::StochasticProgram, ::SOI.OutTransitions, node::Int) = sp.out_transitions[node]
 transitiontype(::StochasticProgram{S, TT}) where {S, TT} = TT
-# May be different from the number of out-neighbors if there are multiple transitions with the same target
-LightGraphs.outdegree(sp::StochasticProgram, node::Int) = length(out_transitions(sp, node))
 
 SOI.get(::StochasticProgram, ::SOI.MasterState) = 1
 
@@ -69,12 +69,12 @@ SOI.get(::StochasticProgram, ::SOI.MasterState) = 1
 function SOI.get(sp::StochasticProgram, nop::SOI.NumberOfPathsFrom, node)
     len = nop.length
     @assert len >= 0
-    if iszero(len) || isleaf(sp, node)
+    if iszero(len) || iszero(outdegree(sp, node))
         1
     else
         npath = nodedata(sp, node).npath
         if !(len in keys(npath))
-            npath[len] = sum(map(tr -> numberofpaths(sp, target(sp, tr), len-1), out_transitions(sp, node)))
+            npath[len] = sum(map(tr -> SOI.get(sp, SOI.NumberOfPathsFrom(len-1), SOI.target(sp, tr)), SOI.get(sp, SOI.OutTransitions(), node)))
         end
         npath[len]
     end
@@ -105,7 +105,7 @@ end
 
 function SOI.set!(sp::StochasticProgram, ::SOI.Probability, tr, proba)
     tr.proba = proba
-    data = nodedata(sp, source(sp, tr))
+    data = nodedata(sp, SOI.source(sp, tr))
     setprobability!(data.nlds, edgeid(sp, tr), proba)
 end
 
@@ -116,7 +116,7 @@ function SOI.get(sp::StochasticProgram, ::SOI.Solution, node)
 end
 
 function SOI.set!(sp::StochasticProgram, ::SOI.SourceSolution, tr, sol::Solution)
-    data = nodedata(sp, source(sp, tr))
+    data = nodedata(sp, SOI.source(sp, tr))
     if !isnull(tr.childT)
         T = get(tr.childT)
         x = T * sol.x
@@ -128,20 +128,20 @@ function SOI.set!(sp::StochasticProgram, ::SOI.SourceSolution, tr, sol::Solution
         x = sol.x
         xuray = sol.xuray
     end
-    setparentx(nodedata(sp, target(sp, tr)).nlds, x, xuray, sol.objvalxuray)
+    setparentx(nodedata(sp, SOI.target(sp, tr)).nlds, x, xuray, sol.objvalxuray)
 end
 
-function getθvalue(sp::StochasticProgram, tr::SOI.AbstractTransition, sol::Solution)
-    @assert length(sol.θ) == outdegree(sp, source(sp, tr))
-    getθvalue(sol, edgeid(sp, tr))
+function SOI.getθvalue(sp::StochasticProgram, tr::SOI.AbstractTransition, sol::Solution)
+    @assert length(sol.θ) == outdegree(sp, SOI.source(sp, tr))
+    SOI.getθvalue(sol, edgeid(sp, tr))
 end
 
-function getθvalue(sp::StochasticProgram, node, sol::Solution)
+function SOI.getθvalue(sp::StochasticProgram, node, sol::Solution)
     @assert length(sol.θ) == 1
-    getθvalue(sol, 1)
+    SOI.getθvalue(sol, 1)
 end
 
-function add_feasibility_cut!(sp::StochasticProgram, node, coef, rhs, author)
+function SOI.add_feasibility_cut!(sp::StochasticProgram, node, coef, rhs, author)
     # coef is a ray
     # so alpha * coef is also valid for any alpha >= 0.
     # Hence coef might have very large coefficients and alter
@@ -150,19 +150,19 @@ function add_feasibility_cut!(sp::StochasticProgram, node, coef, rhs, author)
     scaling = max(abs(rhs), maximum(abs, coef))
     addcut(nodedata(sp, node).fcuts, coef/scaling, sign(rhs), nodedata(sp, author).nlds)
 end
-function add_optimality_cut!(sp::StochasticProgram, node, coef, rhs, author)
+function SOI.add_optimality_cut!(sp::StochasticProgram, node, coef, rhs, author)
     addcut(nodedata(sp, node).nlds.localOC, coef, rhs, nodedata(sp, author).nlds)
 end
-function add_optimality_cut_for_parent!(sp::StochasticProgram, node, coef, rhs, author)
+function SOI.add_optimality_cut_for_parent!(sp::StochasticProgram, node, coef, rhs, author)
     addcut(nodedata(sp, node).ocuts, coef, rhs, nodedata(sp, author).nlds)
 end
 
-function apply_feasibility_cuts!(sp::StochasticProgram, node)
+function SOI.apply_feasibility_cuts!(sp::StochasticProgram, node)
     apply!(nodedata(sp, node).fcuts)
 end
-function apply_optimality_cuts!(sp::StochasticProgram, node)
+function SOI.apply_optimality_cuts!(sp::StochasticProgram, node)
     apply!(nodedata(sp, node).nlds.localOC)
 end
-function apply_optimality_cuts_for_parent!(sp::StochasticProgram, node)
+function SOI.apply_optimality_cuts_for_parent!(sp::StochasticProgram, node)
     apply!(nodedata(sp, node).ocuts)
 end

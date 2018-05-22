@@ -16,8 +16,6 @@ include("stats.jl")
 include("stopcrit.jl")
 # Cut Generator
 include("cutgen.jl")
-# Path Sampler
-include("sampler.jl")
 # Solution
 include("solution.jl")
 

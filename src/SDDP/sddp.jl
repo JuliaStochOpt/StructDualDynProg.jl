@@ -26,9 +26,9 @@ function gencuts(pathsd, sp, stats, ztol)
     for (parent, paths) in pathsd
         for path in paths
             if path.childs_feasible
-                gencut(cutgenerator(sp, parent), sp, parent, path, stats, ztol)
+                SOI.gencut(SOI.get(sp, SOI.CutGenerator(), parent), sp, parent, path, stats, ztol)
             else
-                gencut(FeasibilityCutGenerator(), sp, parent, path, stats, ztol)
+                SOI.gencut(SOI.FeasibilityCutGenerator(), sp, parent, path, stats, ztol)
             end
         end
     end
@@ -36,17 +36,17 @@ end
 
 function applycuts(pathsd, sp)
     for (node, _) in pathsd
-        applycut(FeasibilityCutGenerator(), sp, node)
-        applycut(cutgenerator(sp, node), sp, node)
+        SOI.applycut(SOI.FeasibilityCutGenerator(), sp, node)
+        SOI.applycut(SOI.get(sp, SOI.CutGenerator(), node), sp, node)
     end
 end
 
 function forwardpass!(sp::SOI.AbstractStochasticProgram, Ktot::Int, num_stages, verbose, pathsampler; ztol=1e-6, stopatinf=false, mergepaths=true, forwardcuts=false)
-    stats = SDDPStats()
+    stats = SOI.SDDPStats()
 
     master = SOI.get(sp, SOI.MasterState())
     NodeT = typeof(master)
-    stats.solvertime += SOI.@_time mastersol = solve!(sp, master)
+    stats.solvertime += SOI.@_time mastersol = SOI.get(sp, SOI.Solution(), master)
     stats.nsolved += 1
     stats.niterations += 1
     infeasibility_detected = SOI.getstatus(mastersol) == :Infeasible
@@ -57,7 +57,7 @@ function forwardpass!(sp::SOI.AbstractStochasticProgram, Ktot::Int, num_stages, 
     if infeasibility_detected
         pathsd[1] = TT[]
     else
-        pathsd[1] = TT[(master, [SDDPPath{transitiontype(sp)}(mastersol, [getstateobjectivevalue(mastersol)], [1.], [Ktot], outdegree(sp, master))])]
+        pathsd[1] = TT[(master, [SDDPPath{transitiontype(sp)}(mastersol, [SOI.getstateobjectivevalue(mastersol)], [1.], [Ktot], outdegree(sp, master))])]
     end
     endedpaths = PathT[]
 
@@ -99,7 +99,7 @@ function forwardpass!(sp::SOI.AbstractStochasticProgram, Ktot::Int, num_stages, 
     stats.upperbound = z_UB
     stats.σ_UB = σ
     stats.npaths = Ktot
-    stats.lowerbound = getobjectivevalue(mastersol)
+    stats.lowerbound = SOI.getobjectivevalue(mastersol)
 
     pathsd, mastersol, stats
 end
@@ -153,7 +153,7 @@ The parameter `ztol` is also used to check whether a new cut is useful.
 When a scenario is infeasible and `stopatinf` is true then no other scenario with the same ancestor is run. Note that since the order in which the different scenarios is run is not deterministic, this might introduce nondeterminism even if the sampling is deterministic.
 By default, the cuts are added backward. However, if `forwardcuts` is set to `true` and `backwardcuts` is set to `false` the cuts are added forward.
 """
-function SDDP(sp::SOI.AbstractStochasticProgram, num_stages; K::Int=25, stopcrit::SOI.AbstractStoppingCriterion=SOI.Pereira(), verbose=0, pathsampler::SOI.AbstractPathSampler=SOI.ProbaPathSampler(true), ztol=1e-6, stopatinf=false, mergepaths=true, forwardcuts=false, backwardcuts=true)
+function SDDP(sp::SOI.AbstractStochasticProgram, num_stages; K::Int=25, stopcrit::SOI.AbstractStoppingCriterion=SOI.Pereira(), verbose=0, pathsampler::AbstractPathSampler=ProbaPathSampler(true), ztol=1e-6, stopatinf=false, mergepaths=true, forwardcuts=false, backwardcuts=true)
     mastersol = nothing
     totalstats = SOI.SDDPStats()
     stats = SOI.SDDPStats()
@@ -169,7 +169,7 @@ function SDDP(sp::SOI.AbstractStochasticProgram, num_stages; K::Int=25, stopcrit
             println("Status: $(SOI.getstatus(mastersol))")
             println("Upper Bound: $(totalstats.upperbound)")
             println("Lower Bound: $(totalstats.lowerbound)")
-            #println(" Solution value: $(getstatevalue(mastersol))")
+            #println(" Solution value: $(SOI.getstatevalue(mastersol))")
             println("Stats for this iteration:")
             println(stats)
             println("Total stats:")
@@ -180,10 +180,10 @@ function SDDP(sp::SOI.AbstractStochasticProgram, num_stages; K::Int=25, stopcrit
     if verbose >= 1
         println("SDDP completed in $(totalstats.niterations) iterations in $(totalstats.time) s")
         println("Status: $(SOI.getstatus(mastersol))")
-        #println("Objective value: $(getobjectivevalue(mastersol))")
+        #println("Objective value: $(SOI.getobjectivevalue(mastersol))")
         println("Upper Bound: $(totalstats.upperbound)")
         println("Lower Bound: $(totalstats.lowerbound)")
-        #println(" Solution value: $(getstatevalue(mastersol))")
+        #println(" Solution value: $(SOI.getstatevalue(mastersol))")
         println("Total stats:")
         println(totalstats)
     end
@@ -193,5 +193,5 @@ function SDDP(sp::SOI.AbstractStochasticProgram, num_stages; K::Int=25, stopcrit
     attrs[:niter] = totalstats.niterations
     attrs[:nfcuts] = totalstats.nfcuts
     attrs[:nocuts] = totalstats.nocuts
-    SDDPSolution(SOI.getstatus(mastersol), getobjectivevalue(mastersol), getstatevalue(mastersol), attrs)
+    SDDPSolution(SOI.getstatus(mastersol), SOI.getobjectivevalue(mastersol), SOI.getstatevalue(mastersol), attrs)
 end

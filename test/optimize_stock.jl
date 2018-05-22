@@ -31,9 +31,9 @@
         for forwardcuts in [false, true]
             for detectlb in [false, true]
                 sp = SOI.stochasticprogram(m1, num_stages, solver, AvgCutPruningAlgo(-1), cutmode, detectlb)
-                @test numberofpaths(sp, 0) == 1
-                @test numberofpaths(sp, 1) == 2
-                @test numberofpaths(sp, 2) == 2
+                @test SOI.get(sp, SOI.NumberOfPaths(0)) == 1
+                @test SOI.get(sp, SOI.NumberOfPaths(1)) == 2
+                @test SOI.get(sp, SOI.NumberOfPaths(2)) == 2
                 @test sprint(show, StructDualDynProg.nodedata(sp, 1)) == "Node of 1 variables\n"
                 sol = SDDP(sp, num_stages, K = K, stopcrit = SOI.Pereira(0.1) | SOI.IterLimit(10), verbose = 0, forwardcuts = forwardcuts, backwardcuts = !forwardcuts)
                 sstats = sprint(show, sol.attrs[:stats])
@@ -97,8 +97,8 @@
             root = 1
             newnode = getSDDPNode(sp, m3, 1, 1, solver, root, AvgCutPruningAlgo(-1), cutmode)
             @test length(sp.out_transitions[1]) == 1
-            setprobability!(sp, sp.out_transitions[1][1], 1/2)
-            add_scenario_transition!(sp, root, newnode, 1/2)
+            SOI.set!(sp, SOI.Probability(), sp.out_transitions[1][1], 1/2)
+            SOI.add_scenario_transition!(sp, root, newnode, 1/2)
             sol = SDDP(sp, num_stages, K = K, stopcrit = SOI.Pereira(0.1) | SOI.IterLimit(10), verbose = 0)
             # 2 on Mac OS and Windows, 3 otherwise
             @test 2 <= sol.attrs[:niter] <= 3

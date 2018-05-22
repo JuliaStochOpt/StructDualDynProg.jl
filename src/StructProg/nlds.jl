@@ -158,7 +158,7 @@ end
 function add_scenario_transition!(nlds::NLDS{S}, childFC, childOC, proba, childT) where {S}
     push!(nlds.proba, proba)
     oldnθ = nlds.nθ
-    nlds.nθ = nθ(nlds.cutgen, nlds.proba)
+    nlds.nθ = SOI.nθ(nlds.cutgen, nlds.proba)
     Δθ = nlds.nθ - oldnθ
     push!(nlds.θlb, 0)
     push!(nlds.θfree, length(nlds.θlb))
