@@ -11,9 +11,9 @@ function solvejobs!(sp, jobsd, stats, stopatinf)
     infeasibility_detected = false
     for (node, jobs) in jobsd
         for job in jobs
-            if !stopatinf || job.parent.childs_feasible
+            if !stopatinf || job.parent.pool.children_feasible
                 solvejob!(sp, job, node, stats)
-                if !job.parent.childs_feasible
+                if !job.parent.pool.children_feasible
                     infeasibility_detected = true
                 end
             end
@@ -25,10 +25,10 @@ end
 function gencuts(pathsd, sp, stats, ztol)
     for (parent, paths) in pathsd
         for path in paths
-            if path.childs_feasible
-                SOI.gencut(SOI.get(sp, SOI.CutGenerator(), parent), sp, parent, path, stats, ztol)
+            if path.pool.children_feasible
+                SOI.gencut(SOI.get(sp, SOI.CutGenerator(), parent), sp, parent, path.pool, stats, ztol)
             else
-                SOI.gencut(SOI.FeasibilityCutGenerator(), sp, parent, path, stats, ztol)
+                SOI.gencut(SOI.FeasibilityCutGenerator(), sp, parent, path.pool, stats, ztol)
             end
         end
     end
@@ -57,7 +57,7 @@ function forwardpass!(sp::SOI.AbstractStochasticProgram, Ktot::Int, num_stages, 
     if infeasibility_detected
         pathsd[1] = TT[]
     else
-        pathsd[1] = TT[(master, [SDDPPath{transitiontype(sp)}(mastersol, [SOI.getstateobjectivevalue(mastersol)], [1.], [Ktot], outdegree(sp, master))])]
+        pathsd[1] = TT[(master, [SDDPPath{transitiontype(sp)}(mastersol, [SOI.getstateobjectivevalue(mastersol)], [1.], [Ktot])])]
     end
     endedpaths = PathT[]
 

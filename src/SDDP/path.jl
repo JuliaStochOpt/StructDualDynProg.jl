@@ -16,9 +16,27 @@ function meanstdpaths(z::Vector{Float64}, proba::Vector{Float64}, npaths::Vector
     μ, σ
 end
 
-mutable struct SDDPPath{TT, SolT}
-    # Solution of the last node of the path
-    sol::SolT
+mutable struct SolutionPool{TT<:SOI.AbstractTransition, SolT<:SOI.AbstractSolution} <: SOI.AbstractSolutionPool
+    # Parent solution
+    parent_solution::SolT
+    # Are all the child jobs solved feasible ?
+    children_feasible::Bool
+    # Are all the child jobs solved bounded ?
+    children_bounded::Bool
+    # List of children solutions
+    children_solutions::Dict{TT, SolT}
+end
+SolutionPool{TT}(sol) where TT = SolutionPool{TT, typeof(sol)}(sol, true, true, Dict{TT, typeof(sol)}())
+SOI.getsolution(pool::SolutionPool) = pool.parent_solution
+SOI.allfeasible(pool::SolutionPool) = pool.children_feasible
+SOI.allbounded(pool::SolutionPool) = pool.children_bounded
+SOI.hassolution(pool::SolutionPool{TT}, tr::TT) where TT = haskey(pool.children_solutions, tr)
+SOI.getsolution(pool::SolutionPool{TT}, tr::TT) where TT = pool.children_solutions[tr]
+
+mutable struct SDDPPath{TT<:SOI.AbstractTransition, SolT<:SOI.AbstractSolution}
+    # Solution pool for the last node of the path
+    pool::SolutionPool{TT, SolT}
+
     # The three following arguments are vectors since when we merge paths,
     # we need to keep track of the difference of `z` that they have accumulated
     # while diverging for computing the variance `σ^2` in [`meanstdpaths`](@ref) at the end.
@@ -28,15 +46,9 @@ mutable struct SDDPPath{TT, SolT}
     proba::Vector{Float64}
     # Number of walks in the path
     K::Vector{Int}
-    # Are all the child jobs solved feasible ?
-    childs_feasible::Bool
-    # Are all the child jobs solved bounded ?
-    childs_bounded::Bool
-    # List of children solutions
-    childsols::Dict{TT, SolT}
 
-    function SDDPPath{TT}(sol::SolT, z, proba, K, nchilds) where {TT, SolT}
-        new{TT, SolT}(sol, z, proba, K, true, true, Dict{TT, SolT}())
+    function SDDPPath{TT}(sol::SolT, z, proba, K) where {TT, SolT}
+        new{TT, SolT}(SolutionPool{TT}(sol), z, proba, K)
     end
 end
 
@@ -48,21 +60,21 @@ function meanstdpaths(paths::Vector{<:SDDPPath}, Ktot)
 end
 
 function Base.isapprox(p::SDDPPath, q::SDDPPath)
-    Base.isapprox(SOI.getstatevalue(p.sol), SOI.getstatevalue(q.sol))
+    Base.isapprox(SOI.getstatevalue(SOI.getsolution(p.pool)), SOI.getstatevalue(SOI.getsolution(q.pool)))
 end
 
 function canmerge(p::SDDPPath, q::SDDPPath, ztol)
-    SOI._isapprox(SOI.getstatevalue(p.sol), SOI.getstatevalue(q.sol), ztol)
+    SOI._isapprox(SOI.getstatevalue(SOI.getsolution(p.pool)), SOI.getstatevalue(SOI.getsolution(q.pool)), ztol)
 end
 
 function merge!(p::SDDPPath, q::SDDPPath)
-    @assert p.childs_feasible == q.childs_feasible
+    @assert p.pool.children_feasible == q.pool.children_feasible
     append!(p.z, q.z)
     append!(p.proba, q.proba)
     append!(p.K, q.K)
 end
 
-mutable struct Job{SolT, NodeT, TT}
+mutable struct Job{SolT<:SOI.AbstractSolution, NodeT, TT<:SOI.AbstractTransition}
     sol::Nullable{SolT}
     proba::Vector{Float64}
     K::Vector{Int}
@@ -70,7 +82,7 @@ mutable struct Job{SolT, NodeT, TT}
     parent::SDDPPath{TT, SolT}
     tr::TT
 
-    function Job{NodeT}(proba::Vector{Float64}, K::Vector{Int}, parentnode::NodeT, parent::SDDPPath{TT, SolT}, tr::TT) where {SolT, NodeT, TT}
+    function Job(proba::Vector{Float64}, K::Vector{Int}, parentnode::NodeT, parent::SDDPPath{TT, SolT}, tr::TT) where {SolT, NodeT, TT}
         new{SolT, NodeT, TT}(nothing, proba, K, parentnode, parent, tr)
     end
 end
@@ -115,11 +127,11 @@ function mergesamepaths(pathsd::Vector{Tuple{NodeT, Vector{SDDPPath{TT, SolT}}}}
 end
 
 """
-    childjobs(g::SOI.AbstractStochasticProgram, pathsd::Vector{Tuple{NodeT, Vector{<:SDDPPath}}}, pathsampler, t, num_stages, endedpaths) where SolT
+    childjobs(g::SOI.AbstractStochasticProgram, pathsd::Vector{Tuple{NodeT, Vector{<:SDDPPath}}}, pathsampler::AbstractPathSampler, t, num_stages, endedpaths) where SolT
 
 Given paths in `pathsd`, put the paths that have no child in `endedpaths` and sample child jobs using `pathsample` for other paths.
 """
-function childjobs(g::SOI.AbstractStochasticProgram, pathsd::Vector{Tuple{NodeT, Vector{SDDPPath{TT, SolT}}}}, pathsampler, t, num_stages, endedpaths) where {SolT, NodeT, TT}
+function childjobs(g::SOI.AbstractStochasticProgram, pathsd::Vector{Tuple{NodeT, Vector{SDDPPath{TT, SolT}}}}, pathsampler::AbstractPathSampler, t, num_stages, endedpaths) where {SolT, NodeT, TT}
     jobsd = Dict{NodeT, Vector{Job{SolT, NodeT, transitiontype(g)}}}()
     for (node, paths) in pathsd
         if !iszero(outdegree(g, node))
@@ -128,7 +140,7 @@ function childjobs(g::SOI.AbstractStochasticProgram, pathsd::Vector{Tuple{NodeT,
                 npaths = samplepaths(pathsampler, g, node, path.K, t, num_stages)
                 for (i, tr) in enumerate(SOI.get(g, SOI.OutTransitions(), node))
                     if !iszero(sum(npaths[i])) || SOI.needallchildsol(SOI.get(g, SOI.CutGenerator(), node)) # || t == 2
-                        addjob!(jobsd, SOI.get(g, SOI.Target(), tr), Job{NodeT}(path.proba * SOI.get(g, SOI.Probability(), tr), npaths[i], node, path, tr))
+                        addjob!(jobsd, SOI.get(g, SOI.Target(), tr), Job(path.proba * SOI.get(g, SOI.Probability(), tr), npaths[i], node, path, tr))
                     end
                 end
             end
@@ -151,9 +163,9 @@ function jobstopaths(jobsd::Dict{NodeT, Vector{Job{SolT, NodeT, TT}}}, g::SOI.Ab
         # we want to create an AveragedCut (since in this case we need to solve all children).
         # However we do not want to create a path for these jobs so we filter them out.
         K = [find(job.K .!= 0) for job in jobs]
-        keep = find(Bool[jobs[i].parent.childs_feasible && !isempty(K[i]) for i in 1:length(jobs)])
+        keep = find(Bool[jobs[i].parent.pool.children_feasible && !isempty(K[i]) for i in 1:length(jobs)])
         if !isempty(keep)
-            paths = SDDPPath{TT, SolT}[SDDPPath{TT}(get(jobs[i].sol), jobs[i].parent.z[K[i]]+get(jobs[i].sol).objvalx, jobs[i].proba[K[i]], jobs[i].K[K[i]], outdegree(g, node)) for i in keep]
+            paths = SDDPPath{TT, SolT}[SDDPPath{TT}(get(jobs[i].sol), jobs[i].parent.z[K[i]]+get(jobs[i].sol).objvalx, jobs[i].proba[K[i]], jobs[i].K[K[i]]) for i in keep]
             push!(pathsd, (node, paths))
         end
     end
@@ -166,14 +178,14 @@ end
 Solves the job `job` of node `node`.
 """
 function solvejob!(sp::SOI.AbstractStochasticProgram, job::Job, node, stats)
-    stats.setxtime += SOI.@_time SOI.set!(sp, SOI.SourceSolution(), job.tr, job.parent.sol)
+    stats.setxtime += SOI.@_time SOI.set!(sp, SOI.SourceSolution(), job.tr, SOI.getsolution(job.parent.pool))
     stats.nsetx += 1
     stats.solvertime += SOI.@_time job.sol = SOI.get(sp, SOI.Solution(), node)
-    job.parent.childsols[job.tr] = get(job.sol)
+    job.parent.pool.children_solutions[job.tr] = get(job.sol)
     stats.nsolved += 1
     if get(job.sol).status == :Infeasible
-        job.parent.childs_feasible = false
+        job.parent.pool.children_feasible = false
     elseif get(job.sol).status == :Unbounded
-        job.parent.childs_bounded = false
+        job.parent.pool.children_bounded = false
     end
 end

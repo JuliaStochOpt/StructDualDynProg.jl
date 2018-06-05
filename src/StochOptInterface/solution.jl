@@ -55,3 +55,37 @@ Returns the value of the θ in the solution `sol` of node `node`.
 This assumes that `node` is using `AvgCutGenerator`.
 """
 function getθvalue end
+
+abstract type AbstractSolutionPool end
+
+"""
+    allfeasible(pool::AbstractSolutionPool)
+
+Return a `Bool` indicating whether all transitions current solved were feasible.
+"""
+function allfeasible end
+
+"""
+    allbounded(pool::AbstractSolutionPool)
+
+Return a `Bool` indicating whether all transitions current solved were bounded.
+"""
+function allbounded end
+
+"""
+    hassolution(pool::AbstractSolutionPool, tr::AbstractTransition)
+
+Return a `Bool` indicating whether the solution pool `pool` has a solution for transition `tr`.
+"""
+function hassolution end
+
+"""
+    getsolution(pool::AbstractSolutionPool)
+
+Return the solution for the source of all the transitions.
+
+    getsolution(pool::AbstractSolutionPool, tr::AbstractTransition)
+
+Return the solution for transition `tr` in the solution pool `pool`.
+"""
+function getsolution end

@@ -25,18 +25,18 @@ struct FeasibilityCutGenerator <: AbstractCutGenerator end
 #    a::VT
 #    β::T
 #end
-function gencut(::FeasibilityCutGenerator, sp::AbstractStochasticProgram, parent, path, stats, ztol)
+function gencut(::FeasibilityCutGenerator, sp::AbstractStochasticProgram, parent, pool::AbstractSolutionPool, stats, ztol)
     for tr in get(sp, OutTransitions(), parent)
-        if haskey(path.childsols, tr)
-            childsol = path.childsols[tr]
-            if getstatus(childsol) == :Infeasible
+        if hassolution(pool, tr)
+            trsol = getsolution(pool, tr)
+            if getstatus(trsol) == :Infeasible
                 stats.nfcuts += 1
-                stats.fcutstime += @_time add_feasibility_cut!(sp, get(sp, Target(), tr), feasibility_cut(childsol)..., parent)
+                stats.fcutstime += @_time add_feasibility_cut!(sp, get(sp, Target(), tr), feasibility_cut(trsol)..., parent)
             end
         end
     end
 end
-function applycut(::FeasibilityCutGenerator, sp, node)
+function applycut(::FeasibilityCutGenerator, sp::AbstractStochasticProgram, node)
     for tr in get(sp, OutTransitions(), node)
         apply_feasibility_cuts!(sp, get(sp, Target(), tr))
     end
@@ -47,9 +47,9 @@ struct NoOptimalityCutGenerator <: AbstractOptimalityCutGenerator
 end
 nθ(::NoOptimalityCutGenerator, proba) = 0
 needallchildsol(::NoOptimalityCutGenerator) = false
-function gencut(::NoOptimalityCutGenerator, sp, parent, path, stats, ztol)
+function gencut(::NoOptimalityCutGenerator, sp::AbstractStochasticProgram, parent, pool::AbstractSolutionPool, stats, ztol)
 end
-function applycut(::NoOptimalityCutGenerator, sp, node)
+function applycut(::NoOptimalityCutGenerator, sp::AbstractStochasticProgram, node)
     apply_optimality_cuts!(sp, node)
 end
 
@@ -58,27 +58,31 @@ struct MultiCutGenerator <: AbstractOptimalityCutGenerator
 end
 nθ(::MultiCutGenerator, proba) = length(proba)
 needallchildsol(::MultiCutGenerator) = false
-function gencut(::MultiCutGenerator, sp, parent, path, stats, ztol)
-    for (tr, sol) in path.childsols
-        status = getstatus(sol)
-        if status != :Unbounded
-            a, β = optimality_cut(sol)
-            @assert status == :Optimal
-            if !isnull(tr.childT)
-                aT = get(tr.childT)' * a
-            else
-                aT = a
-            end
-            x = getstatevalue(path.sol)
-            θ = getθvalue(sp, tr, path.sol)
-            if getstatus(path.sol) == :Unbounded || _lt(θ, β - dot(aT, x), ztol)
-                stats.ocutstime += @_time add_optimality_cut_for_parent!(sp, get(sp, Target(), tr), a, β, parent)
-                stats.nocuts += 1
+function gencut(::MultiCutGenerator, sp::AbstractStochasticProgram, parent, pool::AbstractSolutionPool, stats, ztol)
+    for tr in get(sp, OutTransitions(), parent)
+        if hassolution(pool, tr)
+            trsol = getsolution(pool, tr)
+            status = getstatus(trsol)
+            if status != :Unbounded
+                a, β = optimality_cut(trsol)
+                @assert status == :Optimal
+                if !isnull(tr.childT)
+                    aT = get(tr.childT)' * a
+                else
+                    aT = a
+                end
+                sol = getsolution(pool)
+                x = getstatevalue(sol)
+                θ = getθvalue(sp, tr, sol)
+                if getstatus(sol) == :Unbounded || _lt(θ, β - dot(aT, x), ztol)
+                    stats.ocutstime += @_time add_optimality_cut_for_parent!(sp, get(sp, Target(), tr), a, β, parent)
+                    stats.nocuts += 1
+                end
             end
         end
     end
 end
-function applycut(::MultiCutGenerator, sp, node)
+function applycut(::MultiCutGenerator, sp::AbstractStochasticProgram, node)
     for tr in get(sp, OutTransitions(), node)
         apply_optimality_cuts_for_parent!(sp, get(sp, Target(), tr))
     end
@@ -89,14 +93,17 @@ struct AvgCutGenerator <: AbstractOptimalityCutGenerator
 end
 nθ(::AvgCutGenerator, proba) = 1
 needallchildsol(::AvgCutGenerator) = true
-function gencut(::AvgCutGenerator, sp, parent, path, stats, ztol)
-    (!path.childs_feasible || !path.childs_bounded) && return
+function gencut(::AvgCutGenerator, sp::AbstractStochasticProgram, parent, pool::AbstractSolutionPool, stats, ztol)
+    # We need all transitions to be solved, feasible and bounded to generate an averaged cut
+    (!allfeasible(pool) || !allbounded(pool)) && return
     avga = zeros(get(sp, Dimension(), parent))
     avgβ = 0.
-    for (tr, sol) in path.childsols
-        status = getstatus(sol)
+    for tr in get(sp, OutTransitions(), parent)
+        hassolution(pool, tr) || error("Average Cut Generator needs a solution for each transition")
+        trsol = getsolution(pool, tr)
+        status = getstatus(trsol)
         @assert status != :Unbounded
-        a, β = optimality_cut(sol)
+        a, β = optimality_cut(trsol)
         @assert status == :Optimal
         if !isnull(tr.childT)
             aT = get(tr.childT)' * a
@@ -107,13 +114,14 @@ function gencut(::AvgCutGenerator, sp, parent, path, stats, ztol)
         avga += proba * aT
         avgβ += proba * β
     end
-    x = getstatevalue(path.sol)
-    θ = getθvalue(sp, parent, path.sol)
-    if getstatus(path.sol) == :Unbounded || _lt(θ, avgβ - dot(avga, x), ztol)
+    sol = getsolution(pool)
+    x = getstatevalue(sol)
+    θ = getθvalue(sp, parent, sol)
+    if getstatus(sol) == :Unbounded || _lt(θ, avgβ - dot(avga, x), ztol)
         stats.ocutstime += @_time add_optimality_cut!(sp, parent, avga, avgβ, parent)
         stats.nocuts += 1
     end
 end
-function applycut(::AvgCutGenerator, sp, node)
+function applycut(::AvgCutGenerator, sp::AbstractStochasticProgram, node)
     apply_optimality_cuts!(sp, node)
 end

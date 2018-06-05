@@ -14,9 +14,9 @@ include("attributes.jl")
 include("stats.jl")
 # Stopping Criterion
 include("stopcrit.jl")
-# Cut Generator
-include("cutgen.jl")
 # Solution
 include("solution.jl")
+# Cut Generator
+include("cutgen.jl")
 
 end
