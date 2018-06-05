@@ -44,9 +44,9 @@ Returns the value of the state of solution `sol`.
 function getstatevalue end
 
 """
-getθvalue(sp::AbstractStochasticProgram, tr::AbstractTransition, sol::AbstractSolution)
+    getθvalue(sp::AbstractStochasticProgram, tr::AbstractTransition, sol::AbstractSolution)
 
-Returns the value of the θ in the solution `sol` of node `source(sp, tr)` for its transition `tr`.
+Returns the value of the θ in the solution `sol` of node `SOI.get(sp, SOI.Source(), tr)` for its transition `tr`.
 This assumes that `node` is using `MultiCutGenerator`.
 
     getθvalue(sp::AbstractStochasticProgram, node, sol::AbstractSolution)

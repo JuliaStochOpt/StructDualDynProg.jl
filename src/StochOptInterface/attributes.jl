@@ -146,8 +146,19 @@ struct StateObjectiveValueBound <: AbstractStateAttribute end
 
 ## Transition attributes
 
-function source end
-function target end
+"""
+    Source <: AbstractTransitionAttribute
+
+The source of the transition.
+"""
+struct Source <: AbstractTransitionAttribute end
+
+"""
+    Target <: AbstractTransitionAttribute
+
+The target of the transition.
+"""
+struct Target <: AbstractTransitionAttribute end
 
 """
     Probability <: AbstractTransitionAttribute

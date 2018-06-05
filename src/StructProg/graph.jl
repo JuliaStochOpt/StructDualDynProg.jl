@@ -33,8 +33,8 @@ mutable struct Transition{S} <: SOI.AbstractTransition
         new{S}(source, target, σ, proba, childT)
     end
 end
-SOI.source(::SOI.AbstractStochasticProgram, tr::Transition) = tr.source
-SOI.target(::SOI.AbstractStochasticProgram, tr::Transition) = tr.target
+SOI.get(::SOI.AbstractStochasticProgram, ::SOI.Source, tr::Transition) = tr.source
+SOI.get(::SOI.AbstractStochasticProgram, ::SOI.Target, tr::Transition) = tr.target
 SOI.get(::SOI.AbstractStochasticProgram, ::SOI.Probability, tr::Transition) = tr.proba
 
 Base.:(==)(t1::Transition, t2::Transition) = t1.source == t2.source && t1.target == t2.target && t1.σ == t2.σ
@@ -57,7 +57,7 @@ StochasticProgram{S}() where S = StochasticProgram{S, Transition{S}}()
 nodedata(sp::StochasticProgram, node::Int) = sp.data[node]
 
 SOI.get(sp::StochasticProgram, ::SOI.StateObjectiveValueBound, state) = getobjectivebound(nodedata(sp, state).nlds)
-SOI.set!(sp::StochasticProgram, ::SOI.TransitionObjectiveValueBound, tr::Transition, θlb) = setθbound!(nodedata(sp, SOI.source(sp, tr)).nlds, edgeid(sp, tr), θlb)
+SOI.set!(sp::StochasticProgram, ::SOI.TransitionObjectiveValueBound, tr::Transition, θlb) = setθbound!(nodedata(sp, SOI.get(sp, SOI.Source(), tr)).nlds, edgeid(sp, tr), θlb)
 SOI.get(sp::StochasticProgram, ::SOI.Dimension, state) = nodedata(sp, state).nlds.nx
 
 SOI.get(sp::StochasticProgram, ::SOI.OutTransitions, node::Int) = sp.out_transitions[node]
@@ -74,7 +74,7 @@ function SOI.get(sp::StochasticProgram, nop::SOI.NumberOfPathsFrom, node)
     else
         npath = nodedata(sp, node).npath
         if !(len in keys(npath))
-            npath[len] = sum(map(tr -> SOI.get(sp, SOI.NumberOfPathsFrom(len-1), SOI.target(sp, tr)), SOI.get(sp, SOI.OutTransitions(), node)))
+            npath[len] = sum(map(tr -> SOI.get(sp, SOI.NumberOfPathsFrom(len-1), SOI.get(sp, SOI.Target(), tr)), SOI.get(sp, SOI.OutTransitions(), node)))
         end
         npath[len]
     end
@@ -105,7 +105,7 @@ end
 
 function SOI.set!(sp::StochasticProgram, ::SOI.Probability, tr, proba)
     tr.proba = proba
-    data = nodedata(sp, SOI.source(sp, tr))
+    data = nodedata(sp, SOI.get(sp, SOI.Source(), tr))
     setprobability!(data.nlds, edgeid(sp, tr), proba)
 end
 
@@ -116,7 +116,7 @@ function SOI.get(sp::StochasticProgram, ::SOI.Solution, node)
 end
 
 function SOI.set!(sp::StochasticProgram, ::SOI.SourceSolution, tr, sol::Solution)
-    data = nodedata(sp, SOI.source(sp, tr))
+    data = nodedata(sp, SOI.get(sp, SOI.Source(), tr))
     if !isnull(tr.childT)
         T = get(tr.childT)
         x = T * sol.x
@@ -128,11 +128,11 @@ function SOI.set!(sp::StochasticProgram, ::SOI.SourceSolution, tr, sol::Solution
         x = sol.x
         xuray = sol.xuray
     end
-    setparentx(nodedata(sp, SOI.target(sp, tr)).nlds, x, xuray, sol.objvalxuray)
+    setparentx(nodedata(sp, SOI.get(sp, SOI.Target(), tr)).nlds, x, xuray, sol.objvalxuray)
 end
 
 function SOI.getθvalue(sp::StochasticProgram, tr::SOI.AbstractTransition, sol::Solution)
-    @assert length(sol.θ) == outdegree(sp, SOI.source(sp, tr))
+    @assert length(sol.θ) == outdegree(sp, SOI.get(sp, SOI.Source(), tr))
     SOI.getθvalue(sol, edgeid(sp, tr))
 end
 

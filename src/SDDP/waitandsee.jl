@@ -28,7 +28,7 @@ function waitandsee(sp::SOI.AbstractStochasticProgram, num_stages, solver, total
                 childs = totalK == -1 ? (1:outdegree(sp, path.node)) : find(npaths .> 0)
                 for (i, tr) in enumerate(SOI.get(sp, SOI.OutTransitions(), path.node))
                     if totalK == -1 || npaths[i] > 0
-                        push!(newpaths, WaitAndSeePath(SOI.target(sp, tr), [path.nlds; nodedata(sp, SOI.target(sp, tr)).nlds], path.z, path.proba * SOI.get(sp, SOI.Probability(), tr), npaths[i]))
+                        push!(newpaths, WaitAndSeePath(SOI.get(sp, SOI.Target(), tr), [path.nlds; nodedata(sp, SOI.get(sp, SOI.Target(), tr)).nlds], path.z, path.proba * SOI.get(sp, SOI.Probability(), tr), npaths[i]))
                     end
                 end
             end

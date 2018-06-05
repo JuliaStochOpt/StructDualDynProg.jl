@@ -31,14 +31,14 @@ function gencut(::FeasibilityCutGenerator, sp::AbstractStochasticProgram, parent
             childsol = path.childsols[tr]
             if getstatus(childsol) == :Infeasible
                 stats.nfcuts += 1
-                stats.fcutstime += @_time add_feasibility_cut!(sp, target(sp, tr), feasibility_cut(childsol)..., parent)
+                stats.fcutstime += @_time add_feasibility_cut!(sp, get(sp, Target(), tr), feasibility_cut(childsol)..., parent)
             end
         end
     end
 end
 function applycut(::FeasibilityCutGenerator, sp, node)
     for tr in get(sp, OutTransitions(), node)
-        apply_feasibility_cuts!(sp, target(sp, tr))
+        apply_feasibility_cuts!(sp, get(sp, Target(), tr))
     end
 end
 
@@ -72,7 +72,7 @@ function gencut(::MultiCutGenerator, sp, parent, path, stats, ztol)
             x = getstatevalue(path.sol)
             θ = getθvalue(sp, tr, path.sol)
             if getstatus(path.sol) == :Unbounded || _lt(θ, β - dot(aT, x), ztol)
-                stats.ocutstime += @_time add_optimality_cut_for_parent!(sp, target(sp, tr), a, β, parent)
+                stats.ocutstime += @_time add_optimality_cut_for_parent!(sp, get(sp, Target(), tr), a, β, parent)
                 stats.nocuts += 1
             end
         end
@@ -80,7 +80,7 @@ function gencut(::MultiCutGenerator, sp, parent, path, stats, ztol)
 end
 function applycut(::MultiCutGenerator, sp, node)
     for tr in get(sp, OutTransitions(), node)
-        apply_optimality_cuts_for_parent!(sp, target(sp, tr))
+        apply_optimality_cuts_for_parent!(sp, get(sp, Target(), tr))
     end
 end
 

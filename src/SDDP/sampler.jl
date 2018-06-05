@@ -80,7 +80,7 @@ function samplepaths(pathsampler::NumPathsPathSampler, g::SOI.AbstractStochastic
     else
         # TODO check if needs +-1 in argument of NumberOfPathsFrom
         den = SOI.get(g, SOI.NumberOfPathsFrom(num_stages - (t-1)), node)
-        pmf = map(tr->SOI.get(g, SOI.NumberOfPathsFrom(num_stages - t), SOI.target(g, tr)) / den, SOI.get(g, SOI.OutTransitions(), node))
+        pmf = map(tr->SOI.get(g, SOI.NumberOfPathsFrom(num_stages - t), SOI.get(g, SOI.Target(), tr)) / den, SOI.get(g, SOI.OutTransitions(), node))
         _samplepaths(npaths, pmf, pathsampler.semirandom, true)
     end
 end
