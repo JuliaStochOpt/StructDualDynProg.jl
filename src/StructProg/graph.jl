@@ -61,7 +61,7 @@ SOI.set!(sp::StochasticProgram, ::SOI.TransitionObjectiveValueBound, tr::Transit
 SOI.get(sp::StochasticProgram, ::SOI.Dimension, state) = nodedata(sp, state).nlds.nx
 
 SOI.get(sp::StochasticProgram, ::SOI.OutTransitions, node::Int) = sp.out_transitions[node]
-transitiontype(::StochasticProgram{S, TT}) where {S, TT} = TT
+SOI.get(::StochasticProgram{S, TT}, ::SOI.TransitionType) where {S, TT} = TT
 
 SOI.get(::StochasticProgram, ::SOI.MasterState) = 1
 

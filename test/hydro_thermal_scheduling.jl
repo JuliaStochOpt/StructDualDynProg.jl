@@ -65,7 +65,7 @@
                     end
                 end
 
-                SDDPclear(models[1])
+                StructProg.clear(models[1])
             end
         end
     end

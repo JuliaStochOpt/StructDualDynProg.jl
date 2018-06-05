@@ -76,6 +76,13 @@ The master state.
 struct MasterState <: AbstractStochasticProgramAttribute end
 
 """
+    TransitionType <: AbstractStochasticProgramAttribute
+
+The type of the transitions, i.e. `typeof(first(get(sp, OutTransitions(), state)))`.
+"""
+struct TransitionType <: AbstractStochasticProgramAttribute end
+
+"""
     struct NumberOfPaths <: AbstractStochasticProgramAttribute
         length::Int
     end

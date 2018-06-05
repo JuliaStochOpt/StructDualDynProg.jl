@@ -1,10 +1,8 @@
-export getSDDPNode, SDDPclear
-
 struct SDDPModelData
     nodes::Vector{Nullable{Int}}
 end
 
-function getSDDPNode(sp::StochasticProgram, m::Model, t, num_stages, solver, parent, pruningalgo::AbstractCutPruningAlgo, cutgen::SOI.AbstractOptimalityCutGenerator, detectlb::Bool=true, newcut::Symbol=:InvalidateSolver)
+function createnode(sp::StochasticProgram, m::Model, t, num_stages, solver, parent, pruningalgo::AbstractCutPruningAlgo, cutgen::SOI.AbstractOptimalityCutGenerator, detectlb::Bool=true, newcut::Symbol=:InvalidateSolver)
     # For each model, we need to create a different node for each t.
     # We store all these node in a nodes array per model
     if !(:SDDP in keys(m.ext))
@@ -24,7 +22,7 @@ function getSDDPNode(sp::StochasticProgram, m::Model, t, num_stages, solver, par
         if t < num_stages
             num_scen = length(struc.children)
             for id in keys(struc.children)
-                child = getSDDPNode(sp, struc.children[id], t+1, num_stages, solver, newnode, pruningalgo, cutgen, detectlb, newcut)
+                child = createnode(sp, struc.children[id], t+1, num_stages, solver, newnode, pruningalgo, cutgen, detectlb, newcut)
                 tr = SOI.add_scenario_transition!(sp, newnode, child, struc.probability[id])
                 if detectlb
                     SOI.set!(sp, SOI.TransitionObjectiveValueBound(), tr, SOI.get(sp, SOI.StateObjectiveValueBound(), child))
@@ -48,15 +46,15 @@ If `cutgen` is `MultiCutGenerator`, one variable `θ_i` is created for each scen
 """
 function SOI.stochasticprogram(m::Model, num_stages, solver, pruningalgo::AbstractCutPruningAlgo, cutgen::SOI.AbstractOptimalityCutGenerator=SOI.MultiCutGenerator(), detectlb::Bool=true, newcut::Symbol=:InvalidateSolver)
     sp = StochasticProgram{Float64}()
-    getSDDPNode(sp, m, 1, num_stages, solver, nothing, pruningalgo, cutgen, detectlb, newcut)
+    createnode(sp, m, 1, num_stages, solver, nothing, pruningalgo, cutgen, detectlb, newcut)
     sp
 end
 
-function SDDPclear(m::Model)
+function clear(m::Model)
     if :SDDP in keys(m.ext)
         pop!(m.ext, :SDDP)
         for (id, child) in getStructure(m).children
-            SDDPclear(child)
+            clear(child)
         end
     end
 end

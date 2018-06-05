@@ -132,9 +132,9 @@ end
 Given paths in `pathsd`, put the paths that have no child in `endedpaths` and sample child jobs using `pathsample` for other paths.
 """
 function childjobs(g::SOI.AbstractStochasticProgram, pathsd::Vector{Tuple{NodeT, Vector{SDDPPath{TT, SolT}}}}, pathsampler::AbstractPathSampler, t, num_stages, endedpaths) where {SolT, NodeT, TT}
-    jobsd = Dict{NodeT, Vector{Job{SolT, NodeT, transitiontype(g)}}}()
+    jobsd = Dict{NodeT, Vector{Job{SolT, NodeT, SOI.get(g, SOI.TransitionType())}}}()
     for (node, paths) in pathsd
-        if !iszero(outdegree(g, node))
+        if !isempty(SOI.get(g, SOI.OutTransitions(), node))
             for path in paths
                 # Adding Jobs
                 npaths = samplepaths(pathsampler, g, node, path.K, t, num_stages)

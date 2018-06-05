@@ -30,7 +30,7 @@ function fulltest(m, num_stages, objval, solval, ws, wsσ, testniter, solver)
                             @test abs(μ - ws) / ws < (K == -1 ? 1e-6 : .03)
                             @test abs(σ - wsσ) / wsσ <= (K == -1 ? 1e-6 : 1.)
 
-                            SDDPclear(m)
+                            StructProg.clear(m)
                         end
                     end
                 end

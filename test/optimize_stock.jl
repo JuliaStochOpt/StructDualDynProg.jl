@@ -34,7 +34,7 @@
                 @test SOI.get(sp, SOI.NumberOfPaths(0)) == 1
                 @test SOI.get(sp, SOI.NumberOfPaths(1)) == 2
                 @test SOI.get(sp, SOI.NumberOfPaths(2)) == 2
-                @test sprint(show, StructDualDynProg.nodedata(sp, 1)) == "Node of 1 variables\n"
+                @test sprint(show, StructDualDynProg.StructProg.nodedata(sp, 1)) == "Node of 1 variables\n"
                 sol = SDDP(sp, num_stages, K = K, stopcrit = SOI.Pereira(0.1) | SOI.IterLimit(10), verbose = 0, forwardcuts = forwardcuts, backwardcuts = !forwardcuts)
                 sstats = sprint(show, sol.attrs[:stats])
                 @test contains(sstats, "Solving problem")
@@ -54,7 +54,7 @@
                 @test sol.attrs[:niter] == 4
                 @test sol.status == :Optimal
                 @test sol.objval == -2.0
-                SDDPclear(m1)
+                StructProg.clear(m1)
             end
         end
     end
@@ -95,7 +95,7 @@
             @objective(m3, Max, P * s)
 
             root = 1
-            newnode = getSDDPNode(sp, m3, 1, 1, solver, root, AvgCutPruningAlgo(-1), cutmode)
+            newnode = StructProg.createnode(sp, m3, 1, 1, solver, root, AvgCutPruningAlgo(-1), cutmode)
             @test length(sp.out_transitions[1]) == 1
             SOI.set!(sp, SOI.Probability(), sp.out_transitions[1][1], 1/2)
             SOI.add_scenario_transition!(sp, root, newnode, 1/2)

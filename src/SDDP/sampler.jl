@@ -46,13 +46,13 @@ end
 function _samplepaths(npaths, pmf, semirandom::Bool, canmodifypmf::Bool)
     _samplepaths!(zeros(Int, length(pmf)), npaths, pmf, semirandom, canmodifypmf)
 end
-infpaths(g, node) = fill(-1, outdegree(g, node))
+infpaths(g, node) = fill(-1, length(SOI.get(g, SOI.OutTransitions(), node)))
 
 function samplepaths(pathsampler::AbstractPathSampler, sp::SOI.AbstractStochasticProgram, node, npaths::Vector{Int}, t, num_stages)
-    npathss = Vector{Int}[similar(npaths) for i in 1:outdegree(sp, node)]
-    for i in 1:length(npaths)
+    npathss = Vector{Int}[similar(npaths) for i in 1:length(SOI.get(sp, SOI.OutTransitions(), node))]
+    for i in eachindex(npaths)
         _npaths = samplepaths(pathsampler, sp, node, npaths[i], t, num_stages)
-        for c in 1:outdegree(sp, node)
+        for c in eachindex(npathss)
             npathss[c][i] = _npaths[c]
         end
     end

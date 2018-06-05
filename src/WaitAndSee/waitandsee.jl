@@ -1,8 +1,10 @@
 export waitandsee
 
+using MathProgBase
+
 mutable struct WaitAndSeePath{NodeT}
     node::NodeT
-    nlds::Vector{NLDS}
+    nlds::Vector{StructDualDynProg.StructProg.NLDS}
     z::Float64
     proba::Float64
     K::Int
@@ -17,18 +19,18 @@ end
 
 function waitandsee(sp::SOI.AbstractStochasticProgram, num_stages, solver, totalK=25, verbose=0)
     master = SOI.get(sp, SOI.MasterState())
-    paths = WaitAndSeePath[WaitAndSeePath(master, NLDS[nodedata(sp, master).nlds], .0, 1., totalK)]
+    paths = WaitAndSeePath[WaitAndSeePath(master, StructDualDynProg.StructProg.NLDS[StructDualDynProg.StructProg.nodedata(sp, master).nlds], .0, 1., totalK)]
     for t in 2:num_stages
         newpaths = WaitAndSeePath[]
         for path in paths
-            if iszero(outdegree(sp, path.node))
+            if isempty(SOI.get(sp, SOI.OutTransitions(), path.node))
                 push!(newpaths, path)
             else
                 npaths = samplepaths(ProbaPathSampler(true), sp, path.node, path.K, t, num_stages)
-                childs = totalK == -1 ? (1:outdegree(sp, path.node)) : find(npaths .> 0)
+                childs = totalK == -1 ? (1:length(SOI.get(sp, SOI.OutTransitions(), path.node))) : find(npaths .> 0)
                 for (i, tr) in enumerate(SOI.get(sp, SOI.OutTransitions(), path.node))
                     if totalK == -1 || npaths[i] > 0
-                        push!(newpaths, WaitAndSeePath(SOI.get(sp, SOI.Target(), tr), [path.nlds; nodedata(sp, SOI.get(sp, SOI.Target(), tr)).nlds], path.z, path.proba * SOI.get(sp, SOI.Probability(), tr), npaths[i]))
+                        push!(newpaths, WaitAndSeePath(SOI.get(sp, SOI.Target(), tr), [path.nlds; StructDualDynProg.StructProg.nodedata(sp, SOI.get(sp, SOI.Target(), tr)).nlds], path.z, path.proba * SOI.get(sp, SOI.Probability(), tr), npaths[i]))
                     end
                 end
             end
@@ -47,7 +49,7 @@ function waitandsee(sp::SOI.AbstractStochasticProgram, num_stages, solver, total
         bs = Vector{Vector}(length(path.nlds))
         Ks = []
         C = []
-        c = similar(nodedata(sp, master).nlds.c, nvars[end])
+        c = similar(StructDualDynProg.StructProg.nodedata(sp, master).nlds.c, nvars[end])
         for i in 1:length(path.nlds)
             offsetnvars = i == 1 ? 0 : nvars[i-1]
             offsetncons = i == 1 ? 0 : ncons[i-1]
@@ -63,7 +65,7 @@ function waitandsee(sp::SOI.AbstractStochasticProgram, num_stages, solver, total
             append!(C, [(cone, offsetnvars+idx) for (cone, idx) in nlds.C])
         end
         model = MathProgBase.LinearQuadraticModel(solver)
-        _load!(model, c, A, bs, Ks, C)
+        StructDualDynProg.StructProg._load!(model, c, A, bs, Ks, C)
         MathProgBase.optimize!(model)
         status = MathProgBase.status(model)
         if status == :Error
