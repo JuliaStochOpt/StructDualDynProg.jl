@@ -19,4 +19,7 @@ include("solution.jl")
 # Cut Generator
 include("cutgen.jl")
 
+# Algorithm
+include("algorithm.jl")
+
 end

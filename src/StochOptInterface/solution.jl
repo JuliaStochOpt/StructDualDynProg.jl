@@ -1,3 +1,4 @@
+# Solution at one state, different than Solution with is the full solution
 abstract type AbstractSolution end
 
 """

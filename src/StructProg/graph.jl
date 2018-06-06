@@ -48,13 +48,16 @@ StochasticProgram of coefficient type `S` and transition type `TT`.
 mutable struct StochasticProgram{S, TT} <: SOI.AbstractStochasticProgram
     out_transitions::Vector{Vector{TT}} # out_transitions[i] : outgoing transitions for node i
     data::Vector{NodeData{S}}           # data[i] : data for node i
-    function StochasticProgram{S, TT}() where {S, TT}
-        new{S, TT}(Vector{TT}[], NodeData{S}[])
+    num_stages::Int
+    function StochasticProgram{S, TT}(num_stages) where {S, TT}
+        new{S, TT}(Vector{TT}[], NodeData{S}[], num_stages)
     end
 end
-StochasticProgram{S}() where S = StochasticProgram{S, Transition{S}}()
+StochasticProgram{S}(num_stages) where S = StochasticProgram{S, Transition{S}}(num_stages)
 
 nodedata(sp::StochasticProgram, node::Int) = sp.data[node]
+
+SOI.get(sp::StochasticProgram, ::SOI.NumberOfStages) = sp.num_stages
 
 SOI.get(sp::StochasticProgram, ::SOI.StateObjectiveValueBound, state) = getobjectivebound(nodedata(sp, state).nlds)
 SOI.set!(sp::StochasticProgram, ::SOI.TransitionObjectiveValueBound, tr::Transition, θlb) = setθbound!(nodedata(sp, SOI.get(sp, SOI.Source(), tr)).nlds, edgeid(sp, tr), θlb)

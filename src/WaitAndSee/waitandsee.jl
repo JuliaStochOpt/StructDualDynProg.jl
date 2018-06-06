@@ -1,6 +1,15 @@
-export waitandsee
+module WaitAndSee
+
+using StructDualDynProg
+const SOI = StructDualDynProg.StochOptInterface
 
 using MathProgBase
+
+struct Algorithm{S<:MathProgBase.AbstractMathProgSolver} <: SOI.AbstractAlgorithm
+    solver::S
+    K::Int
+end
+Algorithm(solver::MathProgBase.AbstractMathProgSolver, K=25) = Algorithm(solver, K)
 
 mutable struct WaitAndSeePath{NodeT}
     node::NodeT
@@ -14,22 +23,25 @@ function meanstdpaths(paths::Vector{WaitAndSeePath}, totalK)
     z = Float64[x.z for x in paths]
     proba = Float64[x.proba for x in paths]
     npaths = Int[x.K for x in paths]
-    meanstdpaths(z, proba, npaths, totalK)
+    StructDualDynProg.SDDP.meanstdpaths(z, proba, npaths, totalK)
 end
 
-function waitandsee(sp::SOI.AbstractStochasticProgram, num_stages, solver, totalK=25, verbose=0)
+function SOI.optimize!(sp::SOI.AbstractStochasticProgram, algo::Algorithm,
+                       stopcrit::SOI.AbstractStoppingCriterion=SOI.IterLimit(0), # Not used
+                       verbose::Int=0)
     master = SOI.get(sp, SOI.MasterState())
-    paths = WaitAndSeePath[WaitAndSeePath(master, StructDualDynProg.StructProg.NLDS[StructDualDynProg.StructProg.nodedata(sp, master).nlds], .0, 1., totalK)]
+    num_stages = SOI.get(sp, SOI.NumberOfStages())
+    paths = WaitAndSeePath[WaitAndSeePath(master, StructDualDynProg.StructProg.NLDS[StructDualDynProg.StructProg.nodedata(sp, master).nlds], .0, 1., algo.K)]
     for t in 2:num_stages
         newpaths = WaitAndSeePath[]
         for path in paths
             if isempty(SOI.get(sp, SOI.OutTransitions(), path.node))
                 push!(newpaths, path)
             else
-                npaths = samplepaths(ProbaPathSampler(true), sp, path.node, path.K, t, num_stages)
-                childs = totalK == -1 ? (1:length(SOI.get(sp, SOI.OutTransitions(), path.node))) : find(npaths .> 0)
+                npaths = StructDualDynProg.SDDP.samplepaths(StructDualDynProg.SDDP.ProbaPathSampler(true), sp, path.node, path.K, t, num_stages)
+                childs = algo.K == -1 ? (1:length(SOI.get(sp, SOI.OutTransitions(), path.node))) : find(npaths .> 0)
                 for (i, tr) in enumerate(SOI.get(sp, SOI.OutTransitions(), path.node))
-                    if totalK == -1 || npaths[i] > 0
+                    if algo.K == -1 || npaths[i] > 0
                         push!(newpaths, WaitAndSeePath(SOI.get(sp, SOI.Target(), tr), [path.nlds; StructDualDynProg.StructProg.nodedata(sp, SOI.get(sp, SOI.Target(), tr)).nlds], path.z, path.proba * SOI.get(sp, SOI.Probability(), tr), npaths[i]))
                     end
                 end
@@ -64,7 +76,7 @@ function waitandsee(sp::SOI.AbstractStochasticProgram, num_stages, solver, total
             push!(Ks, nlds.K)
             append!(C, [(cone, offsetnvars+idx) for (cone, idx) in nlds.C])
         end
-        model = MathProgBase.LinearQuadraticModel(solver)
+        model = MathProgBase.LinearQuadraticModel(algo.solver)
         StructDualDynProg.StructProg._load!(model, c, A, bs, Ks, C)
         MathProgBase.optimize!(model)
         status = MathProgBase.status(model)
@@ -82,5 +94,7 @@ function waitandsee(sp::SOI.AbstractStochasticProgram, num_stages, solver, total
             push!(newpaths, WaitAndSeePath(path.node, path.nlds, objval, path.proba, path.K))
         end
     end
-    meanstdpaths(newpaths, totalK)
+    meanstdpaths(newpaths, algo.K)
+end
+
 end

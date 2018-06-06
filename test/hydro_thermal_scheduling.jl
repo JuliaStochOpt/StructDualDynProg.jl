@@ -41,8 +41,8 @@
         for cutmode in [SOI.MultiCutGenerator(), SOI.AvgCutGenerator()]
             for detectlb in [false, true]
                 sp = SOI.stochasticprogram(models[1], num_stages, solver, AvgCutPruningAlgo(-1), cutmode, detectlb)
-                sol = SDDP(sp, num_stages, K = 16, stopcrit = SOI.Pereira(2, 0.5) | SOI.IterLimit(10), verbose = 0, forwardcuts = forwardcuts, backwardcuts = !forwardcuts)
-                #sol = SDDP(sp, num_stages, K = 16, stopcrit = IterLimit(10), verbose = 3, forwardcuts = forwardcuts, backwardcuts = !forwardcuts)
+                algo = SDDP.Algorithm(K = 16, forwardcuts = forwardcuts, backwardcuts = !forwardcuts)
+                sol = SOI.optimize!(sp, algo, SOI.Pereira(2, 0.5) | SOI.IterLimit(10), 0)
 
                 @test sol.status == :Optimal
                 if forwardcuts

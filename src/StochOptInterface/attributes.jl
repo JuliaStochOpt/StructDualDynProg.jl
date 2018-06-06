@@ -83,6 +83,17 @@ The type of the transitions, i.e. `typeof(first(get(sp, OutTransitions(), state)
 struct TransitionType <: AbstractStochasticProgramAttribute end
 
 """
+    NumberOfStages <: AbstractStochasticProgramAttribute
+
+The number of stages of the stochastic program.
+A path starting from the master state of length equal to the number of stages
+does not necessarily have to end with a state with no outgoing edges.
+The stochastic program can even contain infinite paths and `NumberOfStages` is
+used to truncate the exploration.
+"""
+struct NumberOfStages <: AbstractStochasticProgramAttribute end
+
+"""
     struct NumberOfPaths <: AbstractStochasticProgramAttribute
         length::Int
     end
