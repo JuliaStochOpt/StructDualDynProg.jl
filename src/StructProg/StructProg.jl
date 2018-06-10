@@ -10,6 +10,11 @@ using StructJuMP
 
 using CutPruners
 
+# Cut
+include("cut.jl")
+# Cut Generator
+include("cutgen.jl")
+
 # Generic implementation of Stochastic Program
 include("cutstore.jl")
 include("solver.jl")

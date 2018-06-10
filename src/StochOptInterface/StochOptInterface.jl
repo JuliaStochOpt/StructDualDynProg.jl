@@ -16,10 +16,6 @@ include("stats.jl")
 include("stopcrit.jl")
 # Solution
 include("solution.jl")
-# Cut
-include("cut.jl")
-# Cut Generator
-include("cutgen.jl")
 
 # Algorithm
 include("algorithm.jl")
