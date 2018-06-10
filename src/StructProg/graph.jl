@@ -144,28 +144,28 @@ function SOI.getθvalue(sp::StochasticProgram, node, sol::Solution)
     SOI.getθvalue(sol, 1)
 end
 
-function SOI.add_feasibility_cut!(sp::StochasticProgram, node, coef, rhs, author)
+function SOI.addcut!(sp::StochasticProgram, tr::Transition, cut::SOI.FeasibilityCut)
     # coef is a ray
     # so alpha * coef is also valid for any alpha >= 0.
     # Hence coef might have very large coefficients and alter
     # the numerial accuracy of the master's solver.
     # We scale it to avoid this issue
-    scaling = max(abs(rhs), maximum(abs, coef))
-    addcut(nodedata(sp, node).fcuts, coef/scaling, sign(rhs), nodedata(sp, author).nlds)
+    scaling = max(abs(cut.β), maximum(abs, cut.a))
+    addcut(nodedata(sp, SOI.get(sp, SOI.Target(), tr)).fcuts, cut.a/scaling, sign(cut.β), nodedata(sp, SOI.get(sp, SOI.Source(), tr)).nlds)
 end
-function SOI.add_optimality_cut!(sp::StochasticProgram, node, coef, rhs, author)
-    addcut(nodedata(sp, node).nlds.localOC, coef, rhs, nodedata(sp, author).nlds)
+function SOI.addcut!(sp::StochasticProgram, tr::Transition, cut::SOI.MultiOptimalityCut)
+    addcut(nodedata(sp, SOI.get(sp, SOI.Target(), tr)).ocuts, cut.a, cut.β, nodedata(sp, SOI.get(sp, SOI.Source(), tr)).nlds)
 end
-function SOI.add_optimality_cut_for_parent!(sp::StochasticProgram, node, coef, rhs, author)
-    addcut(nodedata(sp, node).ocuts, coef, rhs, nodedata(sp, author).nlds)
+function SOI.addcut!(sp::StochasticProgram, state, cut::SOI.AveragedOptimalityCut)
+    addcut(nodedata(sp, state).nlds.localOC, cut.a, cut.β, nodedata(sp, state).nlds)
 end
 
-function SOI.apply_feasibility_cuts!(sp::StochasticProgram, node)
-    apply!(nodedata(sp, node).fcuts)
+function SOI.applycuts!(sp::StochasticProgram, tr::Transition, ::Type{<:SOI.FeasibilityCut})
+    apply!(nodedata(sp, SOI.get(sp, SOI.Target(), tr)).fcuts)
 end
-function SOI.apply_optimality_cuts!(sp::StochasticProgram, node)
-    apply!(nodedata(sp, node).nlds.localOC)
+function SOI.applycuts!(sp::StochasticProgram, tr::Transition, ::Type{<:SOI.MultiOptimalityCut})
+    apply!(nodedata(sp, SOI.get(sp, SOI.Target(), tr)).ocuts)
 end
-function SOI.apply_optimality_cuts_for_parent!(sp::StochasticProgram, node)
-    apply!(nodedata(sp, node).ocuts)
+function SOI.applycuts!(sp::StochasticProgram, state, ::Type{<:SOI.AveragedOptimalityCut})
+    apply!(nodedata(sp, state).nlds.localOC)
 end
