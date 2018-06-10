@@ -10,6 +10,9 @@ using StructJuMP
 
 using CutPruners
 
+# Utils
+include("comp.jl")
+
 # Cut
 include("cut.jl")
 # Cut Generator

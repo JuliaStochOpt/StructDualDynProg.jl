@@ -5,6 +5,9 @@ const SOI = StructDualDynProg.StochOptInterface
 
 # SDDP algorithm for StochOptInterface
 
+# Utils
+include("comp.jl")
+
 # Path Sampler
 include("sampler.jl")
 

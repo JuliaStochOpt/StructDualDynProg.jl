@@ -1,18 +1,18 @@
 abstract type AbstractCut end
 
-"""
-    addcut!(sp::AbstractStochasticProgram, state_or_tr, cut::AbstractCut)
+#"""
+#    addcut!(sp::AbstractStochasticProgram, state_or_tr, cut::AbstractCut)
+#
+#Add cut `cut` to the state or transition `state_or_tr`.
+#"""
+#function addcut! end
 
-Add cut `cut` to the state or transition `state_or_tr`.
-"""
-function addcut! end
-
-"""
-    applycuts!(sp::AbstractStochasticProgram, state, T::Type{<:AbstractCut})
-
-Apply cuts of type `T` to the state or transition `state_or_tr`.
-"""
-function applycuts! end
+#"""
+#    applycuts!(sp::AbstractStochasticProgram, state, T::Type{<:AbstractCut})
+#
+#Apply cuts of type `T` to the state or transition `state_or_tr`.
+#"""
+#function applycuts! end
 
 #"""
 #    iscut(sol::AbstractSolution, cut::AbstractCut)

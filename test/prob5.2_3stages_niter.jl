@@ -1,5 +1,5 @@
 function testniter_3stages(niter, K, maxncuts, cutgen, detectlb)
-    if isa(cutgen, SOI.MultiCutGenerator)
+    if isa(cutgen, StructProg.MultiCutGenerator)
         if K == -1
             if maxncuts == -1
                 if detectlb

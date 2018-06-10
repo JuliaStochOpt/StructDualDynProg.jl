@@ -48,7 +48,7 @@
     #    12     | Optimal   | 339779.51 |  340949.37 |  0  |  1  |
     #    13     | Optimal   | 340315.52 |  340315.52 |  0  |  0  |
     function testniter(niter, K, maxncuts, cutgen, detectlb)
-        if isa(cutgen, SOI.MultiCutGenerator)
+        if isa(cutgen, StructProg.MultiCutGenerator)
             @test niter == 10
         else
             if maxncuts == -1

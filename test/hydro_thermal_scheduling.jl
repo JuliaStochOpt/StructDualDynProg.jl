@@ -35,10 +35,10 @@
 	end
 
     forwardcuts = true
-    cutmode = SOI.MultiCutGenerator()
+    cutmode = StructProg.MultiCutGenerator()
     detectlb = false
     for forwardcuts in [false, true]
-        for cutmode in [SOI.MultiCutGenerator(), SOI.AvgCutGenerator()]
+        for cutmode in [StructProg.MultiCutGenerator(), StructProg.AvgCutGenerator()]
             for detectlb in [false, true]
                 sp = SOI.stochasticprogram(models[1], num_stages, solver, AvgCutPruningAlgo(-1), cutmode, detectlb)
                 algo = SDDP.Algorithm(K = 16, forwardcuts = forwardcuts, backwardcuts = !forwardcuts)
@@ -49,8 +49,8 @@
                     @test sol.attrs[:niter] == (detectlb ? 3 : 5)
                     @test sol.objval ≈ (detectlb ? 15 : 18.75)
                 else
-                    @test sol.attrs[:niter] == (!detectlb && isa(cutmode, SOI.AvgCutGenerator) ? 5 : 2)
-                    if isa(cutmode, SOI.AvgCutGenerator)
+                    @test sol.attrs[:niter] == (!detectlb && isa(cutmode, StructProg.AvgCutGenerator) ? 5 : 2)
+                    if isa(cutmode, StructProg.AvgCutGenerator)
                         if detectlb
                             @test sol.objval ≈ 22.5 # Clp returns an approximate value
                         else

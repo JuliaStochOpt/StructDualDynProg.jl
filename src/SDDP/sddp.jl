@@ -25,7 +25,7 @@ end
 
 function applycuts(pathsd, sp)
     for (state, _) in pathsd
-        SOI.applycuts(sp, state)
+        SOI.applycuts!(sp, state)
     end
 end
 

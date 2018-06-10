@@ -93,7 +93,7 @@ mutable struct NLDS{S}
     θfree::IntSet
     θlb::Vector{Float64}
     childT::Nullable{Vector{AbstractMatrix{S}}}
-    cutgen::SOI.AbstractOptimalityCutGenerator
+    cutgen::AbstractOptimalityCutGenerator
 
     nx::Int
     nθ::Int
@@ -131,7 +131,7 @@ mutable struct NLDS{S}
         else
             model = MathProgBase.LinearQuadraticModel(solver)
         end
-        nlds = new{S}(W, h, T, K, C, c, S[], nothing, nothing, CutStore{S}[], CutStore{S}[], localFC, localOC, Float64[], IntSet(), Float64[], nothing, SOI.AvgCutGenerator(), nx, nθ, nπ, 1:nπ, 0, Int[], Int[], Vector{Int}[], model, false, false, nothing, newcut, pruningalgo, FCpruner, OCpruners)
+        nlds = new{S}(W, h, T, K, C, c, S[], nothing, nothing, CutStore{S}[], CutStore{S}[], localFC, localOC, Float64[], IntSet(), Float64[], nothing, AvgCutGenerator(), nx, nθ, nπ, 1:nπ, 0, Int[], Int[], Vector{Int}[], model, false, false, nothing, newcut, pruningalgo, FCpruner, OCpruners)
         addfollower(localFC, (nlds, (:Feasibility, 0)))
         addfollower(localOC, (nlds, (:Optimality, 1)))
         nlds
@@ -158,7 +158,7 @@ end
 function add_scenario_transition!(nlds::NLDS{S}, childFC, childOC, proba, childT) where {S}
     push!(nlds.proba, proba)
     oldnθ = nlds.nθ
-    nlds.nθ = SOI.nθ(nlds.cutgen, nlds.proba)
+    nlds.nθ = nθ(nlds.cutgen, nlds.proba)
     Δθ = nlds.nθ - oldnθ
     push!(nlds.θlb, 0)
     push!(nlds.θfree, length(nlds.θlb))

@@ -64,7 +64,7 @@ function Base.isapprox(p::SDDPPath, q::SDDPPath)
 end
 
 function canmerge(p::SDDPPath, q::SDDPPath, ztol)
-    SOI._isapprox(SOI.getstatevalue(SOI.getsolution(p.pool)), SOI.getstatevalue(SOI.getsolution(q.pool)), ztol)
+    _isapprox(SOI.getstatevalue(SOI.getsolution(p.pool)), SOI.getstatevalue(SOI.getsolution(q.pool)), ztol)
 end
 
 function merge!(p::SDDPPath, q::SDDPPath)
@@ -131,16 +131,16 @@ end
 
 Given paths in `pathsd`, put the paths that have no child in `endedpaths` and sample child jobs using `pathsample` for other paths.
 """
-function childjobs(g::SOI.AbstractStochasticProgram, pathsd::Vector{Tuple{NodeT, Vector{SDDPPath{TT, SolT}}}}, pathsampler::AbstractPathSampler, t, num_stages, endedpaths) where {SolT, NodeT, TT}
-    jobsd = Dict{NodeT, Vector{Job{SolT, NodeT, SOI.get(g, SOI.TransitionType())}}}()
+function childjobs(sp::SOI.AbstractStochasticProgram, pathsd::Vector{Tuple{NodeT, Vector{SDDPPath{TT, SolT}}}}, pathsampler::AbstractPathSampler, t, num_stages, endedpaths) where {SolT, NodeT, TT}
+    jobsd = Dict{NodeT, Vector{Job{SolT, NodeT, SOI.get(sp, SOI.TransitionType())}}}()
     for (node, paths) in pathsd
-        if !isempty(SOI.get(g, SOI.OutTransitions(), node))
+        if !isempty(SOI.get(sp, SOI.OutTransitions(), node))
             for path in paths
                 # Adding Jobs
-                npaths = samplepaths(pathsampler, g, node, path.K, t, num_stages)
-                for (i, tr) in enumerate(SOI.get(g, SOI.OutTransitions(), node))
+                npaths = samplepaths(pathsampler, sp, node, path.K, t, num_stages)
+                for (i, tr) in enumerate(SOI.get(sp, SOI.OutTransitions(), node))
                     if !iszero(sum(npaths[i])) || SOI.get(sp, SOI.NeedAllSolutions(), node) # || t == 2
-                        addjob!(jobsd, SOI.get(g, SOI.Target(), tr), Job(path.proba * SOI.get(g, SOI.Probability(), tr), npaths[i], node, path, tr))
+                        addjob!(jobsd, SOI.get(sp, SOI.Target(), tr), Job(path.proba * SOI.get(sp, SOI.Probability(), tr), npaths[i], node, path, tr))
                     end
                 end
             end

@@ -23,7 +23,7 @@
         end
 
         num_stages = 2
-        cutmode = SOI.AvgCutGenerator()
+        cutmode = StructProg.AvgCutGenerator()
         K = 2
         pereiracoef = 0.1
 
@@ -77,7 +77,7 @@
 
             num_stages = 2
             # Multicut wouldn't work since we are adding a node
-            cutmode = SOI.AvgCutGenerator()
+            cutmode = StructProg.AvgCutGenerator()
             K = 2
             pereiracoef = 0.1
 

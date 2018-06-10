@@ -145,11 +145,11 @@ The number of variables of the stochastic program at the state (not including th
 struct Dimension <: AbstractStateAttribute end
 
 """
-    CutGenerator <: AbstractStateAttribute
+    NeedAllSolutions <: AbstractStateAttribute
 
-The cut generator of the state.
+A `Bool` indicating whether the state needs all solutions in the solution pool in order to generate an optimality cut.
 """
-struct CutGenerator <: AbstractStateAttribute end
+struct NeedAllSolutions <: AbstractStateAttribute end
 
 """
     StateObjectiveValueBound <: AbstractStateAttribute

@@ -3,7 +3,7 @@ function fulltest(m, num_stages, objval, solval, ws, wsσ, testniter, solver)
     for K in [-1, 40]
         for maxncuts in [-1, 7]
             for newcut in [:InvalidateSolver]#[:AddImmediately, :InvalidateSolver]
-                for cutmode in [SOI.MultiCutGenerator(), SOI.AvgCutGenerator()]
+                for cutmode in [StructProg.MultiCutGenerator(), StructProg.AvgCutGenerator()]
                     for detectlb in [false, true]
                         for pruningalgo in [AvgCutPruningAlgo(maxncuts), DecayCutPruningAlgo(maxncuts), DeMatosPruningAlgo(maxncuts)]
                             isclp(solver) && K == -1 && maxncuts == 7 && cutmode == :MultiCut && !detectlb && isa(pruningalgo, DeMatosPruningAlgo) && continue

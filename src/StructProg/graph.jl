@@ -83,8 +83,15 @@ function SOI.get(sp::StochasticProgram, nop::SOI.NumberOfPathsFrom, node)
     end
 end
 
-SOI.get(sp::StochasticProgram, ::SOI.CutGenerator, node) = nodedata(sp, node).nlds.cutgen
-function SOI.set!(sp::StochasticProgram, ::SOI.CutGenerator, node, cutgen::SOI.AbstractOptimalityCutGenerator)
+"""
+    CutGenerator <: AbstractStateAttribute
+
+The cut generator of the state.
+"""
+struct CutGenerator <: SOI.AbstractStateAttribute end
+
+SOI.get(sp::StochasticProgram, ::CutGenerator, node) = nodedata(sp, node).nlds.cutgen
+function SOI.set!(sp::StochasticProgram, ::CutGenerator, node, cutgen::AbstractOptimalityCutGenerator)
     nodedata(sp, node).nlds.cutgen = cutgen
 end
 
@@ -144,15 +151,17 @@ function SOI.getθvalue(sp::StochasticProgram, node, sol::Solution)
     SOI.getθvalue(sol, 1)
 end
 
+SOI.get(sp::StochasticProgram, ::SOI.NeedAllSolutions, state) = needallsolutions(SOI.get(sp, CutGenerator(), state))
+
 function SOI.addcut!(sp::StochasticProgram, state, pool::SOI.AbstractSolutionPool, stats, ztol)
     if SOI.allfeasible(pool)
-        SOI.gencut(SOI.get(sp, SOI.CutGenerator(), state), sp, state, pool, stats, ztol)
+        gencut(SOI.get(sp, CutGenerator(), state), sp, state, pool, stats, ztol)
     else
-        SOI.gencut(FeasibilityCutGenerator(), sp, state, pool, stats, ztol)
+        gencut(FeasibilityCutGenerator(), sp, state, pool, stats, ztol)
     end
 end
 
-function SOI.addcut!(sp::StochasticProgram, tr::Transition, cut::SOI.FeasibilityCut)
+function SOI.addcut!(sp::StochasticProgram, tr::Transition, cut::FeasibilityCut)
     # coef is a ray
     # so alpha * coef is also valid for any alpha >= 0.
     # Hence coef might have very large coefficients and alter
@@ -161,24 +170,24 @@ function SOI.addcut!(sp::StochasticProgram, tr::Transition, cut::SOI.Feasibility
     scaling = max(abs(cut.β), maximum(abs, cut.a))
     addcut(nodedata(sp, SOI.get(sp, SOI.Target(), tr)).fcuts, cut.a/scaling, sign(cut.β), nodedata(sp, SOI.get(sp, SOI.Source(), tr)).nlds)
 end
-function SOI.addcut!(sp::StochasticProgram, tr::Transition, cut::SOI.MultiOptimalityCut)
+function SOI.addcut!(sp::StochasticProgram, tr::Transition, cut::MultiOptimalityCut)
     addcut(nodedata(sp, SOI.get(sp, SOI.Target(), tr)).ocuts, cut.a, cut.β, nodedata(sp, SOI.get(sp, SOI.Source(), tr)).nlds)
 end
-function SOI.addcut!(sp::StochasticProgram, state, cut::SOI.AveragedOptimalityCut)
+function SOI.addcut!(sp::StochasticProgram, state, cut::AveragedOptimalityCut)
     addcut(nodedata(sp, state).nlds.localOC, cut.a, cut.β, nodedata(sp, state).nlds)
 end
 
 function SOI.applycuts!(sp::StochasticProgram, state)
-    SOI.applycut(SOI.FeasibilityCutGenerator(), sp, state)
-    SOI.applycut(SOI.get(sp, SOI.CutGenerator(), state), sp, state)
+    applycut(FeasibilityCutGenerator(), sp, state)
+    applycut(SOI.get(sp, CutGenerator(), state), sp, state)
 end
 
-function SOI.applycuts!(sp::StochasticProgram, tr::Transition, ::Type{<:SOI.FeasibilityCut})
+function SOI.applycuts!(sp::StochasticProgram, tr::Transition, ::Type{<:FeasibilityCut})
     apply!(nodedata(sp, SOI.get(sp, SOI.Target(), tr)).fcuts)
 end
-function SOI.applycuts!(sp::StochasticProgram, tr::Transition, ::Type{<:SOI.MultiOptimalityCut})
+function SOI.applycuts!(sp::StochasticProgram, tr::Transition, ::Type{<:MultiOptimalityCut})
     apply!(nodedata(sp, SOI.get(sp, SOI.Target(), tr)).ocuts)
 end
-function SOI.applycuts!(sp::StochasticProgram, state, ::Type{<:SOI.AveragedOptimalityCut})
+function SOI.applycuts!(sp::StochasticProgram, state, ::Type{<:AveragedOptimalityCut})
     apply!(nodedata(sp, state).nlds.localOC)
 end

@@ -3,9 +3,6 @@ module StochOptInterface
 
 using DocStringExtensions
 
-# Utils
-include("comp.jl")
-
 # Stochastic Program
 include("stochprog.jl")
 include("attributes.jl")

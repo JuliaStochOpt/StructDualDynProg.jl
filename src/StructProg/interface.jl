@@ -2,7 +2,7 @@ struct SDDPModelData
     nodes::Vector{Nullable{Int}}
 end
 
-function createnode(sp::StochasticProgram, m::Model, t, num_stages, solver, parent, pruningalgo::AbstractCutPruningAlgo, cutgen::SOI.AbstractOptimalityCutGenerator, detectlb::Bool=true, newcut::Symbol=:InvalidateSolver)
+function createnode(sp::StochasticProgram, m::Model, t, num_stages, solver, parent, pruningalgo::AbstractCutPruningAlgo, cutgen::AbstractOptimalityCutGenerator, detectlb::Bool=true, newcut::Symbol=:InvalidateSolver)
     # For each model, we need to create a different node for each t.
     # We store all these node in a nodes array per model
     if !(:SDDP in keys(m.ext))
@@ -16,7 +16,7 @@ function createnode(sp::StochasticProgram, m::Model, t, num_stages, solver, pare
         c, T, W, h, C, K, _ = StructJuMP.conicconstraintdata(m)
         newnodedata = NodeData(NLDS{Float64}(W,h,T,K,C,c,solver,pruningalgo, newcut), parent === nothing ? 0 : SOI.get(sp, SOI.Dimension(), parent))
         newnode = SOI.add_scenario_state!(sp, newnodedata)
-        SOI.set!(sp, SOI.CutGenerator(), newnode, cutgen)
+        SOI.set!(sp, CutGenerator(), newnode, cutgen)
         nodes[t] = newnode
         struc = getStructure(m)
         if t < num_stages
@@ -42,9 +42,9 @@ end
 Creates a `StochasticProgram` from a [StructJuMP](https://github.com/StructJuMP/StructJuMP.jl) model. The former can then be used by the SDDP algorithm.
 The master problem is assumed to have model `m` and the scenarios are considered up to `num_stages` stages.
 The `pruningalgo` is as defined in [CutPruners](https://github.com/JuliaPolyhedra/CutPruners.jl).
-If `cutgen` is `MultiCutGenerator`, one variable `θ_i` is created for each scenario. Otherwise, if `cutgen` is `AveragedCutGenerator`, only one variable `θ` is created and it represents the expected value of the objective value of the scenarios. If `cutgen` is `NoOptimalityCut` then no `θ` is created, only use this option if the objective of all models is zero except for the master model.
+If `cutgen` is `MultiCutGenerator`, one variable `θ_i` is created for each scenario. Otherwise, if `cutgen` is `AvgCutGenerator`, only one variable `θ` is created and it represents the expected value of the objective value of the scenarios. If `cutgen` is `NoOptimalityCut` then no `θ` is created, only use this option if the objective of all models is zero except for the master model.
 """
-function SOI.stochasticprogram(m::Model, num_stages, solver, pruningalgo::AbstractCutPruningAlgo, cutgen::SOI.AbstractOptimalityCutGenerator=SOI.MultiCutGenerator(), detectlb::Bool=true, newcut::Symbol=:InvalidateSolver)
+function SOI.stochasticprogram(m::Model, num_stages, solver, pruningalgo::AbstractCutPruningAlgo, cutgen::AbstractOptimalityCutGenerator=MultiCutGenerator(), detectlb::Bool=true, newcut::Symbol=:InvalidateSolver)
     sp = StochasticProgram{Float64}(num_stages)
     createnode(sp, m, 1, num_stages, solver, nothing, pruningalgo, cutgen, detectlb, newcut)
     sp
