@@ -1,5 +1,4 @@
 export AbstractCutGenerator, AbstractOptimalityCutGenerator, NoOptimalityCutGenerator, MultiCutGenerator, AvgCutGenerator
-export nθ, solveallchildren, needallchildsol
 
 abstract type AbstractCutGenerator end
 abstract type AbstractOptimalityCutGenerator <: AbstractCutGenerator end
@@ -26,7 +25,7 @@ end
 struct NoOptimalityCutGenerator <: AbstractOptimalityCutGenerator
 end
 nθ(::NoOptimalityCutGenerator, proba) = 0
-needallchildsol(::NoOptimalityCutGenerator) = false
+needallsolutions(::NoOptimalityCutGenerator) = false
 function gencut(::NoOptimalityCutGenerator, sp::AbstractStochasticProgram, parent, pool::AbstractSolutionPool, stats, ztol)
 end
 function applycut(::NoOptimalityCutGenerator, sp::AbstractStochasticProgram, node)
@@ -36,7 +35,7 @@ end
 struct MultiCutGenerator <: AbstractOptimalityCutGenerator
 end
 nθ(::MultiCutGenerator, proba) = length(proba)
-needallchildsol(::MultiCutGenerator) = false
+needallsolutions(::MultiCutGenerator) = false
 function gencut(::MultiCutGenerator, sp::AbstractStochasticProgram, parent, pool::AbstractSolutionPool, stats, ztol)
     for tr in get(sp, OutTransitions(), parent)
         if hassolution(pool, tr)
@@ -71,7 +70,7 @@ end
 struct AvgCutGenerator <: AbstractOptimalityCutGenerator
 end
 nθ(::AvgCutGenerator, proba) = 1
-needallchildsol(::AvgCutGenerator) = true
+needallsolutions(::AvgCutGenerator) = true
 function gencut(::AvgCutGenerator, sp::AbstractStochasticProgram, parent, pool::AbstractSolutionPool, stats, ztol)
     # We need all transitions to be solved, feasible and bounded to generate an averaged cut
     (!allfeasible(pool) || !allbounded(pool)) && return

@@ -144,6 +144,14 @@ function SOI.getθvalue(sp::StochasticProgram, node, sol::Solution)
     SOI.getθvalue(sol, 1)
 end
 
+function SOI.addcut!(sp::StochasticProgram, state, pool::SOI.AbstractSolutionPool, stats, ztol)
+    if SOI.allfeasible(pool)
+        SOI.gencut(SOI.get(sp, SOI.CutGenerator(), state), sp, state, pool, stats, ztol)
+    else
+        SOI.gencut(FeasibilityCutGenerator(), sp, state, pool, stats, ztol)
+    end
+end
+
 function SOI.addcut!(sp::StochasticProgram, tr::Transition, cut::SOI.FeasibilityCut)
     # coef is a ray
     # so alpha * coef is also valid for any alpha >= 0.
@@ -158,6 +166,11 @@ function SOI.addcut!(sp::StochasticProgram, tr::Transition, cut::SOI.MultiOptima
 end
 function SOI.addcut!(sp::StochasticProgram, state, cut::SOI.AveragedOptimalityCut)
     addcut(nodedata(sp, state).nlds.localOC, cut.a, cut.β, nodedata(sp, state).nlds)
+end
+
+function SOI.applycuts!(sp::StochasticProgram, state)
+    SOI.applycut(SOI.FeasibilityCutGenerator(), sp, state)
+    SOI.applycut(SOI.get(sp, SOI.CutGenerator(), state), sp, state)
 end
 
 function SOI.applycuts!(sp::StochasticProgram, tr::Transition, ::Type{<:SOI.FeasibilityCut})

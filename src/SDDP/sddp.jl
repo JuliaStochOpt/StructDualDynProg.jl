@@ -1,12 +1,12 @@
 export SDDP
 
-function solvejobs!(sp, jobsd, stats, stopatinf)
+function solvejobs!(sp, jobsd, stats, stopatinf::Bool)
     infeasibility_detected = false
     for (node, jobs) in jobsd
         for job in jobs
-            if !stopatinf || job.parent.pool.children_feasible
+            if !stopatinf || SOI.allfeasible(job.parent.pool)
                 solvejob!(sp, job, node, stats)
-                if !job.parent.pool.children_feasible
+                if !SOI.allfeasible(job.parent.pool)
                     infeasibility_detected = true
                 end
             end
@@ -18,19 +18,14 @@ end
 function gencuts(pathsd, sp, stats, ztol)
     for (parent, paths) in pathsd
         for path in paths
-            if path.pool.children_feasible
-                SOI.gencut(SOI.get(sp, SOI.CutGenerator(), parent), sp, parent, path.pool, stats, ztol)
-            else
-                SOI.gencut(SOI.FeasibilityCutGenerator(), sp, parent, path.pool, stats, ztol)
-            end
+            SOI.addcut!(sp, parent, path.pool, stats, ztol)
         end
     end
 end
 
 function applycuts(pathsd, sp)
-    for (node, _) in pathsd
-        SOI.applycut(SOI.FeasibilityCutGenerator(), sp, node)
-        SOI.applycut(SOI.get(sp, SOI.CutGenerator(), node), sp, node)
+    for (state, _) in pathsd
+        SOI.applycuts(sp, state)
     end
 end
 
