@@ -30,8 +30,8 @@ If some subproblems are unbounded, an unbounded ray and a feasible solution will
 
 [docs-stable-img]: https://img.shields.io/badge/docs-stable-blue.svg
 [docs-latest-img]: https://img.shields.io/badge/docs-latest-blue.svg
-[docs-stable-url]: https://blegat.github.io/StructDualDynProg.jl/stable
-[docs-latest-url]: https://blegat.github.io/StructDualDynProg.jl/latest
+[docs-stable-url]: https://juliastochopt.github.io/StructDualDynProg.jl/stable
+[docs-latest-url]: https://juliastochopt.github.io/StructDualDynProg.jl/latest
 
 [pkg-0.6-img]: http://pkg.julialang.org/badges/StructDualDynProg_0.6.svg
 [pkg-0.6-url]: http://pkg.julialang.org/?pkg=StructDualDynProg
