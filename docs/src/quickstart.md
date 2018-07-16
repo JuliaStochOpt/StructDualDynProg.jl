@@ -2,7 +2,7 @@
 
 In this quick start guide, we show how to run the [FAST quick start example](https://web.stanford.edu/~lcambier/fast/demo.php) using this package.
 We guide you through each step of the modeling separately.
-The full example can be found [in the test](https://github.com/blegat/StructDualDynProg.jl/blob/master/test/optimize_stock.jl).
+The full example can be found [in the examples folder](https://github.com/JuliaStochOpt/StructDualDynProg.jl/blob/master/examples/Quick_Start.ipynb).
 
 We start by setting the different constants
 ```julia
@@ -35,20 +35,20 @@ end
 ```
 
 This structured model need to be transformed into an appropriate structure to run SDDP on it.
-This is achieved by [`model2lattice`](@ref):
+This is achieved by [`stochasticprogram`](@ref):
 ```julia
 using GLPKMathProgInterface
 const solver = GLPKMathProgInterface.GLPKSolverLP()
 using CutPruners
 const pruner = AvgCutPruningAlgo(-1)
 using StructDualDynProg
-lattice = model2lattice(m1, num_stages, solver, pruner)
+sp = stochasticprogram(m1, num_stages, solver, pruner)
 ```
 In this example, we have chosen the [GLPK](https://github.com/JuliaOpt/GLPKMathProgInterface.jl/) solver but you can use any LP solver listed in the table of the [JuliaOpt's webpage](http://www.juliaopt.org/).
 
 You can now run the sddp algorithm on it using [`SDDP`](@ref):
 ```julia
-sol = SDDP(lattice, num_stages, K = 2, stopcrit = Pereira(0.1) | IterLimit(10))
+sol = SDDP(sp, num_stages, K = 2, stopcrit = Pereira(0.1) | IterLimit(10))
 ```
 We are using 2 forward paths per iteration and we stop either after 10 iterations or once the pereira criterion is satisfied with $\alpha = 0.1$.
 

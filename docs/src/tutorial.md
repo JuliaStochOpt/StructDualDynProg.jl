@@ -63,10 +63,10 @@ const solver = GLPKMathProgInterface.GLPKSolverLP()
 using CutPruners
 const pruner = AvgCutPruningAlgo(-1)
 using StructDualDynProg
-lattice = model2lattice(models[1], num_stages, solver, pruner)
+sp = stochasticprogram(models[1], num_stages, solver, pruner)
 ```
 
 The SDDP algorithm can now be run on the lattice:
 ```julia
-sol = SDDP(lattice, num_stages, K = 16, stopcrit = Pereira(2., 0.5) | IterLimit(10))
+sol = SDDP(sp, num_stages, K = 16, stopcrit = Pereira(2., 0.5) | IterLimit(10))
 ```

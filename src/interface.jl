@@ -36,7 +36,10 @@ function getSDDPNode(sp::StochasticProgram, m::Model, t, num_stages, solver, par
 end
 
 """
-$(SIGNATURES)
+    stochasticprogram(m::JuMP.Model, num_stages, solver,
+                      pruningalgo::CutPruners.AbstractCutPruningAlgo,
+                      cutgen::AbstractOptimalityCutGenerator=MultiCutGenerator(),
+                      detectlb::Bool=true, newcut::Symbol=:InvalidateSolver)
 
 Creates a `StochasticProgram` from a [StructJuMP](https://github.com/StructJuMP/StructJuMP.jl) model. The former can then be used by the SDDP algorithm.
 The master problem is assumed to have model `m` and the scenarios are considered up to `num_stages` stages.
