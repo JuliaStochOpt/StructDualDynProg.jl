@@ -2,7 +2,7 @@
 
 In this quick start guide, we show how to run the [FAST quick start example](https://web.stanford.edu/~lcambier/fast/demo.php) using this package.
 We guide you through each step of the modeling separately.
-The full example can be found [in the examples folder](https://github.com/JuliaStochOpt/StructDualDynProg.jl/blob/master/examples/Quick_Start.ipynb).
+An IJulia notebook of this example can be found [in the examples folder](https://github.com/JuliaStochOpt/StructDualDynProg.jl/blob/master/examples/Quick_Start.ipynb).
 
 We start by setting the different constants
 ```julia
