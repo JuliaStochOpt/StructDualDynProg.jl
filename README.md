@@ -38,14 +38,14 @@ If some subproblems are unbounded, an unbounded ray and a feasible solution will
 [pkg-0.7-img]: http://pkg.julialang.org/badges/StructDualDynProg_0.7.svg
 [pkg-0.7-url]: http://pkg.julialang.org/?pkg=StructDualDynProg
 
-[build-img]: https://travis-ci.org/blegat/StructDualDynProg.jl.svg?branch=master
-[build-url]: https://travis-ci.org/blegat/StructDualDynProg.jl
+[build-img]: https://travis-ci.org/JuliaStochOpt/StructDualDynProg.jl.svg?branch=master
+[build-url]: https://travis-ci.org/JuliaStochOpt/StructDualDynProg.jl
 [winbuild-img]: https://ci.appveyor.com/api/projects/status/3lh9e6tujojgodar/branch/master?svg=true
 [winbuild-url]: https://ci.appveyor.com/project/blegat/structdualdynprog-jl/branch/master
 [coveralls-img]: https://coveralls.io/repos/github/blegat/StructDualDynProg.jl/badge.svg
-[coveralls-url]: https://coveralls.io/github/blegat/StructDualDynProg.jl
-[codecov-img]: https://codecov.io/gh/blegat/StructDualDynProg.jl/branch/master/graph/badge.svg
-[codecov-url]: https://codecov.io/gh/blegat/StructDualDynProg.jl
+[coveralls-url]: https://coveralls.io/github/JuliaStochOpt/StructDualDynProg.jl
+[codecov-img]: https://codecov.io/gh/JuliaStochOpt/StructDualDynProg.jl/branch/master/graph/badge.svg
+[codecov-url]: https://codecov.io/gh/JuliaStochOpt/StructDualDynProg.jl
 
 [gitter-url]: https://gitter.im/JuliaOpt/StochasticDualDynamicProgramming.jl?utm_source=share-link&utm_medium=link&utm_campaign=share-link
 [gitter-img]: https://badges.gitter.im/JuliaOpt/StochasticDualDynamicProgramming.jl.svg
