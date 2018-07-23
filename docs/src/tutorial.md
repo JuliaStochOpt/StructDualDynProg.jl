@@ -1,9 +1,10 @@
 ## Hydro Thermal Scheduling
 
 In this tutorial, we show how to run the [FAST tutorial example](https://web.stanford.edu/~lcambier/fast/tuto.php) using this package.
-The big difference between this example and the example quickstart example is that in this example we will model serial independence.
+The big difference between this example and the quickstart example is that in this example we will model serial independence.
 There will be 5 stages and 2 scenarios per stages except for the first stage which has only one scenario.
 Each pair of scenario will have the same parent.
+An IJulia notebook of this example can be found [in the examples folder](https://github.com/JuliaStochOpt/StructDualDynProg.jl/blob/master/examples/Hydro_Thermal_Scheduling.ipynb).
 
 We start by setting the constants:
 ```julia
