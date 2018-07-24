@@ -1,14 +1,11 @@
 abstract type AbstractStoppingCriterion end
 
 """
-    stop(s::AbstractStoppingCriterion, to::TimerOutput, stats::AbstractStats, totalstats::AbstractStats)
+    stop(s::AbstractStoppingCriterion, info)
 
-Returns whether the SDDP algorithm should stop.
-If `totalstats.niterations` is 0, no iteration has already been done, otherwise, the `niterations`th iteration has just finished.
-This iteration used `stats.npaths` paths and generated `nfcuts(to)` (resp. `nocuts(to)`) new feasibility (resp. optimality) cuts.
-The lower bound is now `totalstats.lowerbound` and the upper bound has mean `totalstats.upperbound` and variance `totalstats.σ_UB`.
+Determine whether the SDDP algorithm should stop using the information stored in `info`.
 """
-function stop(s::AbstractStoppingCriterion, to::TimerOutput, stats::AbstractStats, totalstats::AbstractStats)
+function stop(s::AbstractStoppingCriterion, info::Info)
     error("`stop' function not defined for $(typeof(s))")
 end
 
@@ -22,8 +19,8 @@ mutable struct OrStoppingCriterion <: AbstractStoppingCriterion
     rhs::AbstractStoppingCriterion
 end
 
-function stop(s::OrStoppingCriterion, to::TimerOutput, stats::AbstractStats, totalstats::AbstractStats)
-    stop(s.lhs, to, stats, totalstats) || stop(s.rhs, to, stats, totalstats)
+function stop(s::OrStoppingCriterion, info::Info)
+    stop(s.lhs, info) || stop(s.rhs, info)
 end
 
 function Base.:(|)(lhs::AbstractStoppingCriterion, rhs::AbstractStoppingCriterion)
@@ -40,8 +37,8 @@ mutable struct AndStoppingCriterion <: AbstractStoppingCriterion
     rhs::AbstractStoppingCriterion
 end
 
-function stop(s::AndStoppingCriterion, to::TimerOutput, stats::AbstractStats, totalstats::AbstractStats)
-    stop(s.lhs, to, stats, totalstats) && stop(s.rhs, to, stats, totalstats)
+function stop(s::AndStoppingCriterion, info::Info)
+    stop(s.lhs, info) && stop(s.rhs, info)
 end
 
 function Base.:(&)(lhs::AbstractStoppingCriterion, rhs::AbstractStoppingCriterion)
@@ -57,8 +54,8 @@ mutable struct IterLimit <: AbstractStoppingCriterion
     limit::Int
 end
 
-function stop(s::IterLimit, to::TimerOutput, stats::AbstractStats, totalstats::AbstractStats)
-    totalstats.niterations >= s.limit
+function stop(s::IterLimit, info::Info)
+    niterations(info) >= s.limit
 end
 
 """
@@ -71,8 +68,8 @@ mutable struct CutLimit <: AbstractStoppingCriterion
     limit::Int
 end
 
-function stop(s::CutLimit, to::TimerOutput, stats::AbstractStats, totalstats::AbstractStats)
-    totalstats.niterations > 0 && nfcuts(to) + nocuts(to) <= s.limit
+function stop(s::CutLimit, info::Info)
+    niterations(info) > 0 && nfcuts(last_timer(info)) + nocuts(last_timer(info)) <= s.limit
 end
 
 
@@ -86,8 +83,8 @@ mutable struct TimeLimit <: AbstractStoppingCriterion
     timelimit::Float64
 end
 
-function stop(s::TimeLimit, to::TimerOutput, stats::AbstractStats, totalstats::AbstractStats)
-    totalstats.niterations > 0 && totalstats.time > s.timelimit
+function stop(s::TimeLimit, info::Info)
+    niterations(info) > 0 && total_time(info) > s.timelimit
 end
 
 
@@ -104,13 +101,14 @@ mutable struct Pereira <: AbstractStoppingCriterion
     Pereira(α=2.0, β=0.05, tol=1e-6) = new(α, β, tol)
 end
 
-function stop(s::Pereira, to::TimerOutput, stats::AbstractStats, totalstats::AbstractStats)
-    z_UB = stats.upperbound
-    z_LB = stats.lowerbound
-    K = stats.npaths
-    σ = stats.σ_UB
+function stop(s::Pereira, info::Info)
+    if niterations(info) > 0
+        result = last_result(info)
+        z_UB = result.upperbound
+        z_LB = result.lowerbound
+        K = result.npaths
+        σ = result.σ_UB
 
-    if totalstats.niterations > 0
         @assert K >= 0
         σ1 = σ / √K
         # On the test optimize_stock with Clp, z_LB = -2, z_UB = -1.999999999999 and σ1 = 0

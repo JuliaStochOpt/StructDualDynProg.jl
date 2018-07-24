@@ -17,44 +17,18 @@ function optimize!(sp::AbstractStochasticProgram, algo::AbstractAlgorithm, stopc
     # Default implementation, define a specific method for algorithms for which
     # this default is not appropriate
     mastersol = nothing
-    totalstats = Stats()
-    stats = Stats()
-    stats.niterations = 1
-    totalto = TimerOutput()
-    to = totalto
-
-    while (mastersol === nothing || getstatus(mastersol) != :Infeasible) && !stop(stopcrit, to, stats, totalstats)
-        @timeit totalto "iteration $(totalstats.niterations+1)" mastersol, stats = iterate!(sp, algo, totalto, verbose)
-        to = totalto["iteration $(totalstats.niterations+1)"]
-        fto = TimerOutputs.flatten(totalto)
-        totalstats += stats
-        if verbose >= 2
-            println("Stats for this iteration:")
-            println(to)
-            println("Status: $(getstatus(mastersol))")
-            println("Solution value: $(getstatevalue(mastersol))")
-            println(stats)
-            println("Total stats:")
-            println(fto)
-            println(totalstats)
+    info = Info()
+    while (mastersol === nothing || getstatus(mastersol) != :Infeasible) && !stop(stopcrit, info)
+        @timeit info.timer "iteration $(niterations(info)+1)" mastersol, result = iterate!(sp, algo, info.timer, verbose)
+        push!(info.results, result)
+        if verbose >= 3
+            print_iteration_summary(info)
         end
     end
-
-    fto = TimerOutputs.flatten(totalto)
-
-    if verbose >= 1
-        println(fto)
-        println("Status: $(getstatus(mastersol))")
-        println("Objective value: $(getobjectivevalue(mastersol))")
-        println(totalstats)
+    if verbose >= 2
+        print_termination_summary(info)
     end
-
-    attrs = Dict()
-    attrs[:stats] = totalstats
-    attrs[:niter] = totalstats.niterations
-    attrs[:nfcuts] = nfcuts(fto)
-    attrs[:nocuts] = nocuts(fto)
-    SolutionSummary(getstatus(mastersol), getobjectivevalue(mastersol), getstatevalue(mastersol), attrs)
+    info
 end
 
 """

@@ -59,12 +59,9 @@ function Algorithm(; K::Int=25, pathsampler::AbstractPathSampler=ProbaPathSample
 end
 
 function SOI.forwardpass!(sp::SOI.AbstractStochasticProgram, algo::Algorithm, to::TimerOutput, verbose)
-    stats = SOI.Stats()
-
     master = SOI.get(sp, SOI.MasterState())
     NodeT = typeof(master)
     @timeit to "solve" mastersol = SOI.get(sp, SOI.Solution(), master)
-    stats.niterations += 1
     infeasibility_detected = SOI.getstatus(mastersol) == :Infeasible
 
     num_stages = SOI.get(sp, SOI.NumberOfStages())
@@ -113,12 +110,13 @@ function SOI.forwardpass!(sp::SOI.AbstractStochasticProgram, algo::Algorithm, to
     end
 
     # update stats
-    stats.upperbound = z_UB
-    stats.σ_UB = σ
-    stats.npaths = algo.K
-    stats.lowerbound = SOI.getobjectivevalue(mastersol)
+    result = SOI.Result()
+    result.upperbound = z_UB
+    result.σ_UB = σ
+    result.npaths = algo.K
+    result.lowerbound = SOI.getobjectivevalue(mastersol)
 
-    return pathsd, mastersol, stats
+    return pathsd, mastersol, result
 end
 
 function SOI.backwardpass!(sp::SOI.AbstractStochasticProgram, algo::Algorithm, pathsd, to::TimerOutput, verbose)
