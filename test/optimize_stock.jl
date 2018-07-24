@@ -23,25 +23,23 @@
         end
 
         num_stages = 2
-        cutmode = AvgCutGenerator()
+        cutmode = StructProg.AvgCutGenerator()
         K = 2
         pereiracoef = 0.1
 
         # detectlb should change anything here since m2 is min -2s and s is bounded above by x with is unknown so it is unbounded
         for forwardcuts in [false, true]
             for detectlb in [false, true]
-                sp = stochasticprogram(m1, num_stages, solver, AvgCutPruningAlgo(-1), cutmode, detectlb)
-                @test numberofpaths(sp, 0) == 1
-                @test numberofpaths(sp, 1) == 2
-                @test numberofpaths(sp, 2) == 2
-                @test sprint(show, StructDualDynProg.nodedata(sp, 1)) == "Node of 1 variables\n"
-                sol = SDDP(sp, num_stages, K = K, stopcrit = Pereira(0.1) | IterLimit(10), verbose = 0, forwardcuts = forwardcuts, backwardcuts = !forwardcuts)
+                sp = SOI.stochasticprogram(m1, num_stages, solver, AvgCutPruningAlgo(-1), cutmode, detectlb)
+                @test SOI.get(sp, SOI.NumberOfPaths(0)) == 1
+                @test SOI.get(sp, SOI.NumberOfPaths(1)) == 2
+                @test SOI.get(sp, SOI.NumberOfPaths(2)) == 2
+                @test sprint(show, StructDualDynProg.StructProg.nodedata(sp, 1)) == "Node of 1 variables\n"
+                algo = SDDP.Algorithm(K = K, forwardcuts = forwardcuts, backwardcuts = !forwardcuts)
+                sol = SOI.optimize!(sp, algo, SOI.Pereira(0.1) | SOI.IterLimit(10), 0)
                 sstats = sprint(show, sol.attrs[:stats])
-                @test contains(sstats, "Solving problem")
-                @test contains(sstats, "Merging paths")
-                @test contains(sstats, "Adding feasibility cuts")
-                @test contains(sstats, "Adding  optimality cuts")
-                @test contains(sstats, "Setting parent solution")
+                @test contains(sstats, "Lower Bound: ")
+                @test contains(sstats, "Upper Bound: ")
 
                 # K = 10 is a multiple of 2 so with ProbaPathSampler(true), the sampling is deterministic
                 # therefore we can test for sol.attrs[:niter]
@@ -54,7 +52,7 @@
                 @test sol.attrs[:niter] == 4
                 @test sol.status == :Optimal
                 @test sol.objval == -2.0
-                SDDPclear(m1)
+                StructProg.clear(m1)
             end
         end
     end
@@ -76,12 +74,12 @@
 
             num_stages = 2
             # Multicut wouldn't work since we are adding a node
-            cutmode = AvgCutGenerator()
+            cutmode = StructProg.AvgCutGenerator()
             K = 2
             pereiracoef = 0.1
 
-            sp = stochasticprogram(m1, num_stages, solver, AvgCutPruningAlgo(-1), cutmode)
-            sol = SDDP(sp, num_stages, K = K, stopcrit = Pereira(0.1) | IterLimit(10), verbose = 0)
+            sp = SOI.stochasticprogram(m1, num_stages, solver, AvgCutPruningAlgo(-1), cutmode)
+            sol = SOI.optimize!(sp, SDDP.Algorithm(K=K), SOI.Pereira(0.1) | SOI.IterLimit(10), 0)
             @test sol.attrs[:niter] == 3
             @test sol.status == :Optimal
             @test sol.objval == -3.0
@@ -95,11 +93,11 @@
             @objective(m3, Max, P * s)
 
             root = 1
-            newnode = getSDDPNode(sp, m3, 1, 1, solver, root, AvgCutPruningAlgo(-1), cutmode)
+            newnode = StructProg.createnode(sp, m3, 1, 1, solver, root, AvgCutPruningAlgo(-1), cutmode)
             @test length(sp.out_transitions[1]) == 1
-            setprobability!(sp, sp.out_transitions[1][1], 1/2)
-            add_scenario_transition!(sp, root, newnode, 1/2)
-            sol = SDDP(sp, num_stages, K = K, stopcrit = Pereira(0.1) | IterLimit(10), verbose = 0)
+            SOI.set!(sp, SOI.Probability(), sp.out_transitions[1][1], 1/2)
+            SOI.add_scenario_transition!(sp, root, newnode, 1/2)
+            sol = SOI.optimize!(sp, SDDP.Algorithm(K=K), SOI.Pereira(0.1) | SOI.IterLimit(10), 0)
             # 2 on Mac OS and Windows, 3 otherwise
             @test 2 <= sol.attrs[:niter] <= 3
             @test sol.status == :Optimal

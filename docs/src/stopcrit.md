@@ -1,7 +1,7 @@
 ## Stopping Criterion
 
 ```@docs
-stop(s::AbstractStoppingCriterion, stats::AbstractSDDPStats, totalstats::AbstractSDDPStats)
+stop(s::AbstractStoppingCriterion, to::TimerOutputs.TimerOutput, stats::AbstractStats, totalstats::AbstractStats)
 OrStoppingCriterion
 AndStoppingCriterion
 IterLimit

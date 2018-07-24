@@ -2,7 +2,7 @@ export NLDS, updatemaxncuts!
 
 # π, σ and ρ do not really make sense alone so only
 # their product will T, h, d, e is stored
-mutable struct Solution <: AbstractSolution
+mutable struct Solution <: SOI.AbstractSolution
     status::Symbol
     objval
     objvalx
@@ -23,26 +23,26 @@ end
 # Feasibility cut
 # D = π T
 # d = π h + σ d
-function feasibility_cut(sol::Solution)
+function SOI.feasibility_cut(sol::Solution)
     (sol.πT, sol.πh + sol.σd)
 end
 
 # Optimality cut
 # E = π T
 # e = π h + ρ e + σ d
-function optimality_cut(sol::Solution)
+function SOI.optimality_cut(sol::Solution)
     (sol.πT, sol.πh + sol.σd + sol.ρe)
 end
 
-getstatus(sol::Solution) = sol.status
+SOI.getstatus(sol::Solution) = sol.status
 
-getobjectivevalue(sol::Solution) = sol.objval
+SOI.getobjectivevalue(sol::Solution) = sol.objval
 
-getstateobjectivevalue(sol::Solution) = sol.objvalx
+SOI.getstateobjectivevalue(sol::Solution) = sol.objvalx
 
-getstatevalue(sol::Solution) = sol.x
+SOI.getstatevalue(sol::Solution) = sol.x
 
-function getθvalue(sol::Solution, i)
+function SOI.getθvalue(sol::Solution, i)
     sol.θ[i]
 end
 

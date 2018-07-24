@@ -35,22 +35,22 @@
 	end
 
     forwardcuts = true
-    cutmode = MultiCutGenerator()
+    cutmode = StructProg.MultiCutGenerator()
     detectlb = false
     for forwardcuts in [false, true]
-        for cutmode in [MultiCutGenerator(), AvgCutGenerator()]
+        for cutmode in [StructProg.MultiCutGenerator(), StructProg.AvgCutGenerator()]
             for detectlb in [false, true]
-                sp = stochasticprogram(models[1], num_stages, solver, AvgCutPruningAlgo(-1), cutmode, detectlb)
-                sol = SDDP(sp, num_stages, K = 16, stopcrit = Pereira(2, 0.5) | IterLimit(10), verbose = 0, forwardcuts = forwardcuts, backwardcuts = !forwardcuts)
-                #sol = SDDP(sp, num_stages, K = 16, stopcrit = IterLimit(10), verbose = 3, forwardcuts = forwardcuts, backwardcuts = !forwardcuts)
+                sp = SOI.stochasticprogram(models[1], num_stages, solver, AvgCutPruningAlgo(-1), cutmode, detectlb)
+                algo = SDDP.Algorithm(K = 16, forwardcuts = forwardcuts, backwardcuts = !forwardcuts)
+                sol = SOI.optimize!(sp, algo, SOI.Pereira(2, 0.5) | SOI.IterLimit(10), 0)
 
                 @test sol.status == :Optimal
                 if forwardcuts
                     @test sol.attrs[:niter] == (detectlb ? 3 : 5)
                     @test sol.objval ≈ (detectlb ? 15 : 18.75)
                 else
-                    @test sol.attrs[:niter] == (!detectlb && isa(cutmode, AvgCutGenerator) ? 5 : 2)
-                    if isa(cutmode, AvgCutGenerator)
+                    @test sol.attrs[:niter] == (!detectlb && isa(cutmode, StructProg.AvgCutGenerator) ? 5 : 2)
+                    if isa(cutmode, StructProg.AvgCutGenerator)
                         if detectlb
                             @test sol.objval ≈ 22.5 # Clp returns an approximate value
                         else
@@ -65,7 +65,7 @@
                     end
                 end
 
-                SDDPclear(models[1])
+                StructProg.clear(models[1])
             end
         end
     end
