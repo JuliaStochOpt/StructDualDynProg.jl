@@ -153,11 +153,11 @@ end
 
 SOI.get(sp::StochasticProgram, ::SOI.NeedAllSolutions, state) = needallsolutions(SOI.get(sp, CutGenerator(), state))
 
-function SOI.addcut!(sp::StochasticProgram, state, pool::SOI.AbstractSolutionPool, stats, ztol)
+function SOI.addcut!(sp::StochasticProgram, state, pool::SOI.AbstractSolutionPool, to::TimerOutput, ztol)
     if SOI.allfeasible(pool)
-        gencut(SOI.get(sp, CutGenerator(), state), sp, state, pool, stats, ztol)
+        gencut(SOI.get(sp, CutGenerator(), state), sp, state, pool, to::TimerOutput, ztol)
     else
-        gencut(FeasibilityCutGenerator(), sp, state, pool, stats, ztol)
+        gencut(FeasibilityCutGenerator(), sp, state, pool, to::TimerOutput, ztol)
     end
 end
 

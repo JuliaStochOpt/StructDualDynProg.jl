@@ -1,5 +1,7 @@
 module SDDP
 
+using TimerOutputs
+
 using StructDualDynProg
 const SOI = StructDualDynProg.StochOptInterface
 

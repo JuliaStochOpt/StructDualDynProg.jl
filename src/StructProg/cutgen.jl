@@ -4,13 +4,12 @@ abstract type AbstractCutGenerator end
 abstract type AbstractOptimalityCutGenerator <: AbstractCutGenerator end
 
 struct FeasibilityCutGenerator <: AbstractCutGenerator end
-function gencut(::FeasibilityCutGenerator, sp::SOI.AbstractStochasticProgram, parent, pool::SOI.AbstractSolutionPool, stats, ztol)
+function gencut(::FeasibilityCutGenerator, sp::SOI.AbstractStochasticProgram, parent, pool::SOI.AbstractSolutionPool, to::TimerOutput, ztol)
     for tr in SOI.get(sp, SOI.OutTransitions(), parent)
         if SOI.hassolution(pool, tr)
             trsol = SOI.getsolution(pool, tr)
             if SOI.getstatus(trsol) == :Infeasible
-                stats.nfcuts += 1
-                stats.fcutstime += SOI.@_time SOI.addcut!(sp, tr, FeasibilityCut(SOI.feasibility_cut(trsol)...))
+                @timeit to SOI.FCUTS_KEY SOI.addcut!(sp, tr, FeasibilityCut(SOI.feasibility_cut(trsol)...))
             end
         end
     end
@@ -26,7 +25,7 @@ struct NoOptimalityCutGenerator <: AbstractOptimalityCutGenerator
 end
 nθ(::NoOptimalityCutGenerator, proba) = 0
 needallsolutions(::NoOptimalityCutGenerator) = false
-function gencut(::NoOptimalityCutGenerator, sp::SOI.AbstractStochasticProgram, parent, pool::SOI.AbstractSolutionPool, stats, ztol)
+function gencut(::NoOptimalityCutGenerator, sp::SOI.AbstractStochasticProgram, parent, pool::SOI.AbstractSolutionPool, to::TimerOutput, ztol)
 end
 function applycut(::NoOptimalityCutGenerator, sp::SOI.AbstractStochasticProgram, node)
 end
@@ -36,7 +35,7 @@ struct MultiCutGenerator <: AbstractOptimalityCutGenerator
 end
 nθ(::MultiCutGenerator, proba) = length(proba)
 needallsolutions(::MultiCutGenerator) = false
-function gencut(::MultiCutGenerator, sp::SOI.AbstractStochasticProgram, parent, pool::SOI.AbstractSolutionPool, stats, ztol)
+function gencut(::MultiCutGenerator, sp::SOI.AbstractStochasticProgram, parent, pool::SOI.AbstractSolutionPool, to::TimerOutput, ztol)
     for tr in SOI.get(sp, SOI.OutTransitions(), parent)
         if SOI.hassolution(pool, tr)
             trsol = SOI.getsolution(pool, tr)
@@ -53,8 +52,7 @@ function gencut(::MultiCutGenerator, sp::SOI.AbstractStochasticProgram, parent, 
                 x = SOI.getstatevalue(sol)
                 θ = SOI.getθvalue(sp, tr, sol)
                 if SOI.getstatus(sol) == :Unbounded || _lt(θ, β - dot(aT, x), ztol)
-                    stats.ocutstime += SOI.@_time SOI.addcut!(sp, tr, MultiOptimalityCut(a, β))
-                    stats.nocuts += 1
+                    @timeit to SOI.OCUTS_KEY SOI.addcut!(sp, tr, MultiOptimalityCut(a, β))
                 end
             end
         end
@@ -71,7 +69,7 @@ struct AvgCutGenerator <: AbstractOptimalityCutGenerator
 end
 nθ(::AvgCutGenerator, proba) = 1
 needallsolutions(::AvgCutGenerator) = true
-function gencut(::AvgCutGenerator, sp::SOI.AbstractStochasticProgram, parent, pool::SOI.AbstractSolutionPool, stats, ztol)
+function gencut(::AvgCutGenerator, sp::SOI.AbstractStochasticProgram, parent, pool::SOI.AbstractSolutionPool, to::TimerOutput, ztol)
     # We need all transitions to be solved, feasible and bounded to generate an averaged cut
     (!SOI.allfeasible(pool) || !SOI.allbounded(pool)) && return
     avga = zeros(SOI.get(sp, SOI.Dimension(), parent))
@@ -96,8 +94,7 @@ function gencut(::AvgCutGenerator, sp::SOI.AbstractStochasticProgram, parent, po
     x = SOI.getstatevalue(sol)
     θ = SOI.getθvalue(sp, parent, sol)
     if SOI.getstatus(sol) == :Unbounded || _lt(θ, avgβ - dot(avga, x), ztol)
-        stats.ocutstime += SOI.@_time SOI.addcut!(sp, parent, AveragedOptimalityCut(avga, avgβ))
-        stats.nocuts += 1
+        @timeit to SOI.OCUTS_KEY SOI.addcut!(sp, parent, AveragedOptimalityCut(avga, avgβ))
     end
 end
 function applycut(::AvgCutGenerator, sp::SOI.AbstractStochasticProgram, node)

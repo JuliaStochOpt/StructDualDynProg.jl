@@ -1,11 +1,9 @@
-export SDDP
-
-function solvejobs!(sp, jobsd, stats, stopatinf::Bool)
+function solvejobs!(sp, jobsd, to::TimerOutput, stopatinf::Bool)
     infeasibility_detected = false
     for (node, jobs) in jobsd
         for job in jobs
             if !stopatinf || SOI.allfeasible(job.parent.pool)
-                solvejob!(sp, job, node, stats)
+                solvejob!(sp, job, node, to)
                 if !SOI.allfeasible(job.parent.pool)
                     infeasibility_detected = true
                 end
@@ -15,10 +13,10 @@ function solvejobs!(sp, jobsd, stats, stopatinf::Bool)
     infeasibility_detected
 end
 
-function gencuts(pathsd, sp, stats, ztol)
+function gencuts(pathsd, sp, to::TimerOutput, ztol)
     for (parent, paths) in pathsd
         for path in paths
-            SOI.addcut!(sp, parent, path.pool, stats, ztol)
+            SOI.addcut!(sp, parent, path.pool, to, ztol)
         end
     end
 end
@@ -60,13 +58,12 @@ function Algorithm(; K::Int=25, pathsampler::AbstractPathSampler=ProbaPathSample
     Algorithm(K, pathsampler, ztol, stopatinf, mergepaths, forwardcuts, backwardcuts)
 end
 
-function SOI.forwardpass!(sp::SOI.AbstractStochasticProgram, algo::Algorithm, verbose)
-    stats = SOI.SDDPStats()
+function SOI.forwardpass!(sp::SOI.AbstractStochasticProgram, algo::Algorithm, to::TimerOutput, verbose)
+    stats = SOI.Stats()
 
     master = SOI.get(sp, SOI.MasterState())
     NodeT = typeof(master)
-    stats.solvertime += SOI.@_time mastersol = SOI.get(sp, SOI.Solution(), master)
-    stats.nsolved += 1
+    @timeit to "solve" mastersol = SOI.get(sp, SOI.Solution(), master)
     stats.niterations += 1
     infeasibility_detected = SOI.getstatus(mastersol) == :Infeasible
 
@@ -86,17 +83,17 @@ function SOI.forwardpass!(sp::SOI.AbstractStochasticProgram, algo::Algorithm, ve
 
         # Merge paths
         if algo.mergepaths
-            pathsd[t-1] = mergesamepaths(pathsd[t-1], stats, algo.ztol)
+            pathsd[t-1] = mergesamepaths(pathsd[t-1], to, algo.ztol)
         end
 
         # Make jobs
         jobsd = childjobs(sp, pathsd[t-1], algo.pathsampler, t, num_stages, endedpaths)
 
         # Solve Jobs (parallelism possible here)
-        infeasibility_detected |= solvejobs!(sp, jobsd, stats, algo.stopatinf)
+        infeasibility_detected |= solvejobs!(sp, jobsd, to, algo.stopatinf)
 
         if algo.forwardcuts
-            gencuts(pathsd[t-1], sp, stats, algo.ztol)
+            gencuts(pathsd[t-1], sp, to, algo.ztol)
             # The cut is added after so that they are added by group and duplicate detection in CutPruners works better
             applycuts(pathsd[t-1], sp)
         end
@@ -121,11 +118,10 @@ function SOI.forwardpass!(sp::SOI.AbstractStochasticProgram, algo::Algorithm, ve
     stats.npaths = algo.K
     stats.lowerbound = SOI.getobjectivevalue(mastersol)
 
-    pathsd, mastersol, stats
+    return pathsd, mastersol, stats
 end
 
-function SOI.backwardpass!(sp::SOI.AbstractStochasticProgram, algo::Algorithm, pathsd, verbose)
-    stats = SOI.SDDPStats()
+function SOI.backwardpass!(sp::SOI.AbstractStochasticProgram, algo::Algorithm, pathsd, to::TimerOutput, verbose)
     if algo.backwardcuts
         # We could ask a node if it has new fcuts/ocuts before resolving, that way the last stage won't be a particular case anymore
         num_stages = SOI.get(sp, SOI.NumberOfStages())
@@ -136,13 +132,13 @@ function SOI.backwardpass!(sp::SOI.AbstractStochasticProgram, algo::Algorithm, p
                 endedpaths = SDDPPath{SOI.get(sp, SOI.TransitionType())}[]
                 jobsd = childjobs(sp, pathsd[t-1], algo.pathsampler, t, num_stages, endedpaths) # FIXME shouldn't need pathsampler here
                 # Solve Jobs (parallelism possible here)
-                solvejobs!(sp, jobsd, stats, algo.stopatinf)
+                solvejobs!(sp, jobsd, to, algo.stopatinf)
             end
 
-            gencuts(pathsd[t-1], sp, stats, algo.ztol)
+            gencuts(pathsd[t-1], sp, to, algo.ztol)
             # The cut is added after so that they are added by group and duplicate detection in CutPruners works better
             applycuts(pathsd[t-1], sp)
         end
     end
-    stats
+    return
 end

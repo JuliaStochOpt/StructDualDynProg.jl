@@ -38,11 +38,8 @@
                 algo = SDDP.Algorithm(K = K, forwardcuts = forwardcuts, backwardcuts = !forwardcuts)
                 sol = SOI.optimize!(sp, algo, SOI.Pereira(0.1) | SOI.IterLimit(10), 0)
                 sstats = sprint(show, sol.attrs[:stats])
-                @test contains(sstats, "Solving problem")
-                @test contains(sstats, "Merging paths")
-                @test contains(sstats, "Adding feasibility cuts")
-                @test contains(sstats, "Adding  optimality cuts")
-                @test contains(sstats, "Setting parent solution")
+                @test contains(sstats, "Lower Bound: ")
+                @test contains(sstats, "Upper Bound: ")
 
                 # K = 10 is a multiple of 2 so with ProbaPathSampler(true), the sampling is deterministic
                 # therefore we can test for sol.attrs[:niter]

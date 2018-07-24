@@ -96,15 +96,15 @@ function addjob!(jobsd::Dict{NodeT, Vector{Job{SolT, NodeT, TT}}}, node::NodeT, 
 end
 
 """
-    mergesamepaths(pathsd::Vector{Tuple{NodeT, Vector{<:SDDPPath}}}, stats, ztol) where NodeT
+    mergesamepaths(pathsd::Vector{Tuple{NodeT, Vector{<:SDDPPath}}}, to::TimerOutput, ztol) where NodeT
 
 Find paths that are at the same node with the same parent solution and merge them.
 It could happend that two path diverges (go to different node) but then meet again at the same node, if their parent solution is the same then each path will do exactly the same computation so merging them should save time.
 """
-function mergesamepaths(pathsd::Vector{Tuple{NodeT, Vector{SDDPPath{TT, SolT}}}}, stats, ztol) where {SolT, NodeT, TT}
+function mergesamepaths(pathsd::Vector{Tuple{NodeT, Vector{SDDPPath{TT, SolT}}}}, to::TimerOutput, ztol) where {SolT, NodeT, TT}
     before = sum([sum([sum(path.K) for path in paths]) for (node, paths) in pathsd])
     newpathsd = Tuple{NodeT, Vector{SDDPPath{TT, SolT}}}[]
-    stats.mergetime += SOI.@_time for (node, paths) in pathsd
+    @timeit to "merged" for (node, paths) in pathsd
         keep = ones(Bool, length(paths))
         merged = false
         for i in 1:length(paths)
@@ -114,7 +114,6 @@ function mergesamepaths(pathsd::Vector{Tuple{NodeT, Vector{SDDPPath{TT, SolT}}}}
                     merge!(paths[i], paths[j])
                     keep[j] = false
                     merged = true
-                    stats.nmerged += 1
                     break
                 end
             end
@@ -173,16 +172,14 @@ function jobstopaths(jobsd::Dict{NodeT, Vector{Job{SolT, NodeT, TT}}}, g::SOI.Ab
 end
 
 """
-    solvejob!(sp::SOI.AbstractStochasticProgram, job::Job, node, stats)
+    solvejob!(sp::SOI.AbstractStochasticProgram, job::Job, node, to::TimerOutput)
 
 Solves the job `job` of node `node`.
 """
-function solvejob!(sp::SOI.AbstractStochasticProgram, job::Job, node, stats)
-    stats.setxtime += SOI.@_time SOI.set!(sp, SOI.SourceSolution(), job.tr, SOI.getsolution(job.parent.pool))
-    stats.nsetx += 1
-    stats.solvertime += SOI.@_time job.sol = SOI.get(sp, SOI.Solution(), node)
+function solvejob!(sp::SOI.AbstractStochasticProgram, job::Job, node, to::TimerOutput)
+    @timeit to "setx" SOI.set!(sp, SOI.SourceSolution(), job.tr, SOI.getsolution(job.parent.pool))
+    @timeit to "solve" job.sol = SOI.get(sp, SOI.Solution(), node)
     job.parent.pool.children_solutions[job.tr] = get(job.sol)
-    stats.nsolved += 1
     if get(job.sol).status == :Infeasible
         job.parent.pool.children_feasible = false
     elseif get(job.sol).status == :Unbounded

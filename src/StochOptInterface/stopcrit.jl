@@ -1,14 +1,14 @@
 abstract type AbstractStoppingCriterion end
 
 """
-$(SIGNATURES)
+    stop(s::AbstractStoppingCriterion, to::TimerOutput, stats::AbstractStats, totalstats::AbstractStats)
 
 Returns whether the SDDP algorithm should stop.
 If `totalstats.niterations` is 0, no iteration has already been done, otherwise, the `niterations`th iteration has just finished.
-This iteration used `stats.npaths` paths and generated `stats.nfcuts` (resp. `stats.nocuts`) new feasibility (resp. optimality) cuts.
+This iteration used `stats.npaths` paths and generated `nfcuts(to)` (resp. `nocuts(to)`) new feasibility (resp. optimality) cuts.
 The lower bound is now `totalstats.lowerbound` and the upper bound has mean `totalstats.upperbound` and variance `totalstats.σ_UB`.
 """
-function stop(s::AbstractStoppingCriterion, stats::AbstractSDDPStats, totalstats::AbstractSDDPStats)
+function stop(s::AbstractStoppingCriterion, to::TimerOutput, stats::AbstractStats, totalstats::AbstractStats)
     error("`stop' function not defined for $(typeof(s))")
 end
 
@@ -22,8 +22,8 @@ mutable struct OrStoppingCriterion <: AbstractStoppingCriterion
     rhs::AbstractStoppingCriterion
 end
 
-function stop(s::OrStoppingCriterion, stats::AbstractSDDPStats, totalstats::AbstractSDDPStats)
-    stop(s.lhs, stats, totalstats) || stop(s.rhs, stats, totalstats)
+function stop(s::OrStoppingCriterion, to::TimerOutput, stats::AbstractStats, totalstats::AbstractStats)
+    stop(s.lhs, to, stats, totalstats) || stop(s.rhs, to, stats, totalstats)
 end
 
 function Base.:(|)(lhs::AbstractStoppingCriterion, rhs::AbstractStoppingCriterion)
@@ -40,8 +40,8 @@ mutable struct AndStoppingCriterion <: AbstractStoppingCriterion
     rhs::AbstractStoppingCriterion
 end
 
-function stop(s::AndStoppingCriterion, stats::AbstractSDDPStats, totalstats::AbstractSDDPStats)
-    stop(s.lhs, stats, totalstats) && stop(s.rhs, stats, totalstats)
+function stop(s::AndStoppingCriterion, to::TimerOutput, stats::AbstractStats, totalstats::AbstractStats)
+    stop(s.lhs, to, stats, totalstats) && stop(s.rhs, to, stats, totalstats)
 end
 
 function Base.:(&)(lhs::AbstractStoppingCriterion, rhs::AbstractStoppingCriterion)
@@ -57,7 +57,7 @@ mutable struct IterLimit <: AbstractStoppingCriterion
     limit::Int
 end
 
-function stop(s::IterLimit, stats::AbstractSDDPStats, totalstats::AbstractSDDPStats)
+function stop(s::IterLimit, to::TimerOutput, stats::AbstractStats, totalstats::AbstractStats)
     totalstats.niterations >= s.limit
 end
 
@@ -71,8 +71,8 @@ mutable struct CutLimit <: AbstractStoppingCriterion
     limit::Int
 end
 
-function stop(s::CutLimit, stats::AbstractSDDPStats, totalstats::AbstractSDDPStats)
-    totalstats.niterations > 0 && stats.nfcuts + stats.nocuts <= s.limit
+function stop(s::CutLimit, to::TimerOutput, stats::AbstractStats, totalstats::AbstractStats)
+    totalstats.niterations > 0 && nfcuts(to) + nocuts(to) <= s.limit
 end
 
 
@@ -86,7 +86,7 @@ mutable struct TimeLimit <: AbstractStoppingCriterion
     timelimit::Float64
 end
 
-function stop(s::TimeLimit, stats::AbstractSDDPStats, totalstats::AbstractSDDPStats)
+function stop(s::TimeLimit, to::TimerOutput, stats::AbstractStats, totalstats::AbstractStats)
     totalstats.niterations > 0 && totalstats.time > s.timelimit
 end
 
@@ -104,7 +104,7 @@ mutable struct Pereira <: AbstractStoppingCriterion
     Pereira(α=2.0, β=0.05, tol=1e-6) = new(α, β, tol)
 end
 
-function stop(s::Pereira, stats::AbstractSDDPStats, totalstats::AbstractSDDPStats)
+function stop(s::Pereira, to::TimerOutput, stats::AbstractStats, totalstats::AbstractStats)
     z_UB = stats.upperbound
     z_LB = stats.lowerbound
     K = stats.npaths

@@ -5,6 +5,8 @@ using DocStringExtensions
 using StructDualDynProg
 const SOI = StructDualDynProg.StochOptInterface
 
+using TimerOutputs
+
 using JuMP
 using StructJuMP
 

@@ -5,3 +5,4 @@ JuMP 0.18 0.19
 StructJuMP 0.0.1 0.1
 DocStringExtensions 0.2
 LightGraphs
+TimerOutputs
