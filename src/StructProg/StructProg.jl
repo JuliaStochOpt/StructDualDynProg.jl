@@ -3,7 +3,8 @@ module StructProg
 using DocStringExtensions
 
 using StructDualDynProg
-const SOI = StructDualDynProg.StochOptInterface
+using StochOptInterface
+const SOI = StochOptInterface
 
 using TimerOutputs
 

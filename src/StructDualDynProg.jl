@@ -3,9 +3,7 @@ __precompile__()
 module StructDualDynProg
 
 using DocStringExtensions
-
-# TODO This module should be replaced by the package https://github.com/JuliaStochOpt/StochOptInterface.jl
-include("StochOptInterface/StochOptInterface.jl")
+using StochOptInterface
 const SOI = StochOptInterface
 
 # Generic implementation of Stochastic Program supporting the conversion from a StructJuMP model to a Stochastic Program

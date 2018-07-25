@@ -1,7 +1,8 @@
 module WaitAndSee
 
 using StructDualDynProg
-const SOI = StructDualDynProg.StochOptInterface
+using StochOptInterface
+const SOI = StochOptInterface
 
 using MathProgBase
 
