@@ -38,9 +38,9 @@ SOI.getstatus(sol::Solution) = sol.status
 
 SOI.getobjectivevalue(sol::Solution) = sol.objval
 
-SOI.getstateobjectivevalue(sol::Solution) = sol.objvalx
+SOI.getnodeobjectivevalue(sol::Solution) = sol.objvalx
 
-SOI.getstatevalue(sol::Solution) = sol.x
+SOI.getnodevalue(sol::Solution) = sol.x
 
 function SOI.getθvalue(sol::Solution, i)
     sol.θ[i]

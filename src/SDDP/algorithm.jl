@@ -57,6 +57,10 @@ function Algorithm(; K::Int=25, pathsampler::AbstractPathSampler=ProbaPathSample
     Algorithm(K, pathsampler, ztol, stopatinf, mergepaths, forwardcuts, backwardcuts)
 end
 
+struct Paths{NodeT, TT, SolT} <: SOI.AbstractPaths
+    paths::Vector{Vector{Tuple{NodeT, Vector{SDDPPath{TT, SolT}}}}}
+end
+
 function SOI.forward_pass!(sp::SOI.AbstractStochasticProgram, algo::Algorithm, to::TimerOutput, result::SOI.Result, verbose)
     master = SOI.get(sp, SOI.MasterState())
     NodeT = typeof(master)
@@ -111,7 +115,7 @@ function SOI.forward_pass!(sp::SOI.AbstractStochasticProgram, algo::Algorithm, t
     # update stats
     result.upperbound = z_UB
     result.σ_UB = σ
-    result.paths = pathsd
+    result.paths = Paths(pathsd)
     result.lowerbound = SOI.getobjectivevalue(mastersol) #TO DO lowerbound in backward pass
 end
 
@@ -124,14 +128,14 @@ function SOI.backward_pass!(sp::SOI.AbstractStochasticProgram, algo::Algorithm, 
             if t != num_stages
                 # Make jobs
                 endedpaths = SDDPPath{SOI.get(sp, SOI.TransitionType())}[]
-                jobsd = childjobs(sp, result.paths[t-1], algo.pathsampler, t, num_stages, endedpaths) # FIXME shouldn't need pathsampler here
+                jobsd = childjobs(sp, result.paths.paths[t-1], algo.pathsampler, t, num_stages, endedpaths) # FIXME shouldn't need pathsampler here
                 # Solve Jobs (parallelism possible here)
                 solvejobs!(sp, jobsd, to, algo.stopatinf)
             end
 
-            gencuts(result.paths[t-1], sp, to, algo.ztol)
+            gencuts(result.paths.paths[t-1], sp, to, algo.ztol)
             # The cut is added after so that they are added by group and duplicate detection in CutPruners works better
-            applycuts(result.paths[t-1], sp)
+            applycuts(result.paths.paths[t-1], sp)
         end
     end
 end
