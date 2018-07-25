@@ -1,17 +1,5 @@
 export MultiCutGenerator, AvgCutGenerator
 
-"""
-    CutGenerator <: AbstractStateAttribute
-
-The cut generator of the state.
-"""
-struct CutGenerator <: SOI.AbstractStateAttribute end
-
-SOI.get(sp::StochasticProgram, ::CutGenerator, node) = nodedata(sp, node).nlds.cutgen
-function SOI.set!(sp::StochasticProgram, ::CutGenerator, node, cutgen::AbstractOptimalityCutGenerator)
-    nodedata(sp, node).nlds.cutgen = cutgen
-end
-
 abstract type AbstractCutGenerator end
 abstract type AbstractOptimalityCutGenerator <: AbstractCutGenerator end
 

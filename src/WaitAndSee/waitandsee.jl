@@ -24,7 +24,7 @@ function meanstdpaths(paths::Vector{WaitAndSeePath}, totalK)
     z = Float64[x.z for x in paths]
     proba = Float64[x.proba for x in paths]
     npaths = Int[x.K for x in paths]
-    StructDualDynProg.SDDP.meanstdpaths(z, proba, npaths, totalK)
+    return StructDualDynProg.SDDP.meanstdpaths(z, proba, npaths, totalK)
 end
 
 function SOI.optimize!(sp::SOI.AbstractStochasticProgram, algo::Algorithm,

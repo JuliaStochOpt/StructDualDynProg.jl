@@ -140,3 +140,15 @@ function SOI.getθvalue(sp::StochasticProgram, node, sol::Solution)
 end
 
 SOI.get(sp::StochasticProgram, ::SOI.NeedAllSolutions, state) = needallsolutions(SOI.get(sp, CutGenerator(), state))
+
+"""
+    CutGenerator <: AbstractStateAttribute
+
+The cut generator of the state.
+"""
+struct CutGenerator <: SOI.AbstractStateAttribute end
+
+SOI.get(sp::StochasticProgram, ::CutGenerator, node) = nodedata(sp, node).nlds.cutgen
+function SOI.set!(sp::StochasticProgram, ::CutGenerator, node, cutgen::AbstractOptimalityCutGenerator)
+    nodedata(sp, node).nlds.cutgen = cutgen
+end

@@ -3,7 +3,8 @@ using CutPruners
 using StructJuMP
 using StructDualDynProg
 using Base.Test
-SOI = StructDualDynProg.StochOptInterface
+using StochOptInterface
+const SOI = StochOptInterface
 
 # solver independent tests
 include("comp.jl")

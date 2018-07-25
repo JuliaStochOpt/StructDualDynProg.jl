@@ -57,7 +57,7 @@ function Algorithm(; K::Int=25, pathsampler::AbstractPathSampler=ProbaPathSample
     Algorithm(K, pathsampler, ztol, stopatinf, mergepaths, forwardcuts, backwardcuts)
 end
 
-function SOI.forwardpass!(sp::SOI.AbstractStochasticProgram, algo::Algorithm, to::TimerOutput, result::SOI.Result, verbose)
+function SOI.forward_pass!(sp::SOI.AbstractStochasticProgram, algo::Algorithm, to::TimerOutput, result::SOI.Result, verbose)
     master = SOI.get(sp, SOI.MasterState())
     NodeT = typeof(master)
     @timeit to "solve" mastersol = SOI.get(sp, SOI.Solution(), master)
@@ -115,7 +115,7 @@ function SOI.forwardpass!(sp::SOI.AbstractStochasticProgram, algo::Algorithm, to
     result.lowerbound = SOI.getobjectivevalue(mastersol) #TO DO lowerbound in backward pass
 end
 
-function SOI.backwardpass!(sp::SOI.AbstractStochasticProgram, algo::Algorithm, to::TimerOutput, result::SOI.Result, verbose)
+function SOI.backward_pass!(sp::SOI.AbstractStochasticProgram, algo::Algorithm, to::TimerOutput, result::SOI.Result, verbose)
     if algo.backwardcuts
         # We could ask a node if it has new fcuts/ocuts before resolving, that way the last stage won't be a particular case anymore
         num_stages = SOI.get(sp, SOI.NumberOfStages())
@@ -134,5 +134,4 @@ function SOI.backwardpass!(sp::SOI.AbstractStochasticProgram, algo::Algorithm, t
             applycuts(result.paths[t-1], sp)
         end
     end
-    return
 end

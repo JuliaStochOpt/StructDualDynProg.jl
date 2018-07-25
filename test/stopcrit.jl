@@ -4,7 +4,7 @@ mutable struct InvalidStoppingCriterion <: SOI.AbstractStoppingCriterion
 end
 
 @testset "Stopping Criterion" begin
-    K = 42
+    #K = 42
     z_LB = 1
     z_UB = 1
     σ = 1
@@ -12,14 +12,14 @@ end
     result = SOI.Result()
     result.upperbound = z_UB
     result.lowerbound = z_LB
-    result.npaths = K
+    #result.npaths = K
     result.σ_UB = σ
 
     info = SOI.Info()
     @timeit info.timer "iteration 8" begin
         for i in 1:8
             push!(info.results, result)
-            @timeit info.timer StructDualDynProg.SOI.OCUTS_KEY begin end
+            @timeit info.timer SOI.OCUTS_KEY begin end
         end
     end
 
@@ -32,16 +32,16 @@ end
     end
     @timeit info.timer "iteration 7" begin
         for i in 1:2
-            @timeit info.timer StructDualDynProg.SOI.OCUTS_KEY begin end
+            @timeit info.timer SOI.OCUTS_KEY begin end
         end
         for i in 1:5
-            @timeit info.timer StructDualDynProg.SOI.FCUTS_KEY begin end
+            @timeit info.timer SOI.FCUTS_KEY begin end
         end
     end
     @test !SOI.stop(SOI.AndStoppingCriterion(SOI.IterLimit(8), SOI.CutLimit(8)), info)
 
     @timeit info.timer "iteration 7" begin
-        @timeit info.timer StructDualDynProg.SOI.FCUTS_KEY begin end
+        @timeit info.timer SOI.FCUTS_KEY begin end
     end
     @test !SOI.stop(SOI.AndStoppingCriterion(SOI.IterLimit(8), SOI.CutLimit(8)), info)
 end

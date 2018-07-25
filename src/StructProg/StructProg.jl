@@ -16,8 +16,6 @@ using CutPruners
 # Utils
 include("comp.jl")
 
-# Cut
-include("cut.jl")
 # Cut Generator
 include("cutgen.jl")
 
@@ -26,6 +24,9 @@ include("cutstore.jl")
 include("solver.jl")
 include("nlds.jl")
 include("graph.jl")
+
+# Cut
+include("cut.jl")
 
 # StructJuMP interface
 include("interface.jl")
