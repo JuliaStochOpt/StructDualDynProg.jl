@@ -14,6 +14,6 @@ include("comp.jl")
 include("sampler.jl")
 
 include("path.jl")
-include("sddp.jl")
+include("algorithm.jl")
 
 end
