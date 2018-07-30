@@ -59,14 +59,14 @@ nodedata(sp::StochasticProgram, node::Int) = sp.data[node]
 
 SOI.get(sp::StochasticProgram, ::SOI.NumberOfStages) = sp.num_stages
 
-SOI.get(sp::StochasticProgram, ::SOI.StateObjectiveValueBound, state) = getobjectivebound(nodedata(sp, state).nlds)
+SOI.get(sp::StochasticProgram, ::SOI.NodeObjectiveValueBound, node) = getobjectivebound(nodedata(sp, node).nlds)
 SOI.set!(sp::StochasticProgram, ::SOI.TransitionObjectiveValueBound, tr::Transition, θlb) = setθbound!(nodedata(sp, SOI.get(sp, SOI.Source(), tr)).nlds, edgeid(sp, tr), θlb)
-SOI.get(sp::StochasticProgram, ::SOI.Dimension, state) = nodedata(sp, state).nlds.nx
+SOI.get(sp::StochasticProgram, ::SOI.Dimension, node) = nodedata(sp, node).nlds.nx
 
 SOI.get(sp::StochasticProgram, ::SOI.OutTransitions, node::Int) = sp.out_transitions[node]
 SOI.get(::StochasticProgram{S, TT}, ::SOI.TransitionType) where {S, TT} = TT
 
-SOI.get(::StochasticProgram, ::SOI.MasterState) = 1
+SOI.get(::StochasticProgram, ::SOI.MasterNode) = 1
 
 # If the graph is not a tree, this will loop if I don't use a num_stages limit
 function SOI.get(sp::StochasticProgram, nop::SOI.NumberOfPathsFrom, node)
@@ -83,7 +83,7 @@ function SOI.get(sp::StochasticProgram, nop::SOI.NumberOfPathsFrom, node)
     end
 end
 
-function SOI.add_scenario_state!(sp::StochasticProgram{S}, data::NodeData) where S
+function SOI.add_scenario_node!(sp::StochasticProgram{S}, data::NodeData) where S
     push!(sp.out_transitions, Transition{S}[])
     push!(sp.data, data)
     @assert length(sp.out_transitions) == length(sp.data)
@@ -139,14 +139,14 @@ function SOI.getθvalue(sp::StochasticProgram, node, sol::Solution)
     SOI.getθvalue(sol, 1)
 end
 
-SOI.get(sp::StochasticProgram, ::SOI.NeedAllSolutions, state) = needallsolutions(SOI.get(sp, CutGenerator(), state))
+SOI.get(sp::StochasticProgram, ::SOI.NeedAllSolutions, node) = needallsolutions(SOI.get(sp, CutGenerator(), node))
 
 """
-    CutGenerator <: AbstractStateAttribute
+    CutGenerator <: AbstractNodeAttribute
 
-The cut generator of the state.
+The cut generator of the node.
 """
-struct CutGenerator <: SOI.AbstractStateAttribute end
+struct CutGenerator <: SOI.AbstractNodeAttribute end
 
 SOI.get(sp::StochasticProgram, ::CutGenerator, node) = nodedata(sp, node).nlds.cutgen
 function SOI.set!(sp::StochasticProgram, ::CutGenerator, node, cutgen::AbstractOptimalityCutGenerator)

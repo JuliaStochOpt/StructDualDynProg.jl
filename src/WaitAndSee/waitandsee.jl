@@ -30,7 +30,7 @@ end
 function SOI.optimize!(sp::SOI.AbstractStochasticProgram, algo::Algorithm,
                        stopcrit::SOI.AbstractStoppingCriterion=SOI.IterLimit(0), # Not used
                        verbose::Int=0)
-    master = SOI.get(sp, SOI.MasterState())
+    master = SOI.get(sp, SOI.MasterNode())
     num_stages = SOI.get(sp, SOI.NumberOfStages())
     paths = WaitAndSeePath[WaitAndSeePath(master, StructDualDynProg.StructProg.NLDS[StructDualDynProg.StructProg.nodedata(sp, master).nlds], .0, 1., algo.K)]
     for t in 2:num_stages

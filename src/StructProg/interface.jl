@@ -15,7 +15,7 @@ function createnode(sp::StochasticProgram, m::Model, t, num_stages, solver, pare
         # The last argument contains the categories (e.g. :Cont, :Int, :Bool, ...) but it is currently unused
         c, T, W, h, C, K, _ = StructJuMP.conicconstraintdata(m)
         newnodedata = NodeData(NLDS{Float64}(W,h,T,K,C,c,solver,pruningalgo, newcut), parent === nothing ? 0 : SOI.get(sp, SOI.Dimension(), parent))
-        newnode = SOI.add_scenario_state!(sp, newnodedata)
+        newnode = SOI.add_scenario_node!(sp, newnodedata)
         SOI.set!(sp, CutGenerator(), newnode, cutgen)
         nodes[t] = newnode
         struc = getStructure(m)
@@ -25,7 +25,7 @@ function createnode(sp::StochasticProgram, m::Model, t, num_stages, solver, pare
                 child = createnode(sp, struc.children[id], t+1, num_stages, solver, newnode, pruningalgo, cutgen, detectlb, newcut)
                 tr = SOI.add_scenario_transition!(sp, newnode, child, struc.probability[id])
                 if detectlb
-                    SOI.set!(sp, SOI.TransitionObjectiveValueBound(), tr, SOI.get(sp, SOI.StateObjectiveValueBound(), child))
+                    SOI.set!(sp, SOI.TransitionObjectiveValueBound(), tr, SOI.get(sp, SOI.NodeObjectiveValueBound(), child))
                 end
             end
         end

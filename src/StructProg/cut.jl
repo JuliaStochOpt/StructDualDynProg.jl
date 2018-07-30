@@ -17,11 +17,11 @@ struct AveragedOptimalityCut{T, VT<:AbstractVector{T}} <: AbstractCut
     β::T
 end
 
-function SOI.addcut!(sp::StochasticProgram, state, pool::SOI.AbstractSolutionPool, to::TimerOutput, ztol)
+function SOI.addcut!(sp::StochasticProgram, node, pool::SOI.AbstractSolutionPool, to::TimerOutput, ztol)
     if SOI.allfeasible(pool)
-        gencut(SOI.get(sp, CutGenerator(), state), sp, state, pool, to::TimerOutput, ztol)
+        gencut(SOI.get(sp, CutGenerator(), node), sp, node, pool, to::TimerOutput, ztol)
     else
-        gencut(FeasibilityCutGenerator(), sp, state, pool, to::TimerOutput, ztol)
+        gencut(FeasibilityCutGenerator(), sp, node, pool, to::TimerOutput, ztol)
     end
 end
 
@@ -37,13 +37,13 @@ end
 function SOI.addcut!(sp::StochasticProgram, tr::Transition, cut::MultiOptimalityCut)
     addcut(nodedata(sp, SOI.get(sp, SOI.Target(), tr)).ocuts, cut.a, cut.β, nodedata(sp, SOI.get(sp, SOI.Source(), tr)).nlds)
 end
-function SOI.addcut!(sp::StochasticProgram, state, cut::AveragedOptimalityCut)
-    addcut(nodedata(sp, state).nlds.localOC, cut.a, cut.β, nodedata(sp, state).nlds)
+function SOI.addcut!(sp::StochasticProgram, node, cut::AveragedOptimalityCut)
+    addcut(nodedata(sp, node).nlds.localOC, cut.a, cut.β, nodedata(sp, node).nlds)
 end
 
-function SOI.applycuts!(sp::StochasticProgram, state)
-    applycut(FeasibilityCutGenerator(), sp, state)
-    applycut(SOI.get(sp, CutGenerator(), state), sp, state)
+function SOI.applycuts!(sp::StochasticProgram, node)
+    applycut(FeasibilityCutGenerator(), sp, node)
+    applycut(SOI.get(sp, CutGenerator(), node), sp, node)
 end
 
 function SOI.applycuts!(sp::StochasticProgram, tr::Transition, ::Type{<:FeasibilityCut})
@@ -52,6 +52,6 @@ end
 function SOI.applycuts!(sp::StochasticProgram, tr::Transition, ::Type{<:MultiOptimalityCut})
     apply!(nodedata(sp, SOI.get(sp, SOI.Target(), tr)).ocuts)
 end
-function SOI.applycuts!(sp::StochasticProgram, state, ::Type{<:AveragedOptimalityCut})
-    apply!(nodedata(sp, state).nlds.localOC)
+function SOI.applycuts!(sp::StochasticProgram, node, ::Type{<:AveragedOptimalityCut})
+    apply!(nodedata(sp, node).nlds.localOC)
 end

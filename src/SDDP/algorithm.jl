@@ -22,8 +22,8 @@ function gencuts(pathsd, sp, to::TimerOutput, ztol)
 end
 
 function applycuts(pathsd, sp)
-    for (state, _) in pathsd
-        SOI.applycuts!(sp, state)
+    for (node, _) in pathsd
+        SOI.applycuts!(sp, node)
     end
 end
 
@@ -62,7 +62,7 @@ struct Paths{NodeT, TT, SolT} <: SOI.AbstractPaths
 end
 
 function SOI.forward_pass!(sp::SOI.AbstractStochasticProgram, algo::Algorithm, to::TimerOutput, result::SOI.Result, verbose)
-    master = SOI.get(sp, SOI.MasterState())
+    master = SOI.get(sp, SOI.MasterNode())
     NodeT = typeof(master)
     @timeit to "solve" mastersol = SOI.get(sp, SOI.Solution(), master)
     infeasibility_detected = SOI.getstatus(mastersol) == :Infeasible
@@ -74,7 +74,7 @@ function SOI.forward_pass!(sp::SOI.AbstractStochasticProgram, algo::Algorithm, t
     if infeasibility_detected
         pathsd[1] = TT[]
     else
-        pathsd[1] = TT[(master, [SDDPPath{SOI.get(sp, SOI.TransitionType())}(mastersol, [SOI.getstateobjectivevalue(mastersol)], [1.], [algo.K])])]
+        pathsd[1] = TT[(master, [SDDPPath{SOI.get(sp, SOI.TransitionType())}(mastersol, [SOI.getnodeobjectivevalue(mastersol)], [1.], [algo.K])])]
     end
     endedpaths = PathT[]
 

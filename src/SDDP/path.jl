@@ -60,11 +60,11 @@ function meanstdpaths(paths::Vector{<:SDDPPath}, Ktot)
 end
 
 function Base.isapprox(p::SDDPPath, q::SDDPPath)
-    Base.isapprox(SOI.getstatevalue(SOI.getsolution(p.pool)), SOI.getstatevalue(SOI.getsolution(q.pool)))
+    Base.isapprox(SOI.getnodevalue(SOI.getsolution(p.pool)), SOI.getnodevalue(SOI.getsolution(q.pool)))
 end
 
 function canmerge(p::SDDPPath, q::SDDPPath, ztol)
-    _isapprox(SOI.getstatevalue(SOI.getsolution(p.pool)), SOI.getstatevalue(SOI.getsolution(q.pool)), ztol)
+    _isapprox(SOI.getnodevalue(SOI.getsolution(p.pool)), SOI.getnodevalue(SOI.getsolution(q.pool)), ztol)
 end
 
 function merge!(p::SDDPPath, q::SDDPPath)
@@ -110,7 +110,7 @@ function mergesamepaths(pathsd::Vector{Tuple{NodeT, Vector{SDDPPath{TT, SolT}}}}
         for i in 1:length(paths)
             for j in 1:(i-1)
                 if keep[j] && canmerge(paths[i], paths[j], ztol)
-                    #println("Merging path since ||x_i - x_j||_∞ = $(norm(getstatevalue(paths[j].sol) - getstatevalue(paths[i].sol), Inf))")
+                    #println("Merging path since ||x_i - x_j||_∞ = $(norm(getnodevalue(paths[j].sol) - getnodevalue(paths[i].sol), Inf))")
                     merge!(paths[i], paths[j])
                     keep[j] = false
                     merged = true
