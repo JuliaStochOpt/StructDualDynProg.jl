@@ -60,6 +60,16 @@ end
 struct Paths{NodeT, TT, SolT} <: SOI.AbstractPaths
     paths::Vector{Vector{Tuple{NodeT, Vector{SDDPPath{TT, SolT}}}}}
 end
+function SOI.npaths(paths::Paths)
+    # At the master node, all paths are still concentrated in the same one
+    node_paths = paths.paths[1]
+    @assert length(node_paths) == 1
+    paths_vec = node_paths[1][2]
+    @assert length(paths_vec) == 1
+    Ks = paths_vec[1].K
+    @assert length(Ks) == 1
+    return Ks[1]
+end
 
 function SOI.forward_pass!(sp::SOI.AbstractStochasticProgram, algo::Algorithm, to::TimerOutput, result::SOI.Result, verbose)
     master = SOI.get(sp, SOI.MasterNode())
