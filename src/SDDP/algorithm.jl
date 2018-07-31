@@ -116,7 +116,8 @@ function SOI.forward_pass!(sp::SOI.AbstractStochasticProgram, algo::Algorithm, t
     result.upperbound = z_UB
     result.σ_UB = σ
     result.paths = Paths(pathsd)
-    result.lowerbound = SOI.getobjectivevalue(mastersol) #TO DO lowerbound in backward pass
+    result.status = SOI.getstatus(mastersol)             # TODO status in backward pass
+    result.lowerbound = SOI.getobjectivevalue(mastersol) # TODO lowerbound in backward pass
 end
 
 function SOI.backward_pass!(sp::SOI.AbstractStochasticProgram, algo::Algorithm, to::TimerOutput, result::SOI.Result, verbose)

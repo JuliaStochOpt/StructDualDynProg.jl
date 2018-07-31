@@ -44,23 +44,24 @@
                 algo = SDDP.Algorithm(K = 16, forwardcuts = forwardcuts, backwardcuts = !forwardcuts)
                 sol = SOI.optimize!(sp, algo, SOI.Pereira(2, 0.5) | SOI.IterLimit(10), 0)
 
-                #@test sol.status == :Optimal
+                @test SOI.last_result(sol).status == :Optimal
+                lb = SOI.last_result(sol).lowerbound
                 if forwardcuts
                     @test SOI.niterations(sol) == (detectlb ? 3 : 5)
-                    #@test sol.objval ≈ (detectlb ? 15 : 18.75)
+                    @test lb ≈ (detectlb ? 15 : 18.75)
                 else
                     @test SOI.niterations(sol) == (!detectlb && isa(cutmode, StructProg.AvgCutGenerator) ? 5 : 2)
                     if isa(cutmode, StructProg.AvgCutGenerator)
                         if detectlb
-                            #@test sol.objval ≈ 22.5 # Clp returns an approximate value
+                            @test lb ≈ 22.5 # Clp returns an approximate value
                         else
-                            #@test sol.objval ≈ 23.75
+                            @test lb ≈ 23.75
                         end
                     else
                         if detectlb
-                            #@test sol.objval ≈ 23.75
+                            @test lb ≈ 23.75
                         else
-                            #@test sol.objval ≈ 18.75
+                            @test lb ≈ 18.75
                         end
                     end
                 end
