@@ -12,10 +12,8 @@ notifications:
 addons:
   apt_packages:
   - libgmp-dev
-# uncomment the following lines to override the default test script
-#script:
-#  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
-#  - julia -e 'Pkg.clone(pwd()); Pkg.build("StructDualDynProg"); Pkg.test("StructDualDynProg"; coverage=true)'
+before_script:
+  - julia -e 'Pkg.clone("https://github.com/JuliaStochOpt/StochOptInterface.jl.git")'
 after_success:
   # push coverage results to Coveralls
   - julia -e 'cd(Pkg.dir("StructDualDynProg")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())'

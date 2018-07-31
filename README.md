@@ -22,6 +22,15 @@ This package is used by the [Entropic Cone](https://github.com/blegat/EntropicCo
 > Pkg.add("StructDualDynProg")
 ```
 
+### Development version
+
+The development version uses [StochOptInterface (SOI)](https://github.com/JuliaStochOpt/StochOptInterface.jl) which is not released yet
+so to use the development version of this package, install it as explained above and then do the following:
+```julia
+> Pkg.clone("https://github.com/JuliaStochOpt/StochOptInterface.jl.git")
+> Pkg.checkout("StructDualDynProg")
+```
+
 ## Notes for choice of solvers
 This package should work with any linear programming (LP) solver [supported by MathProgBase](http://www.juliaopt.org/).
 If some subproblems are infeasible, an infeasibility ray will be asked to the solver.
