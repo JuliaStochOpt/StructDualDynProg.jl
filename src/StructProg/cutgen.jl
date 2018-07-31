@@ -50,7 +50,7 @@ function gencut(::MultiCutGenerator, sp::SOI.AbstractStochasticProgram, parent, 
                 end
                 sol = SOI.getsolution(pool)
                 x = SOI.getnodevalue(sol)
-                θ = SOI.getθvalue(sp, tr, sol)
+                θ = SOI.getbellmanvalue(sp, tr, sol)
                 if SOI.getstatus(sol) == :Unbounded || _lt(θ, β - dot(aT, x), ztol)
                     @timeit to SOI.OCUTS_KEY SOI.addcut!(sp, tr, MultiOptimalityCut(a, β))
                 end
@@ -92,7 +92,7 @@ function gencut(::AvgCutGenerator, sp::SOI.AbstractStochasticProgram, parent, po
     end
     sol = SOI.getsolution(pool)
     x = SOI.getnodevalue(sol)
-    θ = SOI.getθvalue(sp, parent, sol)
+    θ = SOI.getbellmanvalue(sp, parent, sol)
     if SOI.getstatus(sol) == :Unbounded || _lt(θ, avgβ - dot(avga, x), ztol)
         @timeit to SOI.OCUTS_KEY SOI.addcut!(sp, parent, AveragedOptimalityCut(avga, avgβ))
     end

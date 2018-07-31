@@ -129,14 +129,14 @@ function SOI.set!(sp::StochasticProgram, ::SOI.SourceSolution, tr, sol::Solution
     setparentx(nodedata(sp, SOI.get(sp, SOI.Target(), tr)).nlds, x, xuray, sol.objvalxuray)
 end
 
-function SOI.getθvalue(sp::StochasticProgram, tr::SOI.AbstractTransition, sol::Solution)
+function SOI.getbellmanvalue(sp::StochasticProgram, tr::SOI.AbstractTransition, sol::Solution)
     @assert length(sol.θ) == outdegree(sp, SOI.get(sp, SOI.Source(), tr))
-    SOI.getθvalue(sol, edgeid(sp, tr))
+    SOI.getbellmanvalue(sol, edgeid(sp, tr))
 end
 
-function SOI.getθvalue(sp::StochasticProgram, node, sol::Solution)
+function SOI.getbellmanvalue(sp::StochasticProgram, node, sol::Solution)
     @assert length(sol.θ) == 1
-    SOI.getθvalue(sol, 1)
+    SOI.getbellmanvalue(sol, 1)
 end
 
 SOI.get(sp::StochasticProgram, ::SOI.NeedAllSolutions, node) = needallsolutions(SOI.get(sp, CutGenerator(), node))

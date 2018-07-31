@@ -42,7 +42,7 @@ SOI.getnodeobjectivevalue(sol::Solution) = sol.objvalx
 
 SOI.getnodevalue(sol::Solution) = sol.x
 
-function SOI.getθvalue(sol::Solution, i)
+function SOI.getbellmanvalue(sol::Solution, i)
     sol.θ[i]
 end
 
