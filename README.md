@@ -24,8 +24,9 @@ This package is used by the [Entropic Cone](https://github.com/blegat/EntropicCo
 
 ### Development version
 
-The development version uses [StochOptInterface (SOI)](https://github.com/JuliaStochOpt/StochOptInterface.jl) which is not released yet
-so to use the development version of this package, install it as explained above and then do the following:
+The development version uses [StochOptInterface (SOI)](https://github.com/JuliaStochOpt/StochOptInterface.jl)
+which is not released yet so to use the development version of this package,
+install it as explained above and then do the following:
 ```julia
 > Pkg.clone("https://github.com/JuliaStochOpt/StochOptInterface.jl.git")
 > Pkg.checkout("StructDualDynProg")
