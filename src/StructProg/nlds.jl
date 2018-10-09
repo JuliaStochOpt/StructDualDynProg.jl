@@ -217,16 +217,16 @@ function θC(nlds::NLDS)
                 push!(nlds.θC, (:Free, collect(nlds.nx .+ free)))
             end
         else
-            θC = [(:Free, collect(nlds.nx+(1:nlds.nθ)))]
+            θC = [(:Free, collect(nlds.nx .+ (1:nlds.nθ)))]
         end
     elseif nlds.nθ == 1
         # Averaged cut
         if isempty(nlds.θfree)
             θlb = [dot(nlds.proba, nlds.θlb)]
-            θC = [(:NonNeg, [nlds.nx+1])]
+            θC = [(:NonNeg, [nlds.nx + 1])]
         else
             θlb = [0.]
-            θC = [(:Free, [nlds.nx+1])]
+            θC = [(:Free, [nlds.nx + 1])]
         end
     else
         θlb = Float64[]
@@ -382,7 +382,7 @@ function checkconsistency(nlds)
         @assert length(nlds.ρs[i]) == nlds.nρ[i]
     end
     ρs = Compat.reduce(append!, nlds.ρs, init=Int[])
-    @assert sort([nlds.πs; nlds.nπ + nlds.σs; nlds.nπ + ρs]) == collect(1:(nlds.nπ + nlds.nσ + sum(nlds.nρ)))
+    @assert sort([nlds.πs; nlds.nπ .+ nlds.σs; nlds.nπ .+ ρs]) == collect(1:(nlds.nπ + nlds.nσ + sum(nlds.nρ)))
 end
 
 function getrhs(nlds::NLDS{S}) where S
@@ -549,12 +549,12 @@ function solve!(nlds::NLDS{S}) where S
             uray = _getunboundedray(nlds.model)
             sol.xuray = uray[1:nlds.nx]
             sol.objvalxuray = dot(nlds.c, sol.xuray)
-            sol.θuray = uray[nlds.nx+(1:nlds.nθ)]
+            sol.θuray = uray[nlds.nx .+ (1:nlds.nθ)]
 
             # See https://github.com/JuliaOpt/Gurobi.jl/issues/80
             c = MathProgBase.getobj(nlds.model)
 
-            MathProgBase.setobj!(nlds.model, zeros(c))
+            MathProgBase.setobj!(nlds.model, zero(c))
             MathProgBase.optimize!(nlds.model)
             newstatus = MathProgBase.status(nlds.model)
             @assert newstatus != :Unbounded # Now the objective is 0
@@ -589,17 +589,17 @@ function solve!(nlds::NLDS{S}) where S
 
             σ = σρ[nlds.σs]
             addusage!(nlds.FCpruner, σ)
-            sol.σd = vecdot(σ, nlds.FCpruner.b)
+            sol.σd = dot(σ, nlds.FCpruner.b)
 
             sol.ρe = zero(S)
             for i in 1:nlds.nθ
                 ρ = σρ[nlds.ρs[i]]
                 addusage!(nlds.OCpruners[i], ρ)
-                sol.ρe += vecdot(ρ, nlds.OCpruners[i].b)
+                sol.ρe += dot(ρ, nlds.OCpruners[i].b)
             end
 
             sol.πT = vec(π' * nlds.T)
-            sol.πh = vecdot(π, nlds.h)
+            sol.πh = dot(π, nlds.h)
         end
 
         # Needs to be done after since if status is unbounded I do a resolve
@@ -611,7 +611,7 @@ function solve!(nlds::NLDS{S}) where S
                 addposition!(nlds.OCpruners[i], sol.x)
             end
             sol.objvalx = dot(nlds.c, sol.x)
-            sol.θ = θC(nlds)[1] + primal[nlds.nx+(1:nlds.nθ)]
+            sol.θ = θC(nlds)[1] .+ primal[nlds.nx+(1:nlds.nθ)]
         end
 
         if status == :Unbounded

@@ -1,6 +1,6 @@
 module StructProg
 
-using Compat, Compat.SparseArrays
+using Compat, Compat.LinearAlgebra, Compat.SparseArrays
 
 using DocStringExtensions
 using TimerOutputs

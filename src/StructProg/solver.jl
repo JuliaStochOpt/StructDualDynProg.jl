@@ -9,8 +9,8 @@ function getLPconstrbounds(bs, Ks)
     for i in 1:length(bs)
         @assert BitSet(1:length(bs[i])) == Compat.reduce(∪, map(c -> BitSet(c[2]), Ks[i]), init=BitSet())
     end
-    lb = Vector{Float64}(sumlen)
-    ub = Vector{Float64}(sumlen)
+    lb = Vector{Float64}(undef, sumlen)
+    ub = Vector{Float64}(undef, sumlen)
     offset = 0
     for i in 1:length(bs)
         b = bs[i]
@@ -54,7 +54,7 @@ function _addconstr!(m::MathProgBase.AbstractLinearQuadraticModel, idx, a, β, c
     if cone == :Zero || cone == :NonNeg
         ub = β
     end
-    MathProgBase.addconstr!(m, idx, full(a), lb, ub)
+    MathProgBase.addconstr!(m, idx, Vector(a), lb, ub)
 end
 
 function _load!(model::MathProgBase.AbstractConicModel, c, A, bs, Ks, C)
@@ -63,26 +63,26 @@ end
 
 function _load!(model::MathProgBase.AbstractLinearQuadraticModel, c, A, bs, Ks, C)
     lb, ub = getLPconstrbounds(bs, Ks)
-    l  = Vector{Float64}(size(A, 2))
-    u  = Vector{Float64}(size(A, 2))
+    l  = Vector{Float64}(undef, size(A, 2))
+    u  = Vector{Float64}(undef, size(A, 2))
     @assert BitSet(1:size(A, 2)) == Compat.reduce(∪, map(c -> BitSet(c[2]), C), init=BitSet())
     for (cone, idx) in C
         if !(cone  in [:Free, :NonPos, :NonNeg])
             error("This cone is not supported")
         end
         if cone == :Free || cone == :NonPos
-            l[idx] = -Inf
+            l[idx] .= -Inf
         else
-            l[idx] = 0
+            l[idx] .= 0
         end
         if cone == :Free || cone == :NonNeg
-            u[idx] = Inf
+            u[idx] .= Inf
         else
-            u[idx] = 0
+            u[idx] .= 0
         end
     end
     # TODO sparse objective triggers a bug in Gurobi solver, report it
-    MathProgBase.loadproblem!(model, A, l, u, full(c), lb, ub, :Min)
+    MathProgBase.loadproblem!(model, A, l, u, Vector(c), lb, ub, :Min)
 end
 
 function _getdual(model::MathProgBase.AbstractConicModel)
