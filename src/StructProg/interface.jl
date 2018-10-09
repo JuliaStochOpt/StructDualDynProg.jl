@@ -1,17 +1,17 @@
 struct SDDPModelData
-    nodes::Vector{Nullable{Int}}
+    nodes::Vector{Union{Nothing, Int}}
 end
 
 function createnode(sp::StochasticProgram, m::Model, t, num_stages, solver, parent, pruningalgo::AbstractCutPruningAlgo, cutgen::AbstractOptimalityCutGenerator, detectlb::Bool=true, newcut::Symbol=:InvalidateSolver)
     # For each model, we need to create a different node for each t.
     # We store all these node in a nodes array per model
     if !(:SDDP in keys(m.ext))
-        nodes = Vector{Nullable{Int}}(num_stages)
+        nodes = Vector{Union{Nothing, Int}}(undef, num_stages)
         fill!(nodes, nothing)
         m.ext[:SDDP] = SDDPModelData(nodes)
     end
     nodes = m.ext[:SDDP].nodes
-    if isnull(nodes[t])
+    if nodes[t] === nothing
         # The last argument contains the categories (e.g. :Cont, :Int, :Bool, ...) but it is currently unused
         c, T, W, h, C, K, _ = StructJuMP.conicconstraintdata(m)
         newnodedata = NodeData(NLDS{Float64}(W,h,T,K,C,c,solver,pruningalgo, newcut), parent === nothing ? 0 : SOI.get(sp, SOI.Dimension(), parent))
@@ -30,7 +30,7 @@ function createnode(sp::StochasticProgram, m::Model, t, num_stages, solver, pare
             end
         end
     end
-    get(nodes[t])
+    nodes[t]
 end
 
 """

@@ -7,7 +7,7 @@ end
 function getLPconstrbounds(bs, Ks)
     sumlen = sum(map(length, bs))
     for i in 1:length(bs)
-        @assert IntSet(1:length(bs[i])) == reduce(∪, IntSet(), map(c -> IntSet(c[2]), Ks[i]))
+        @assert BitSet(1:length(bs[i])) == Compat.reduce(∪, map(c -> BitSet(c[2]), Ks[i]), init=BitSet())
     end
     lb = Vector{Float64}(sumlen)
     ub = Vector{Float64}(sumlen)
@@ -58,14 +58,14 @@ function _addconstr!(m::MathProgBase.AbstractLinearQuadraticModel, idx, a, β, c
 end
 
 function _load!(model::MathProgBase.AbstractConicModel, c, A, bs, Ks, C)
-    MathProgBase.loadproblem!(model, c, A, reduce(vcat, Float64[], bs), reduce(vcat, [], Ks), C)
+    MathProgBase.loadproblem!(model, c, A, Compat.reduce(vcat, bs, init=Float64[]), Compat.reduce(vcat, Ks, init=[]), C)
 end
 
 function _load!(model::MathProgBase.AbstractLinearQuadraticModel, c, A, bs, Ks, C)
     lb, ub = getLPconstrbounds(bs, Ks)
     l  = Vector{Float64}(size(A, 2))
     u  = Vector{Float64}(size(A, 2))
-    @assert IntSet(1:size(A, 2)) == reduce(∪, IntSet(), map(c -> IntSet(c[2]), C))
+    @assert BitSet(1:size(A, 2)) == Compat.reduce(∪, map(c -> BitSet(c[2]), C), init=BitSet())
     for (cone, idx) in C
         if !(cone  in [:Free, :NonPos, :NonNeg])
             error("This cone is not supported")

@@ -1,12 +1,14 @@
 module SDDP
 
-using TimerOutputs
+using Compat
 
-using StructDualDynProg
+using TimerOutputs
 
 # SDDP algorithm for StochOptInterface
 using StochOptInterface
 const SOI = StochOptInterface
+
+using StructDualDynProg
 
 # Utils
 include("comp.jl")
