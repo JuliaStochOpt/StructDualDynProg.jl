@@ -395,7 +395,7 @@ function getrhs(nlds::NLDS{S}) where S
     if !isempty(nlds.FCpruner)
         append!(b, nlds.FCpruner.b)
         nlds.nσ = ncuts(nlds.FCpruner)
-        nlds.σs = cur + (1:nlds.nσ)
+        nlds.σs = cur .+ (1:nlds.nσ)
         cur += ncuts(nlds.FCpruner)
         push!(Kcut, (:NonPos, nlds.σs))
     end
@@ -403,7 +403,7 @@ function getrhs(nlds::NLDS{S}) where S
         if !isempty(nlds.OCpruners[i])
             append!(b, nlds.OCpruners[i].b)
             nlds.nρ[i] = ncuts(nlds.OCpruners[i])
-            nlds.ρs[i] = cur + (1:nlds.nρ[i])
+            nlds.ρs[i] = cur .+ (1:nlds.nρ[i])
             cur += ncuts(nlds.OCpruners[i])
             push!(Kcut, (:NonPos, nlds.ρs[i]))
         end
@@ -469,7 +469,7 @@ function getcutsDE(nlds::NLDS{S}) where S
     for i in 1:nlds.nθ
         if !isempty(nlds.OCpruners[i])
             A[nlds.ρs[i], 1:nlds.nx] = nlds.OCpruners[i].A
-            A[nlds.ρs[i], nlds.nx + i] = 1
+            A[nlds.ρs[i], nlds.nx .+ i] .= 1
         end
     end
     A
@@ -611,7 +611,7 @@ function solve!(nlds::NLDS{S}) where S
                 addposition!(nlds.OCpruners[i], sol.x)
             end
             sol.objvalx = dot(nlds.c, sol.x)
-            sol.θ = θC(nlds)[1] .+ primal[nlds.nx+(1:nlds.nθ)]
+            sol.θ = θC(nlds)[1] .+ primal[nlds.nx .+ (1:nlds.nθ)]
         end
 
         if status == :Unbounded

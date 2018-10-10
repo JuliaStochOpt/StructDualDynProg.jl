@@ -18,16 +18,16 @@ function getLPconstrbounds(bs, Ks)
             #if !(cone in [:Zero, :NonPos, :NonNeg])
             #  error("This cone is not supported")
             #end
-            offidx = offset+idx
+            offidx = offset .+ idx
             if cone == :Zero || cone == :NonPos
-                lb[offidx] = b[idx]
+                lb[offidx] .= b[idx]
             else
-                lb[offidx] = -Inf
+                lb[offidx] .= -Inf
             end
             if cone == :Zero || cone == :NonNeg
-                ub[offidx] = b[idx]
+                ub[offidx] .= b[idx]
             else
-                ub[offidx] = Inf
+                ub[offidx] .= Inf
             end
         end
         offset += length(b)

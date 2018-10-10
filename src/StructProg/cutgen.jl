@@ -43,8 +43,8 @@ function gencut(::MultiCutGenerator, sp::SOI.AbstractStochasticProgram, parent, 
             if status != :Unbounded
                 a, β = SOI.optimality_cut(trsol)
                 @assert status == :Optimal
-                if !isnull(tr.childT)
-                    aT = get(tr.childT)' * a
+                if tr.childT !== nothing
+                    aT = tr.childT' * a
                 else
                     aT = a
                 end
@@ -81,8 +81,8 @@ function gencut(::AvgCutGenerator, sp::SOI.AbstractStochasticProgram, parent, po
         @assert status != :Unbounded
         a, β = SOI.optimality_cut(trsol)
         @assert status == :Optimal
-        if !isnull(tr.childT)
-            aT = get(tr.childT)' * a
+        if tr.childT !== nothing
+            aT = tr.childT' * a
         else
             aT = a
         end

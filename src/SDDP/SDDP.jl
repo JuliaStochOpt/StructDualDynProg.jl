@@ -1,6 +1,6 @@
 module SDDP
 
-using Compat
+using Compat, Compat.LinearAlgebra
 
 using TimerOutputs
 

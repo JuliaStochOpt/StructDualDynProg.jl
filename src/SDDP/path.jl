@@ -12,7 +12,7 @@ end
 function meanstdpaths(z::Vector{Float64}, proba::Vector{Float64}, npaths::Vector{Int}, Ktot)
     proba = getproba(proba, npaths, Ktot)
     μ = dot(proba, z)
-    σ = sqrt(dot(proba, (z - μ).^2))
+    σ = sqrt(dot(proba, (z .- μ).^2))
     μ, σ
 end
 
@@ -161,10 +161,10 @@ function jobstopaths(jobsd::Dict{NodeT, Vector{Job{SolT, NodeT, TT}}}, g::SOI.Ab
         # We create a job even if there is no path going to the node in case
         # we want to create an AveragedCut (since in this case we need to solve all children).
         # However we do not want to create a path for these jobs so we filter them out.
-        K = [find(job.K .!= 0) for job in jobs]
-        keep = find(Bool[jobs[i].parent.pool.children_feasible && !isempty(K[i]) for i in 1:length(jobs)])
+        K = [findall(job.K .!= 0) for job in jobs]
+        keep = findall(Bool[jobs[i].parent.pool.children_feasible && !isempty(K[i]) for i in 1:length(jobs)])
         if !isempty(keep)
-            paths = SDDPPath{TT, SolT}[SDDPPath{TT}(jobs[i].sol, jobs[i].parent.z[K[i]]+jobs[i].sol.objvalx, jobs[i].proba[K[i]], jobs[i].K[K[i]]) for i in keep]
+            paths = SDDPPath{TT, SolT}[SDDPPath{TT}(jobs[i].sol, jobs[i].parent.z[K[i]] .+ jobs[i].sol.objvalx, jobs[i].proba[K[i]], jobs[i].K[K[i]]) for i in keep]
             push!(pathsd, (node, paths))
         end
     end

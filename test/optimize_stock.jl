@@ -38,8 +38,8 @@
                 algo = SDDP.Algorithm(K = K, forwardcuts = forwardcuts, backwardcuts = !forwardcuts)
                 sol = SOI.optimize!(sp, algo, SOI.Pereira(0.1) | SOI.IterLimit(10), 0)
                 sstats = sprint(show, SOI.last_result(sol))
-                @test contains(sstats, "Lower Bound: ")
-                @test contains(sstats, "Upper Bound: ")
+                @test occursin("Lower Bound: ", sstats)
+                @test occursin("Upper Bound: ", sstats)
 
                 # K = 10 is a multiple of 2 so with ProbaPathSampler(true), the sampling is deterministic
                 # therefore we can test for sol.attrs[:niter]

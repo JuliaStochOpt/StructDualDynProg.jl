@@ -6,11 +6,11 @@
     V = 8
     d = 6
     r = [2, 10]
-    x = Matrix{JuMP.Variable}(num_stages, numScen)
-    y = Matrix{JuMP.Variable}(num_stages, numScen)
-    p = Matrix{JuMP.Variable}(num_stages, numScen)
+    x = Matrix{JuMP.Variable}(undef, num_stages, numScen)
+    y = Matrix{JuMP.Variable}(undef, num_stages, numScen)
+    p = Matrix{JuMP.Variable}(undef, num_stages, numScen)
 
-    models = Vector{JuMP.Model}(num_stages)
+    models = Vector{JuMP.Model}(undef, num_stages)
 	for s in 1:num_stages
         for ξ in 1:(s == 1 ? 1 : numScen)
 			if s == 1
@@ -37,9 +37,9 @@
     forwardcuts = true
     cutmode = StructProg.MultiCutGenerator()
     detectlb = false
-    for forwardcuts in [false, true]
-        for cutmode in [StructProg.MultiCutGenerator(), StructProg.AvgCutGenerator()]
-            for detectlb in [false, true]
+    @testset "$(forwardcuts ? "With" : "Without") forward cuts" for forwardcuts in [false, true]
+        @testset "With cut mode $cutmode" for cutmode in [StructProg.MultiCutGenerator(), StructProg.AvgCutGenerator()]
+            @testset "$(detectlb ? "D" : "Not d")etecting value function lower bound" for detectlb in [false, true]
                 sp = SOI.stochasticprogram(models[1], num_stages, solver, AvgCutPruningAlgo(-1), cutmode, detectlb)
                 algo = SDDP.Algorithm(K = 16, forwardcuts = forwardcuts, backwardcuts = !forwardcuts)
                 sol = SOI.optimize!(sp, algo, SOI.Pereira(2, 0.5) | SOI.IterLimit(10), 0)
