@@ -28,7 +28,7 @@ mutable struct Transition{S} <: SOI.AbstractTransition
     target::Int
     σ::Int # FIXME NLDS is the only one who needs to map out_transitions to 1:n when it uses AveragedCut, it should have an internal dictionary
     proba::S
-    childT::Nullable{AbstractMatrix{S}}
+    childT::Union{Nothing, AbstractMatrix{S}}
     function Transition(source::Int, target::Int, σ::Int, proba::S, childT) where S
         new{S}(source, target, σ, proba, childT)
     end
@@ -115,8 +115,8 @@ end
 
 function SOI.set!(sp::StochasticProgram, ::SOI.SourceSolution, tr, sol::Solution)
     data = nodedata(sp, SOI.get(sp, SOI.Source(), tr))
-    if !isnull(tr.childT)
-        T = get(tr.childT)
+    if tr.childT !== nothing
+        T = tr.childT
         x = T * sol.x
         xuray = sol.xuray
         if xuray !== nothing

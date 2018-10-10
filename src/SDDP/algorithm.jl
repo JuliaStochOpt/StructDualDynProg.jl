@@ -80,7 +80,7 @@ function SOI.forward_pass!(sp::SOI.AbstractStochasticProgram, algo::Algorithm, t
     num_stages = SOI.get(sp, SOI.NumberOfStages())
     PathT = SDDPPath{SOI.get(sp, SOI.TransitionType()), typeof(mastersol)}
     TT = Tuple{NodeT, Vector{PathT}}
-    pathsd = Vector{Vector{TT}}(num_stages)
+    pathsd = Vector{Vector{TT}}(undef, num_stages)
     if infeasibility_detected
         pathsd[1] = TT[]
     else

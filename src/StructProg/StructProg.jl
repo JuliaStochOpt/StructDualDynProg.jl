@@ -1,12 +1,13 @@
 module StructProg
 
-using DocStringExtensions
+using Compat, Compat.LinearAlgebra, Compat.SparseArrays
 
-using StructDualDynProg
+using DocStringExtensions
+using TimerOutputs
+
 using StochOptInterface
 const SOI = StochOptInterface
-
-using TimerOutputs
+using StructDualDynProg
 
 using JuMP
 using StructJuMP

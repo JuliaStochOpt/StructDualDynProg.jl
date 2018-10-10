@@ -4,9 +4,9 @@
     numScen = 2
     M = StructuredModel(num_scenarios=numScen)
 
-    x = Vector{Vector{JuMP.Variable}}(2)
-    v = Vector{Vector{JuMP.Variable}}(2)
-    y = Vector{Matrix{JuMP.Variable}}(2)
+    x = Vector{Vector{JuMP.Variable}}(undef, 2)
+    v = Vector{Vector{JuMP.Variable}}(undef, 2)
+    y = Vector{Matrix{JuMP.Variable}}(undef, 2)
 
     x[1] = @variable(M, [1:n], lowerbound=0)
     v[1] = @variable(M, [1:n], lowerbound=0)
@@ -38,7 +38,7 @@
         end
     end
 
-    if !isdefined(:testniter_3stages)
+    if !isdefined(@__MODULE__, :testniter_3stages)
         include("prob5.2_3stages_niter.jl")
     end
     fulltest(M, 3, 406712.49, [2986,0,7329,854], 402593.71614, 17319.095064, testniter_3stages, solver)

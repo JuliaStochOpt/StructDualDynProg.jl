@@ -3,6 +3,8 @@ CutPruners 0.0.1 0.1
 MathProgBase 0.5
 JuMP 0.18 0.19
 StructJuMP 0.0.1 0.1
+StochOptInterface
 DocStringExtensions 0.2
 LightGraphs
 TimerOutputs
+Compat 1

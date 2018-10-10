@@ -82,17 +82,17 @@ mutable struct NLDS{S}
 
     # parent solution
     x_a::AbstractVector{S}
-    xuray_a::Nullable{AbstractVector{S}}
-    objvalxuray_a::Nullable{S}
+    xuray_a::Union{Nothing, AbstractVector{S}}
+    objvalxuray_a::Union{Nothing, S}
 
     childFC::Vector{CutStore{S}}
     childOC::Vector{CutStore{S}}
     localFC::CutStore{S}
     localOC::CutStore{S}
     proba::Vector{Float64}
-    θfree::IntSet
+    θfree::BitSet
     θlb::Vector{Float64}
-    childT::Nullable{Vector{AbstractMatrix{S}}}
+    childT::Union{Nothing, Vector{AbstractMatrix{S}}}
     cutgen::AbstractOptimalityCutGenerator
 
     nx::Int
@@ -111,7 +111,7 @@ mutable struct NLDS{S}
     model
     loaded
     solved
-    prevsol::Nullable{Solution}
+    prevsol::Union{Nothing, Solution}
 
     newcut::Symbol
     pruningalgo::AbstractCutPruningAlgo
@@ -131,7 +131,7 @@ mutable struct NLDS{S}
         else
             model = MathProgBase.LinearQuadraticModel(solver)
         end
-        nlds = new{S}(W, h, T, K, C, c, S[], nothing, nothing, CutStore{S}[], CutStore{S}[], localFC, localOC, Float64[], IntSet(), Float64[], nothing, AvgCutGenerator(), nx, nθ, nπ, 1:nπ, 0, Int[], Int[], Vector{Int}[], model, false, false, nothing, newcut, pruningalgo, FCpruner, OCpruners)
+        nlds = new{S}(W, h, T, K, C, c, S[], nothing, nothing, CutStore{S}[], CutStore{S}[], localFC, localOC, Float64[], BitSet(), Float64[], nothing, AvgCutGenerator(), nx, nθ, nπ, 1:nπ, 0, Int[], Int[], Vector{Int}[], model, false, false, nothing, newcut, pruningalgo, FCpruner, OCpruners)
         addfollower(localFC, (nlds, (:Feasibility, 0)))
         addfollower(localOC, (nlds, (:Optimality, 1)))
         nlds
@@ -144,13 +144,13 @@ end
 
 function add_childT!(nlds, childT)
     if childT === nothing
-        @assert isnull(nlds.childT)
+        @assert nlds.childT === nothing
     else
         # If there isn't any child yet, node.childT is null
-        if isnull(nlds.childT)
+        if nlds.childT === nothing
             nlds.childT = [childT]
         else
-            push!(get(nlds.childT), childT)
+            push!(nlds.childT, childT)
         end
     end
 end
@@ -210,23 +210,23 @@ function θC(nlds::NLDS)
         # Multi cut
         θlb = nlds.θlb
         if length(nlds.θfree) < nlds.nθ
-            bounded = collect(setdiff(IntSet(1:nlds.nθ), nlds.θfree))
+            bounded = collect(setdiff(BitSet(1:nlds.nθ), nlds.θfree))
             θC = [(:NonNeg, collect(nlds.nx .+ bounded))]
             if !isempty(nlds.θfree)
                 free = collect(nlds.θfree)
                 push!(nlds.θC, (:Free, collect(nlds.nx .+ free)))
             end
         else
-            θC = [(:Free, collect(nlds.nx+(1:nlds.nθ)))]
+            θC = [(:Free, collect(nlds.nx .+ (1:nlds.nθ)))]
         end
     elseif nlds.nθ == 1
         # Averaged cut
         if isempty(nlds.θfree)
             θlb = [dot(nlds.proba, nlds.θlb)]
-            θC = [(:NonNeg, [nlds.nx+1])]
+            θC = [(:NonNeg, [nlds.nx + 1])]
         else
             θlb = [0.]
-            θC = [(:Free, [nlds.nx+1])]
+            θC = [(:Free, [nlds.nx + 1])]
         end
     else
         θlb = Float64[]
@@ -259,14 +259,14 @@ end
 function getfeasibilitycuts(nlds::NLDS)
     function f(i)
         D = nlds.childFC[i].A
-        if !isnull(nlds.childT)
-            D = D * get(nlds.childT)[i]
+        if nlds.childT !== nothing
+            D = D * nlds.childT[i]
         end
         D
     end
-    cuts_D = reduce(vcat, nlds.localFC.A, map(i -> f(i), 1:length(nlds.childFC)))
-    cuts_d = reduce(vcat, nlds.localFC.b, map(x -> x.b, nlds.childFC))
-    mycut = reduce(vcat, veceqeqeq(nlds.localFC.authors, nlds), map(x -> veceqeqeq(x.authors, nlds), nlds.childFC))
+    cuts_D = Compat.reduce(vcat, map(i -> f(i), 1:length(nlds.childFC)), init=nlds.localFC.A)
+    cuts_d = Compat.reduce(vcat, map(x -> x.b, nlds.childFC), init=nlds.localFC.b)
+    mycut = Compat.reduce(vcat, map(x -> veceqeqeq(x.authors, nlds), nlds.childFC), init=veceqeqeq(nlds.localFC.authors, nlds))
     (cuts_D, cuts_d, mycut)
 end
 
@@ -296,8 +296,8 @@ end
 function getoptimalitycuts(nlds::NLDS{S}) where S
     function f(i)
         E = nlds.childOC[i].A
-        if !isnull(nlds.childT)
-            E = E * get(nlds.childT)[i]
+        if nlds.childT !== nothing
+            E = E * nlds.childT[i]
         end
         padmultiocut(nlds, E, i)
     end
@@ -307,10 +307,10 @@ function getoptimalitycuts(nlds::NLDS{S}) where S
         cuts_E = spzeros(S, 0, nlds.nx + nlds.nθ)
     end
     if nlds.nθ == length(nlds.childOC)
-        cuts_E = reduce(vcat, cuts_E, map(f, 1:length(nlds.childOC)))
+        cuts_E = Compat.reduce(vcat, map(f, 1:length(nlds.childOC)), init=cuts_E)
     end
-    cuts_e = reduce(vcat, nlds.localOC.b, map(x -> x.b, nlds.childOC))
-    mycut = reduce(vcat, veceqeqeq(nlds.localOC.authors, nlds), map(x -> veceqeqeq(x.authors, nlds), nlds.childOC))
+    cuts_e = Compat.reduce(vcat, map(x -> x.b, nlds.childOC), init=nlds.localOC.b)
+    mycut = Compat.reduce(vcat, map(x -> veceqeqeq(x.authors, nlds), nlds.childOC), init=veceqeqeq(nlds.localOC.authors, nlds))
     (cuts_E, cuts_e, mycut)
 end
 
@@ -320,8 +320,8 @@ function notifynewcuts(nlds::NLDS{S}, A::AbstractMatrix{S}, b::AbstractVector{S}
     isfc = attrs[1] == :Feasibility
     nnewcuts = size(A, 1)
     i = attrs[2]
-    if i > 0 && !isnull(nlds.childT)
-        A = A * get(nlds.childT)[i]
+    if i > 0 && nlds.childT !== nothing
+        A = A * nlds.childT[i]
     end
     # No .=== :(
     mine = [authors[i] === nlds for i in 1:length(authors)]
@@ -381,8 +381,8 @@ function checkconsistency(nlds)
     for i in 1:nlds.nθ
         @assert length(nlds.ρs[i]) == nlds.nρ[i]
     end
-    ρs = reduce(append!, Int[], nlds.ρs)
-    @assert sort([nlds.πs; nlds.nπ + nlds.σs; nlds.nπ + ρs]) == collect(1:(nlds.nπ + nlds.nσ + sum(nlds.nρ)))
+    ρs = Compat.reduce(append!, nlds.ρs, init=Int[])
+    @assert sort([nlds.πs; nlds.nπ .+ nlds.σs; nlds.nπ .+ ρs]) == collect(1:(nlds.nπ + nlds.nσ + sum(nlds.nρ)))
 end
 
 function getrhs(nlds::NLDS{S}) where S
@@ -395,7 +395,7 @@ function getrhs(nlds::NLDS{S}) where S
     if !isempty(nlds.FCpruner)
         append!(b, nlds.FCpruner.b)
         nlds.nσ = ncuts(nlds.FCpruner)
-        nlds.σs = cur + (1:nlds.nσ)
+        nlds.σs = cur .+ (1:nlds.nσ)
         cur += ncuts(nlds.FCpruner)
         push!(Kcut, (:NonPos, nlds.σs))
     end
@@ -403,7 +403,7 @@ function getrhs(nlds::NLDS{S}) where S
         if !isempty(nlds.OCpruners[i])
             append!(b, nlds.OCpruners[i].b)
             nlds.nρ[i] = ncuts(nlds.OCpruners[i])
-            nlds.ρs[i] = cur + (1:nlds.nρ[i])
+            nlds.ρs[i] = cur .+ (1:nlds.nρ[i])
             cur += ncuts(nlds.OCpruners[i])
             push!(Kcut, (:NonPos, nlds.ρs[i]))
         end
@@ -419,7 +419,7 @@ end
 function setparentx(nlds::NLDS, x_a::AbstractVector, xuray_a, objvalxuray_a)
     nlds.x_a = x_a
     unbounded_a = xuray_a !== nothing
-    if !isnull(nlds.xuray_a) || unbounded_a
+    if nlds.xuray_a !== nothing || unbounded_a
         # FIXME do better when delvars!, ... are available in MPB
         nlds.loaded = false
         nlds.solved = false
@@ -427,7 +427,7 @@ function setparentx(nlds::NLDS, x_a::AbstractVector, xuray_a, objvalxuray_a)
     if unbounded_a
         nlds.xuray_a = xuray_a
         nlds.objvalxuray_a = objvalxuray_a
-    elseif !isnull(nlds.xuray_a)
+    elseif nlds.xuray_a !== nothing
         nlds.xuray_a = nothing
         nlds.objvalxuray_a = nothing
     end
@@ -469,7 +469,7 @@ function getcutsDE(nlds::NLDS{S}) where S
     for i in 1:nlds.nθ
         if !isempty(nlds.OCpruners[i])
             A[nlds.ρs[i], 1:nlds.nx] = nlds.OCpruners[i].A
-            A[nlds.ρs[i], nlds.nx + i] = 1
+            A[nlds.ρs[i], nlds.nx .+ i] .= 1
         end
     end
     A
@@ -481,8 +481,8 @@ function load!(nlds::NLDS{S}) where S
         if nlds.nθ > 0
             bigA = [bigA spzeros(size(bigA, 1), nlds.nθ)]
         end
-        if !isnull(nlds.xuray_a)
-            bigA = [bigA nlds.T * get(nlds.xuray_a)]
+        if nlds.xuray_a !== nothing
+            bigA = [bigA nlds.T * nlds.xuray_a]
         end
 
         # Needs to be done before getcutsDE
@@ -490,7 +490,7 @@ function load!(nlds::NLDS{S}) where S
 
         computecuts!(nlds) # FIXME what is the use of this ?
         A = getcutsDE(nlds)
-        if !isnull(nlds.xuray_a)
+        if nlds.xuray_a !== nothing
             A = [A spzeros(size(A, 1), 1)]
         end
         bigA = [bigA; A]
@@ -505,9 +505,9 @@ function load!(nlds::NLDS{S}) where S
                 bigc = [bigc; nlds.proba]
             end
         end
-        if !isnull(nlds.xuray_a)
+        if nlds.xuray_a !== nothing
             bigC = [bigC; (:NonNeg, [nlds.nx+nlds.nθ+1])]
-            bigc = [bigc; get(nlds.objvalxuray_a)]
+            bigc = [bigc; nlds.objvalxuray_a]
         end
 
         _load!(nlds.model, bigc, bigA, bs, Ks, bigC)
@@ -549,12 +549,12 @@ function solve!(nlds::NLDS{S}) where S
             uray = _getunboundedray(nlds.model)
             sol.xuray = uray[1:nlds.nx]
             sol.objvalxuray = dot(nlds.c, sol.xuray)
-            sol.θuray = uray[nlds.nx+(1:nlds.nθ)]
+            sol.θuray = uray[nlds.nx .+ (1:nlds.nθ)]
 
             # See https://github.com/JuliaOpt/Gurobi.jl/issues/80
             c = MathProgBase.getobj(nlds.model)
 
-            MathProgBase.setobj!(nlds.model, zeros(c))
+            MathProgBase.setobj!(nlds.model, zero(c))
             MathProgBase.optimize!(nlds.model)
             newstatus = MathProgBase.status(nlds.model)
             @assert newstatus != :Unbounded # Now the objective is 0
@@ -589,17 +589,17 @@ function solve!(nlds::NLDS{S}) where S
 
             σ = σρ[nlds.σs]
             addusage!(nlds.FCpruner, σ)
-            sol.σd = vecdot(σ, nlds.FCpruner.b)
+            sol.σd = dot(σ, nlds.FCpruner.b)
 
             sol.ρe = zero(S)
             for i in 1:nlds.nθ
                 ρ = σρ[nlds.ρs[i]]
                 addusage!(nlds.OCpruners[i], ρ)
-                sol.ρe += vecdot(ρ, nlds.OCpruners[i].b)
+                sol.ρe += dot(ρ, nlds.OCpruners[i].b)
             end
 
             sol.πT = vec(π' * nlds.T)
-            sol.πh = vecdot(π, nlds.h)
+            sol.πh = dot(π, nlds.h)
         end
 
         # Needs to be done after since if status is unbounded I do a resolve
@@ -611,7 +611,7 @@ function solve!(nlds::NLDS{S}) where S
                 addposition!(nlds.OCpruners[i], sol.x)
             end
             sol.objvalx = dot(nlds.c, sol.x)
-            sol.θ = θC(nlds)[1] + primal[nlds.nx+(1:nlds.nθ)]
+            sol.θ = θC(nlds)[1] .+ primal[nlds.nx .+ (1:nlds.nθ)]
         end
 
         if status == :Unbounded
@@ -625,5 +625,5 @@ end
 
 function getsolution(nlds::NLDS)
     solve!(nlds)
-    get(nlds.prevsol)
+    nlds.prevsol
 end

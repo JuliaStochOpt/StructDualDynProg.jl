@@ -10,15 +10,15 @@ function try_import(name::Symbol)
 end
 
 grb = false && try_import(:Gurobi)
-isgrb(solver) = contains(string(typeof(solver)),"GurobiSolver")
+isgrb(solver) = occursin("GurobiSolver", string(typeof(solver)))
 cpx = false && try_import(:CPLEX)
-iscpx(solver) = contains(string(typeof(solver)),"CplexSolver")
+iscpx(solver) = occursin("CplexSolver", string(typeof(solver)))
 xpr = false && try_import(:Xpress)
 clp = false && try_import(:Clp)
-isclp(solver) = contains(string(typeof(solver)),"ClpSolver")
+isclp(solver) = occursin("ClpSolver", string(typeof(solver)))
 glp = try_import(:GLPKMathProgInterface)
 msk = false && try_import(:Mosek)
-ismsk(solver) = contains(string(typeof(solver)),"MosekSolver")
+ismsk(solver) = occursin("MosekSolver", string(typeof(solver)))
 
 lp_solvers = Any[]
 grb && push!(lp_solvers, Gurobi.GurobiSolver(OutputFlag=0))

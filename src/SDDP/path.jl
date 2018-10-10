@@ -12,7 +12,7 @@ end
 function meanstdpaths(z::Vector{Float64}, proba::Vector{Float64}, npaths::Vector{Int}, Ktot)
     proba = getproba(proba, npaths, Ktot)
     μ = dot(proba, z)
-    σ = sqrt(dot(proba, (z - μ).^2))
+    σ = sqrt(dot(proba, (z .- μ).^2))
     μ, σ
 end
 
@@ -53,9 +53,9 @@ mutable struct SDDPPath{TT<:SOI.AbstractTransition, SolT<:SOI.AbstractSolution}
 end
 
 function meanstdpaths(paths::Vector{<:SDDPPath}, Ktot)
-    z = reduce(append!, Float64[], Vector{Float64}[x.z for x in paths])
-    proba = reduce(append!, Float64[], Vector{Float64}[x.proba for x in paths])
-    npaths = reduce(append!, Int[], Vector{Int}[x.K for x in paths])
+    z = Compat.reduce(append!, Vector{Float64}[x.z for x in paths], init=Float64[])
+    proba = Compat.reduce(append!, Vector{Float64}[x.proba for x in paths], init=Float64[])
+    npaths = Compat.reduce(append!, Vector{Int}[x.K for x in paths], init=Int[])
     meanstdpaths(z, proba, npaths, Ktot)
 end
 
@@ -75,7 +75,7 @@ function merge!(p::SDDPPath, q::SDDPPath)
 end
 
 mutable struct Job{SolT<:SOI.AbstractSolution, NodeT, TT<:SOI.AbstractTransition}
-    sol::Nullable{SolT}
+    sol::Union{Nothing, SolT}
     proba::Vector{Float64}
     K::Vector{Int}
     parentnode::NodeT
@@ -161,10 +161,10 @@ function jobstopaths(jobsd::Dict{NodeT, Vector{Job{SolT, NodeT, TT}}}, g::SOI.Ab
         # We create a job even if there is no path going to the node in case
         # we want to create an AveragedCut (since in this case we need to solve all children).
         # However we do not want to create a path for these jobs so we filter them out.
-        K = [find(job.K .!= 0) for job in jobs]
-        keep = find(Bool[jobs[i].parent.pool.children_feasible && !isempty(K[i]) for i in 1:length(jobs)])
+        K = [findall(job.K .!= 0) for job in jobs]
+        keep = findall(Bool[jobs[i].parent.pool.children_feasible && !isempty(K[i]) for i in 1:length(jobs)])
         if !isempty(keep)
-            paths = SDDPPath{TT, SolT}[SDDPPath{TT}(get(jobs[i].sol), jobs[i].parent.z[K[i]]+get(jobs[i].sol).objvalx, jobs[i].proba[K[i]], jobs[i].K[K[i]]) for i in keep]
+            paths = SDDPPath{TT, SolT}[SDDPPath{TT}(jobs[i].sol, jobs[i].parent.z[K[i]] .+ jobs[i].sol.objvalx, jobs[i].proba[K[i]], jobs[i].K[K[i]]) for i in keep]
             push!(pathsd, (node, paths))
         end
     end
@@ -179,10 +179,10 @@ Solves the job `job` of node `node`.
 function solvejob!(sp::SOI.AbstractStochasticProgram, job::Job, node, to::TimerOutput)
     @timeit to "setx" SOI.set!(sp, SOI.SourceSolution(), job.tr, SOI.getsolution(job.parent.pool))
     @timeit to "solve" job.sol = SOI.get(sp, SOI.Solution(), node)
-    job.parent.pool.children_solutions[job.tr] = get(job.sol)
-    if get(job.sol).status == :Infeasible
+    job.parent.pool.children_solutions[job.tr] = job.sol
+    if job.sol.status == :Infeasible
         job.parent.pool.children_feasible = false
-    elseif get(job.sol).status == :Unbounded
+    elseif job.sol.status == :Unbounded
         job.parent.pool.children_bounded = false
     end
 end

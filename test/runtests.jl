@@ -2,7 +2,7 @@ using JuMP
 using CutPruners
 using StructJuMP
 using StructDualDynProg
-using Base.Test
+using Compat, Compat.LinearAlgebra, Compat.Test
 using StochOptInterface
 const SOI = StochOptInterface
 

@@ -1,5 +1,7 @@
 module WaitAndSee
 
+using Compat, Compat.SparseArrays
+
 using StructDualDynProg
 using StochOptInterface
 const SOI = StochOptInterface
@@ -40,7 +42,7 @@ function SOI.optimize!(sp::SOI.AbstractStochasticProgram, algo::Algorithm,
                 push!(newpaths, path)
             else
                 npaths = StructDualDynProg.SDDP.samplepaths(StructDualDynProg.SDDP.ProbaPathSampler(true), sp, path.node, path.K, t, num_stages)
-                childs = algo.K == -1 ? (1:length(SOI.get(sp, SOI.OutTransitions(), path.node))) : find(npaths .> 0)
+                childs = algo.K == -1 ? (1:length(SOI.get(sp, SOI.OutTransitions(), path.node))) : findall(npaths .> 0)
                 for (i, tr) in enumerate(SOI.get(sp, SOI.OutTransitions(), path.node))
                     if algo.K == -1 || npaths[i] > 0
                         push!(newpaths, WaitAndSeePath(SOI.get(sp, SOI.Target(), tr), [path.nlds; StructDualDynProg.StructProg.nodedata(sp, SOI.get(sp, SOI.Target(), tr)).nlds], path.z, path.proba * SOI.get(sp, SOI.Probability(), tr), npaths[i]))
@@ -59,7 +61,7 @@ function SOI.optimize!(sp::SOI.AbstractStochasticProgram, algo::Algorithm,
         # b - Ax in K_1
         # x \in K_2
         A = spzeros(ncons[end], nvars[end])
-        bs = Vector{Vector}(length(path.nlds))
+        bs = Vector{Vector}(undef, length(path.nlds))
         Ks = []
         C = []
         c = similar(StructDualDynProg.StructProg.nodedata(sp, master).nlds.c, nvars[end])
@@ -75,7 +77,7 @@ function SOI.optimize!(sp::SOI.AbstractStochasticProgram, algo::Algorithm,
                 A[offsetncons+1:ncons[i], offset+1:nvars[i-1]] = nlds.T
             end
             push!(Ks, nlds.K)
-            append!(C, [(cone, offsetnvars+idx) for (cone, idx) in nlds.C])
+            append!(C, [(cone, offsetnvars .+ idx) for (cone, idx) in nlds.C])
         end
         model = MathProgBase.LinearQuadraticModel(algo.solver)
         StructDualDynProg.StructProg._load!(model, c, A, bs, Ks, C)
