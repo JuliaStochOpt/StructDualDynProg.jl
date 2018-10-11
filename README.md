@@ -17,12 +17,23 @@ This package is used by the [Entropic Cone](https://github.com/blegat/EntropicCo
 
 ## Installation
 
+The most recently tagged version of this package works with
+most recently tagged version of [JuMP](https://github.com/JuliaOpt/JuMP.jl),
+i.e. JuMP v0.18.x, to try this package with JuMP v0.18, simply do
 ```julia
-> Pkg.update()
-> Pkg.add("StructDualDynProg")
+] add StructDualDynProg
+```
+The development of this package for JuMP v0.18.x is done in the `release-0.2`
+branch.
+
+The `master` branch of this package works with the JuMP v0.19-alpha. To try this
+package with JuMP v0.19-alpha, do:
+```julia
+] add JuMP#v0.19-alpha
+] add StructJuMP#master
+] add StructDualDynProg#master
 ```
 
-### Development version
 
 The development version uses [StochOptInterface (SOI)](https://github.com/JuliaStochOpt/StochOptInterface.jl)
 which is not released yet so to use the development version of this package,
