@@ -2,7 +2,6 @@ __precompile__()
 
 module StructDualDynProg
 
-using DocStringExtensions
 using StochOptInterface
 const SOI = StochOptInterface
 

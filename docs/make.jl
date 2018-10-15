@@ -1,6 +1,4 @@
 using Documenter, StructDualDynProg
-using StochOptInterface
-import JuMP, CutPruners
 
 makedocs(
     format = :html,

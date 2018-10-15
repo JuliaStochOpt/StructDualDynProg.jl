@@ -2,7 +2,6 @@ module StructProg
 
 using Compat, Compat.LinearAlgebra, Compat.SparseArrays
 
-using DocStringExtensions
 using TimerOutputs
 
 using StochOptInterface
