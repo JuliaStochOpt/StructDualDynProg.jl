@@ -1,4 +1,6 @@
 using Documenter, StructDualDynProg
+using StochOptInterface
+import JuMP, CutPruners
 
 makedocs(
     format = :html,
@@ -7,7 +9,6 @@ makedocs(
         "Home" => "index.md",
         "Quick Start" => "quickstart.md",
         "Tutorial" => "tutorial.md",
-        "Stopping Criterion" => "stopcrit.md"
     ],
     # The following ensures that we only include the docstrings from
     # this module for functions define in Base that we overwrite.

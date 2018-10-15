@@ -44,7 +44,10 @@ The master problem is assumed to have model `m` and the scenarios are considered
 The `pruningalgo` is as defined in [CutPruners](https://github.com/JuliaPolyhedra/CutPruners.jl).
 If `cutgen` is `MultiCutGenerator`, one variable `θ_i` is created for each scenario. Otherwise, if `cutgen` is `AvgCutGenerator`, only one variable `θ` is created and it represents the expected value of the objective value of the scenarios. If `cutgen` is `NoOptimalityCut` then no `θ` is created, only use this option if the objective of all models is zero except for the master model.
 """
-function SOI.stochasticprogram(m::Model, num_stages, solver, pruningalgo::AbstractCutPruningAlgo, cutgen::AbstractOptimalityCutGenerator=MultiCutGenerator(), detectlb::Bool=true, newcut::Symbol=:InvalidateSolver)
+function SOI.stochasticprogram(m::Model, num_stages, solver,
+                               pruningalgo::AbstractCutPruningAlgo,
+                               cutgen::AbstractOptimalityCutGenerator=MultiCutGenerator(),
+                               detectlb::Bool=true, newcut::Symbol=:InvalidateSolver)
     sp = StochasticProgram{Float64}(num_stages)
     createnode(sp, m, 1, num_stages, solver, nothing, pruningalgo, cutgen, detectlb, newcut)
     sp

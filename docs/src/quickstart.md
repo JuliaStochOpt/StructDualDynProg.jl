@@ -35,24 +35,27 @@ end
 ```
 
 This structured model need to be transformed into an appropriate structure to run SDDP on it.
-This is achieved by [`stochasticprogram`](@ref):
+This is achieved by [`StructDualDynProg.StochOptInterface.stochasticprogram`](@ref):
 ```julia
 using GLPKMathProgInterface
 const solver = GLPKMathProgInterface.GLPKSolverLP()
 using CutPruners
 const pruner = AvgCutPruningAlgo(-1)
 using StructDualDynProg
-sp = stochasticprogram(m1, num_stages, solver, pruner)
+using StochOptInterface
+const SOI = StructDualDynProg.SOI
+sp = SOI.stochasticprogram(m1, num_stages, solver, pruner)
 ```
 In this example, we have chosen the [GLPK](https://github.com/JuliaOpt/GLPKMathProgInterface.jl/) solver but you can use any LP solver listed in the table of the [JuliaOpt's webpage](http://www.juliaopt.org/).
 
-You can now run the sddp algorithm on it using [`SDDP`](@ref):
+You can now run the [`SDDP.Algorithm`](@ref) on it:
 ```julia
-sol = SDDP(sp, num_stages, K = 2, stopcrit = Pereira(0.1) | IterLimit(10))
+algo = StructDualDynProg.SDDP.Algorithm(K = 2)
+sol = SOI.optimize!(sp, algo, SOI.Pereira(0.1) | SOI.IterLimit(10))
 ```
 We are using 2 forward paths per iteration and we stop either after 10 iterations or once the pereira criterion is satisfied with $\alpha = 0.1$.
 
 We can verify that the algorithm have found the right value by inspecting the solution:
 ```julia
-@show sol.objval # sol.objval = -2.0
+@show SOI.last_result(sol) # Lower and upper bounds are -2.0
 ```

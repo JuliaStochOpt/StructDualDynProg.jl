@@ -10,18 +10,22 @@ It features the following:
 * Support modeling the problem using the [StructJuMP modeling interface](https://github.com/StructJuMP/StructJuMP.jl).
 * Support specifying the problem using a low-level interface. This is used for example by the [EntropicCone](https://github.com/blegat/EntropicCone.jl) package.
 
-The `SDDP` algorithm can be run from any node of the lattice of problems using the following function:
+The packages is built on top of [StochOptInterface (SOI)](https://github.com/JuliastochOpt/StochOptInterface.jl/).
+It implements an representation of stochastic programming implementing SOI in the `StructProg` submodule
+and provides the following function for transforming a [StructJuMP](https://github.com/StructJuMP/StructJuMP.jl)
+model into an instance of this representation:
 ```@docs
-SDDP(sp::AbstractStochasticProgram, num_stages; K::Int, stopcrit::AbstractStoppingCriterion, verbose, pathsampler::AbstractPathSampler, ztol, stopatinf, mergepaths, forwardcuts, backwardcuts)
+StructDualDynProg.StochOptInterface.stochasticprogram(m::JuMP.Model, num_stages, solver, pruningalgo::CutPruners.AbstractCutPruningAlgo, cutgen::StructProg.AbstractOptimalityCutGenerator, detectlb::Bool, newcut::Symbol)
 ```
 
-This lattice can be built from a [StructJuMP](https://github.com/StructJuMP/StructJuMP.jl) model using the following function:
+This packages also provides an implemention of the SDDP algorithm that can be run on any stochastic
+program implementing the SOI interface:
 ```@docs
-stochasticprogram(m::JuMP.Model, num_stages, solver, pruningalgo::CutPruners.AbstractCutPruningAlgo, cutgen::AbstractOptimalityCutGenerator, detectlb::Bool, newcut::Symbol)
+SDDP.Algorithm
 ```
 
 ## Contents
 ```@contents
-Pages = ["quickstart.md", "tutorial.md", "stopcrit.md"]
+Pages = ["quickstart.md", "tutorial.md"]
 Depth = 2
 ```
