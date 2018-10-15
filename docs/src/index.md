@@ -15,7 +15,7 @@ It implements an representation of stochastic programming implementing SOI in th
 and provides the following function for transforming a [StructJuMP](https://github.com/StructJuMP/StructJuMP.jl)
 model into an instance of this representation:
 ```@docs
-StructDualDynProg.StochOptInterface.stochasticprogram(m::JuMP.Model, num_stages, solver, pruningalgo::CutPruners.AbstractCutPruningAlgo, cutgen::StructProg.AbstractOptimalityCutGenerator, detectlb::Bool, newcut::Symbol)
+StructDualDynProg.StochOptInterface.stochasticprogram(m::StructDualDynProg.StructProg.JuMP.Model, num_stages, solver, pruningalgo::StructDualDynProg.StructProg.CutPruners.AbstractCutPruningAlgo, cutgen::StructProg.AbstractOptimalityCutGenerator, detectlb::Bool, newcut::Symbol)
 ```
 
 This packages also provides an implemention of the SDDP algorithm that can be run on any stochastic

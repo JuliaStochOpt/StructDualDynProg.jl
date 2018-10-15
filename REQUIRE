@@ -3,7 +3,6 @@ CutPruners
 JuMP 0.18+
 StructJuMP 0.1+
 StochOptInterface
-DocStringExtensions 0.2
 LightGraphs
 TimerOutputs
 Compat 1
