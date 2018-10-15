@@ -38,6 +38,7 @@ end
         forwardcuts::Bool
         backwardcuts::Bool
     end
+
 SDDP algorithm exploring `K` paths per iteration stages.
 The paths will be selected according to `pathsampler` and equivalent paths might be merged if their difference is smaller than `ztol` and `mergepaths` is true.
 The parameter `ztol` is also used to check whether a new cut is useful.
