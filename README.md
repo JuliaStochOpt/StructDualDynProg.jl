@@ -26,22 +26,14 @@ i.e. JuMP v0.18.x, to try this package with JuMP v0.18, simply do
 The development of this package for JuMP v0.18.x is done in the `release-0.2`
 branch.
 
-The `master` branch of this package works with the JuMP v0.19-alpha. To try this
+The `master` branch is aimed ate JuMP v0.19-alpha. To try this
 package with JuMP v0.19-alpha, do:
 ```julia
 ] add JuMP#v0.19-alpha
 ] add StructJuMP#master
 ] add StructDualDynProg#master
 ```
-
-
-The development version uses [StochOptInterface (SOI)](https://github.com/JuliaStochOpt/StochOptInterface.jl)
-which is not released yet so to use the development version of this package,
-install it as explained above and then do the following:
-```julia
-> Pkg.clone("https://github.com/JuliaStochOpt/StochOptInterface.jl.git")
-> Pkg.checkout("StructDualDynProg")
-```
+Note that this package has not been updated yet to JuMP v0.19-alpha, see [here](https://github.com/JuliaStochOpt/StructDualDynProg.jl/issues/22).
 
 ## Notes for choice of solvers
 This package should work with any linear programming (LP) solver [supported by MathProgBase](http://www.juliaopt.org/).
