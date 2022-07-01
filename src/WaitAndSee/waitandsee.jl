@@ -81,20 +81,13 @@ function SOI.optimize!(sp::SOI.AbstractStochasticProgram, algo::Algorithm,
         end
         model = MathProgBase.LinearQuadraticModel(algo.solver)
         StructDualDynProg.StructProg._load!(model, c, A, bs, Ks, C)
-        MathProgBase.optimize!(model)
-        status = MathProgBase.status(model)
-        if status == :Error
-            error("The solver reported an error")
-        elseif status == :UserLimit
-            error("The solver reached iteration limit or timed out")
-        elseif status == :Infeasible
-            error("The problem is infeasible for some realization of the uncertainty")
-        elseif status == :Unbounded
-            error("The problem is unbounded for some realization of the uncertainty")
-        else
-            @assert status == :Optimal
-            objval = MathProgBase.getobjval(model)
+        MOI.optimize!(model)
+        status = MOI.get(model, MOI.TerminationStatus())
+        if status == MOI.OPTIMAL
+            objval = MOI.get(model, MOI.ObjectiveValue())
             push!(newpaths, WaitAndSeePath(path.node, path.nlds, objval, path.proba, path.K))
+        else
+            error("The solver terminated with $status")
         end
     end
     meanstdpaths(newpaths, algo.K)

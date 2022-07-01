@@ -1,7 +1,5 @@
 using LightGraphs
 
-import MathProgBase
-
 mutable struct NodeData{S}
     nlds::NLDS{S}
     npath::Dict{Int, Int}
