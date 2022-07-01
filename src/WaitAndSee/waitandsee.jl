@@ -1,6 +1,6 @@
 module WaitAndSee
 
-using Compat, Compat.SparseArrays
+using SparseArrays
 
 using StructDualDynProg
 using StochOptInterface

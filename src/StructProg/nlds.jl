@@ -259,9 +259,9 @@ function getfeasibilitycuts(nlds::NLDS)
         end
         D
     end
-    cuts_D = Compat.reduce(vcat, map(i -> f(i), 1:length(nlds.childFC)), init=nlds.localFC.A)
-    cuts_d = Compat.reduce(vcat, map(x -> x.b, nlds.childFC), init=nlds.localFC.b)
-    mycut = Compat.reduce(vcat, map(x -> veceqeqeq(x.authors, nlds), nlds.childFC), init=veceqeqeq(nlds.localFC.authors, nlds))
+    cuts_D = reduce(vcat, map(i -> f(i), 1:length(nlds.childFC)), init=nlds.localFC.A)
+    cuts_d = reduce(vcat, map(x -> x.b, nlds.childFC), init=nlds.localFC.b)
+    mycut = reduce(vcat, map(x -> veceqeqeq(x.authors, nlds), nlds.childFC), init=veceqeqeq(nlds.localFC.authors, nlds))
     (cuts_D, cuts_d, mycut)
 end
 
@@ -302,10 +302,10 @@ function getoptimalitycuts(nlds::NLDS{S}) where S
         cuts_E = spzeros(S, 0, nlds.nx + nlds.nθ)
     end
     if nlds.nθ == length(nlds.childOC)
-        cuts_E = Compat.reduce(vcat, map(f, 1:length(nlds.childOC)), init=cuts_E)
+        cuts_E = reduce(vcat, map(f, 1:length(nlds.childOC)), init=cuts_E)
     end
-    cuts_e = Compat.reduce(vcat, map(x -> x.b, nlds.childOC), init=nlds.localOC.b)
-    mycut = Compat.reduce(vcat, map(x -> veceqeqeq(x.authors, nlds), nlds.childOC), init=veceqeqeq(nlds.localOC.authors, nlds))
+    cuts_e = reduce(vcat, map(x -> x.b, nlds.childOC), init=nlds.localOC.b)
+    mycut = reduce(vcat, map(x -> veceqeqeq(x.authors, nlds), nlds.childOC), init=veceqeqeq(nlds.localOC.authors, nlds))
     (cuts_E, cuts_e, mycut)
 end
 
@@ -363,7 +363,7 @@ function checkconsistency(nlds)
     for i in 1:nlds.nθ
         @assert length(nlds.ρs[i]) == nlds.nρ[i]
     end
-    ρs = Compat.reduce(append!, nlds.ρs, init=Int[])
+    ρs = reduce(append!, nlds.ρs, init=Int[])
     @assert sort([nlds.πs; nlds.nπ .+ nlds.σs; nlds.nπ .+ ρs]) == collect(1:(nlds.nπ + nlds.nσ + sum(nlds.nρ)))
 end
 

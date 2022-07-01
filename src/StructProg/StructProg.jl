@@ -1,6 +1,6 @@
 module StructProg
 
-using Compat, Compat.LinearAlgebra, Compat.SparseArrays
+using LinearAlgebra, SparseArrays
 
 using TimerOutputs
 
