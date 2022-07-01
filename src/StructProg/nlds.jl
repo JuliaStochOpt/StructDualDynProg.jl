@@ -440,6 +440,7 @@ function solve!(nlds::NLDS{S}) where S
             set_objective_function(nlds.model.model, zero(AffExpr))
             JuMP.optimize!(nlds.model.model)
             set_objective_function(nlds.model.model, obj)
+        end
         solution = StructJuMP.optimize(nlds.model)
         nlds.prevsol = Solution(
             solution.feasible ? :Optimal : :Infeasible,

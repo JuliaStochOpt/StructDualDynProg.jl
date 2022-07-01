@@ -24,7 +24,7 @@
 			if s > 1
 				@constraint(model, x[s, ξ] <= x[s-1, 1] + r[ξ] - y[s, ξ])
 			else
-                @constraint(model, x[s, ξ] <= Compat.Statistics.mean(r) - y[s, ξ])
+                @constraint(model, x[s, ξ] <= Statistics.mean(r) - y[s, ξ])
 			end
 			@constraint(model, p[s, ξ] + y[s, ξ] >= d)
 			@objective(model, Min, C * p[s, ξ])

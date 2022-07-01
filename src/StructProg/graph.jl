@@ -1,4 +1,4 @@
-using LightGraphs
+using Graphs
 
 mutable struct NodeData{S}
     nlds::NLDS{S}

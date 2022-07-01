@@ -3,6 +3,7 @@ uuid = "5d41aeb0-57df-5a94-a3c4-60ba49600646"
 
 [deps]
 CutPruners = "65d46eb8-70e9-5a30-bf48-2afa3a021b8f"
+DocumenterTools = "35a29f4d-8980-5a13-9543-d66fff28ecb8"
 Graphs = "86223c79-3864-5bf0-83f7-82e725a168b6"
 JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
