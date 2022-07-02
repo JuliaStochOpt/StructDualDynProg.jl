@@ -53,9 +53,9 @@ mutable struct SDDPPath{TT<:SOI.AbstractTransition, SolT<:SOI.AbstractSolution}
 end
 
 function meanstdpaths(paths::Vector{<:SDDPPath}, Ktot)
-    z = Compat.reduce(append!, Vector{Float64}[x.z for x in paths], init=Float64[])
-    proba = Compat.reduce(append!, Vector{Float64}[x.proba for x in paths], init=Float64[])
-    npaths = Compat.reduce(append!, Vector{Int}[x.K for x in paths], init=Int[])
+    z = reduce(append!, Vector{Float64}[x.z for x in paths], init=Float64[])
+    proba = reduce(append!, Vector{Float64}[x.proba for x in paths], init=Float64[])
+    npaths = reduce(append!, Vector{Int}[x.K for x in paths], init=Int[])
     meanstdpaths(z, proba, npaths, Ktot)
 end
 

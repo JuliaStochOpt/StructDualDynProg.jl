@@ -1,6 +1,4 @@
-using LightGraphs
-
-import MathProgBase
+using Graphs
 
 mutable struct NodeData{S}
     nlds::NLDS{S}

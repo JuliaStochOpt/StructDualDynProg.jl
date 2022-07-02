@@ -1,10 +1,10 @@
-using JuMP
+using LinearAlgebra, Test
 using CutPruners
+using JuMP
 using StructJuMP
-using StructDualDynProg
-using Compat, Compat.LinearAlgebra, Test
 using StochOptInterface
 const SOI = StochOptInterface
+using StructDualDynProg
 
 # solver independent tests
 include("comp.jl")

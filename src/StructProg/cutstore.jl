@@ -56,7 +56,7 @@ end
 
 function apply!(store::CutStore{S}) where S
     if !isempty(store.bnew)
-        if store.storecuts == :Yes || (store.storecuts != :No && Compat.reduce(|, store.needstored, init=false))
+        if store.storecuts == :Yes || (store.storecuts != :No && reduce(|, store.needstored, init=false))
             store.A = [store.A; store.Anew]
             store.b = [store.b; store.bnew]
             append!(store.authors, store.authorsnew)
@@ -82,7 +82,7 @@ function needstored!(store::CutStore, nlds)
 end
 function noneedstored!(store::CutStore{S}, nlds) where S
     store.needstored[findfirst(f->f[1] === nlds, store.followers)] = false
-    if store.storecuts == :IfNeededElseDelete && !Compat.reduce(|, store.needstored, init=false)
+    if store.storecuts == :IfNeededElseDelete && !reduce(|, store.needstored, init=false)
         store.A = spzeros(S, 0, size(store.A, 2))
         store.b = S[] # See julia#22225
         store.authors = NLDS{S}[]

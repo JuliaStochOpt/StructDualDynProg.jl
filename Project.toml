@@ -2,24 +2,29 @@ name = "StructDualDynProg"
 uuid = "5d41aeb0-57df-5a94-a3c4-60ba49600646"
 
 [deps]
-Compat = "34da2185-b29b-5c13-b0c7-acf172513d20"
 CutPruners = "65d46eb8-70e9-5a30-bf48-2afa3a021b8f"
-GLPK = "60bf3e95-4087-53dc-ae20-288a0d20c6a6"
+DocumenterTools = "35a29f4d-8980-5a13-9543-d66fff28ecb8"
+Graphs = "86223c79-3864-5bf0-83f7-82e725a168b6"
 JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
-LightGraphs = "093fc24a-ae57-5d10-9952-331d41423f4d"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MathProgBase = "fdba3010-5040-5b88-9595-932c9decdf73"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 StochOptInterface = "ddbffdd9-5b1a-5f20-b6eb-597a58a751db"
 StructJuMP = "34f15cae-5318-50c9-93d3-9feadd34e321"
 TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 
 [compat]
-Compat = "2, 3"
-JuMP = "= 0.20"
-StructJuMP = "= 0.1"
+CutPruners = "0.3"
+Graphs = "1"
+JuMP = "1"
+StochOptInterface = "0.1"
+StructJuMP = "0.3"
+TimerOutputs = "0.5"
 julia = "1"
 
 [extras]
+GLPK = "60bf3e95-4087-53dc-ae20-288a0d20c6a6"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test"]
+test = ["GLPK", "Test"]

@@ -1,6 +1,6 @@
 module StructProg
 
-using Compat, Compat.LinearAlgebra, Compat.SparseArrays
+using LinearAlgebra, SparseArrays
 
 using TimerOutputs
 
@@ -21,7 +21,6 @@ include("cutgen.jl")
 
 # Generic implementation of Stochastic Program
 include("cutstore.jl")
-include("solver.jl")
 include("nlds.jl")
 include("graph.jl")
 
