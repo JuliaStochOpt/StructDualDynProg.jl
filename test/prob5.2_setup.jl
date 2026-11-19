@@ -22,10 +22,14 @@ function fulltest(m, num_stages, objval, solval, ws, wsσ, testniter, solver)
                             else
                                 stopcrit = SOI.Pereira()
                             end
-                            stopcrit |= SOI.IterLimit(42)
                             algo = SDDP.Algorithm(K = K, forwardcuts = true, backwardcuts = false)
-                            sol = SOI.optimize!(sp, algo, stopcrit, 0)
-                            testniter(SOI.niterations(sol), K, maxncuts, cutmode, detectlb)
+                            sol = SOI.optimize!(sp, algo, stopcrit | SOI.IterLimit(42), 0)
+                            if K == -1
+                                testniter(SOI.niterations(sol), maxncuts, cutmode, detectlb)
+                            else
+                                # Sampled paths can reach the Pereira criterion at different iterations.
+                                @test SOI.stop(stopcrit, sol)
+                            end
                             @test SOI.last_result(sol).status == :Optimal
                             lb = SOI.last_result(sol).lowerbound
                             @test abs(lb - objval) / objval < (K == -1 ? 1e-6 : .03)

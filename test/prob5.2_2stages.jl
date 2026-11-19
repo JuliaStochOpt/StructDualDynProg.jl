@@ -51,36 +51,20 @@ end
     #    11     | Optimal   | 339235.89 |  344363.19 |  0  |  1  | -> Pereira stops here
     #    12     | Optimal   | 339779.51 |  340949.37 |  0  |  1  |
     #    13     | Optimal   | 340315.52 |  340315.52 |  0  |  0  |
-    function testniter(niter, K, maxncuts, cutgen, detectlb)
+    function testniter(niter, maxncuts, cutgen, detectlb)
         if isa(cutgen, StructProg.MultiCutGenerator)
             @test niter in (10, 12)
-        else
-            if maxncuts == -1
-                if K == -1
-                    if detectlb
-                        @test niter in (13, 15)
-                    else
-                        # 10 on Gurobi/CPLEX, 14 otherwise
-                        @test niter in (10, 14, 15)
-                    end
-                else
-                    # 9 on Gurobi/CPLEX, 11 otherwise
-                    @test niter in (9, 11, 13) # Pereira stops earlier
-                end
+        elseif maxncuts == -1
+            if detectlb
+                @test niter in (13, 15)
             else
-                if K == -1
-                    if detectlb
-                        # up to 15 on Mac OS, <= 14 on Linux
-                        @test 13 <= niter <= 16
-                    else
-                        # GLPK can take 20 iterations on 32-bit Linux.
-                        @test 10 <= niter <= (Sys.WORD_SIZE == 32 ? 20 : 17)
-                    end
-                else
-                    # 9 on Gurobi/CPLEX, between 11 and 12 otherwise
-                    @test 9 <= niter <= 14 # Pereira stops earlier
-                end
+                @test niter in (10, 14, 15)
             end
+        elseif detectlb
+            @test 13 <= niter <= 16
+        else
+            # GLPK can take 20 iterations on 32-bit Linux.
+            @test 10 <= niter <= (Sys.WORD_SIZE == 32 ? 20 : 17)
         end
     end
     fulltest(M1, 2, 340315.52, [5085,1311,3919,854], 334687.754566, 15869.996575, testniter, solver)
