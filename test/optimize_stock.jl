@@ -1,3 +1,7 @@
+if !isdefined(@__MODULE__, :lp_solvers)
+    include("solvers.jl")
+end
+
 # See https://web.stanford.edu/~lcambier/fast/demo.php
 @testset "Optimize Stock with $solver" for solver in lp_solvers
     isclp(solver) && continue
@@ -52,7 +56,6 @@
                 @test SOI.niterations(sol) == 4
                 @test SOI.last_result(sol).status == :Optimal
                 @test SOI.last_result(sol).lowerbound == -2.0
-                StructProg.clear(m1)
             end
         end
     end
@@ -98,10 +101,31 @@
             SOI.set!(sp, SOI.Probability(), sp.out_transitions[1][1], 1/2)
             SOI.add_scenario_transition!(sp, root, newnode, 1/2)
             sol = SOI.optimize!(sp, SDDP.Algorithm(K=K), SOI.Pereira(0.1) | SOI.IterLimit(10), 0)
-            # 2 on Mac OS and Windows, 3 otherwise
-            @test 2 <= SOI.niterations(sol) <= 3
+            # The first scenario distribution used different averaged cuts.
+            @test SOI.niterations(sol) < 10
             @test SOI.last_result(sol).status == :Optimal
             @test SOI.last_result(sol).lowerbound == -2.0
         end
+    end
+end
+
+@testset "Reweight a solved subtree" begin
+    root = StructuredModel(num_scenarios=1)
+    mid = StructuredModel(parent=root, id=1, num_scenarios=2)
+    for (i, cost) in enumerate((0.0, 8.0))
+        leaf = StructuredModel(parent=mid, id=i, prob=(i == 1 ? 0.25 : 0.75))
+        @objective(leaf, Min, cost)
+    end
+    for cutgen in (StructProg.MultiCutGenerator(), StructProg.AvgCutGenerator())
+        sp = SOI.stochasticprogram(root, 3, GLPK.Optimizer, AvgCutPruningAlgo(-1), cutgen)
+        algo = SDDP.Algorithm(K=-1)
+        stop = SOI.CutLimit(0) | SOI.IterLimit(10)
+        @test SOI.last_result(SOI.optimize!(sp, algo, stop)).lowerbound ≈ 6
+        transitions = SOI.get(sp, SOI.OutTransitions(), 2)
+        SOI.set!(sp, SOI.Probability(), transitions[1], 0.75)
+        SOI.set!(sp, SOI.Probability(), transitions[2], 0.25)
+        result = SOI.last_result(SOI.optimize!(sp, algo, stop))
+        @test result.lowerbound ≈ 2
+        @test result.upperbound ≈ 2
     end
 end

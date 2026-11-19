@@ -1,38 +1,23 @@
 export NLDS, updatemaxncuts!
 
-# π, σ and ρ do not really make sense alone so only
-# their product will T, h, d, e is stored
 mutable struct Solution <: SOI.AbstractSolution
     status::Symbol
     objval
     objvalx
-    objvalxuray # unbouded ray
+    objvalxuray # unbounded ray
     x
-    xuray # unbouded ray
+    xuray # unbounded ray
     θ
-    θuray # unbouded ray
-    πT
-    πh
-    σd
-    ρe
+    θuray # unbounded ray
+    cut_slope
+    cut_intercept
     function Solution(status::Symbol, objval)
-        new(status, objval, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing)
+        new(status, objval, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing)
     end
 end
 
-# Feasibility cut
-# D = π T
-# d = π h + σ d
-function SOI.feasibility_cut(sol::Solution)
-    (sol.πT, sol.πh + sol.σd)
-end
-
-# Optimality cut
-# E = π T
-# e = π h + ρ e + σ d
-function SOI.optimality_cut(sol::Solution)
-    (sol.πT, sol.πh + sol.σd + sol.ρe)
-end
+SOI.feasibility_cut(sol::Solution) = (sol.cut_slope, sol.cut_intercept)
+SOI.optimality_cut(sol::Solution) = (sol.cut_slope, sol.cut_intercept)
 
 SOI.getstatus(sol::Solution) = sol.status
 
@@ -73,51 +58,59 @@ end
 #     σ >= 0
 #     ρ >= 0
 mutable struct NLDS{S}
-    param_model::StructJuMP.ParametrizedModel
-
-    # parent solution
-    x_a::AbstractVector{S}
-    xuray_a::Union{Nothing, AbstractVector{S}}
-    objvalxuray_a::Union{Nothing, S}
+    stage::StructJuMP.StructuredModel
+    model::JuMP.Model
+    variables::Vector{JuMP.VariableRef}
+    stage_cost::JuMP.AffExpr
+    parent_constraints::Vector{JuMP.ConstraintRef}
+    ray_step::Union{Nothing, JuMP.VariableRef}
+    θ::Vector{JuMP.VariableRef}
+    x_a::Vector{S}
 
     childFC::Vector{CutStore{S}}
     childOC::Vector{CutStore{S}}
     localFC::CutStore{S}
     localOC::CutStore{S}
     proba::Vector{Float64}
+    θbounds::Dict{Int, JuMP.ConstraintRef}
     θfree::BitSet
     θlb::Vector{Float64}
     childT::Union{Nothing, Vector{AbstractMatrix{S}}}
     cutgen::AbstractOptimalityCutGenerator
 
     nx::Int
-    nθ::Int
-    # Number of feasibility cuts
-    nσ::Int
-    # Location of each feasibility cut in the constraint matrix
-    σs::Vector{Int}
-    # Number of Optimality Cuts for each θ_i
-    nρ::Vector{Int}
-    # Location of each optimality cut in the constraint matrix
-    ρs::Vector{Vector{Int}}
+    σs::Vector{JuMP.ConstraintRef}
+    ρs::Vector{Vector{JuMP.ConstraintRef}}
 
     prevsol::Union{Nothing, Solution}
 
+    newcut::Symbol
     pruningalgo::AbstractCutPruningAlgo
     FCpruner::AbstractCutPruner
     OCpruners::Vector
 
-    function NLDS{S}(model::StructJuMP.ParametrizedModel, pruningalgo::AbstractCutPruningAlgo) where S
-        nx = length(model.variable_map)
-        nθ = 0
+    function NLDS{S}(stage, solver, nparent, pruningalgo, newcut) where S
+        if !(newcut in (:AddImmediately, :InvalidateSolver))
+            throw(ArgumentError("Unknown cut update mode $newcut"))
+        end
+        model = JuMP.Model(solver)
+        parent = @variable(model, [1:nparent])
+        parent_constraints = @constraint(model, [i=1:nparent], parent[i] == 0)
+        variables, cost = add_stage!(model, stage, parent)
+        @objective(model, Min, cost)
+        nx = length(variables)
         localFC = CutStore{S}(nx)
         localOC = CutStore{S}(nx)
         FCpruner = CutPruner{nx, S}(pruningalgo, :≥)
         OCpruners = typeof(FCpruner)[]
-        nlds = new{S}(model, S[], nothing, nothing, CutStore{S}[], CutStore{S}[], localFC, localOC, Float64[], BitSet(), Float64[], nothing, AvgCutGenerator(), nx, nθ, 0, Int[], Int[], Vector{Int}[], nothing, pruningalgo, FCpruner, OCpruners)
+        nlds = new{S}(stage, model, variables, cost, parent_constraints,
+            nothing, JuMP.VariableRef[], zeros(S, nparent), CutStore{S}[],
+            CutStore{S}[], localFC, localOC, Float64[], Dict{Int, JuMP.ConstraintRef}(), BitSet(), Float64[],
+            nothing, AvgCutGenerator(), nx, JuMP.ConstraintRef[],
+            Vector{JuMP.ConstraintRef}[], nothing, newcut, pruningalgo, FCpruner, OCpruners)
         addfollower(localFC, (nlds, (:Feasibility, 0)))
-        addfollower(localOC, (nlds, (:Optimality, 1)))
-       nlds
+        addfollower(localOC, (nlds, (:Optimality, 0)))
+        return nlds
     end
 end
 
@@ -136,15 +129,11 @@ end
 
 function add_scenario_transition!(nlds::NLDS{S}, childFC, childOC, proba, childT) where {S}
     push!(nlds.proba, proba)
-    oldnθ = nlds.nθ
-    nlds.nθ = nθ(nlds.cutgen, nlds.proba)
-    Δθ = nlds.nθ - oldnθ
     push!(nlds.θlb, 0)
     push!(nlds.θfree, length(nlds.θlb))
-    if !iszero(Δθ)
-        @assert Δθ == 1
-        push!(nlds.nρ, 0)
-        push!(nlds.ρs, Int[])
+    if length(nlds.θ) < nθ(nlds.cutgen, nlds.proba)
+        push!(nlds.θ, @variable(nlds.model))
+        push!(nlds.ρs, JuMP.ConstraintRef[])
         # θ ≧ max β - ⟨a, x⟩
         # so we give :Max and set lazy_minus to true because it is "- ⟨a, x⟩" and not "+ ⟨a, x⟩"
         push!(nlds.OCpruners, CutPruner{nlds.nx, S}(nlds.pruningalgo, :Max, true))
@@ -156,78 +145,64 @@ function add_scenario_transition!(nlds::NLDS{S}, childFC, childOC, proba, childT
     addfollower(childOC, (nlds, (:Optimality, length(nlds.childOC)+1)))
     push!(nlds.childOC, childOC)
     add_childT!(nlds, childT)
+    update_bellman!(nlds)
 end
 
 function setprobability!(nlds::NLDS, i, proba)
     nlds.proba[i] = proba
+    update_bellman!(nlds)
+end
+
+function update_bellman!(nlds)
+    for (i, θ) in enumerate(nlds.θ)
+        averaged = nlds.cutgen isa AvgCutGenerator
+        weight = averaged ? 1.0 : nlds.proba[i]
+        JuMP.set_objective_coefficient(nlds.model, θ, weight)
+        bounded = averaged ? isempty(nlds.θfree) : !(i in nlds.θfree)
+        if bounded
+            bound = averaged ? dot(nlds.proba, nlds.θlb) : nlds.θlb[i]
+            if haskey(nlds.θbounds, i)
+                JuMP.set_normalized_rhs(nlds.θbounds[i], bound)
+            else
+                nlds.θbounds[i] = @constraint(nlds.model, θ >= bound)
+            end
+        elseif haskey(nlds.θbounds, i)
+            JuMP.delete(nlds.model, pop!(nlds.θbounds, i))
+        end
+    end
+    nlds.prevsol = nothing
 end
 
 function getobjectivebound(nlds::NLDS)
-    if !isempty(nlds.θfree)
+    if !isempty(nlds.θ) && !isempty(nlds.θfree)
         return -Inf
     end
-    obj = JuMP.objective_function(nlds.model.model)
-    if obj isa JuMP.VariableRef
-        obj = convert(JuMP.AffExpr, obj)
-    end
-    if obj != JuMP.AffExpr
-        # TODO quadratic objective
-        @warn "Objective bound for objective of type $(typeof(obj)) not implemented yet."
-        return -Inf
-    end
-    curlb = 0.0
-    for (coef, var) in linear_terms(obj)
-        lb, ub = MOI.Utilities.get_bounds(backend(model), index(var))
-        if coef < 0
-            bound = ub
-        elseif coef > 0
-            bound = lb
-        else
+    bound = JuMP.constant(nlds.stage_cost)
+    for (coef, var) in JuMP.linear_terms(nlds.stage_cost)
+        if iszero(coef)
             continue
-        end
-        if !isfinite(bound)
+        elseif JuMP.is_fixed(var)
+            bound += coef * JuMP.fix_value(var)
+        elseif coef > 0 && JuMP.has_lower_bound(var)
+            bound += coef * JuMP.lower_bound(var)
+        elseif coef < 0 && JuMP.has_upper_bound(var)
+            bound += coef * JuMP.upper_bound(var)
+        else
             return -Inf
-        else
-            curlb += coef * bound
         end
     end
-    return curlb + Eθlb(nlds)
+    return isempty(nlds.θ) ? bound : bound + dot(nlds.proba, nlds.θlb)
 end
-function setθbound!(nlds::NLDS, i, θlb)
-    if isfinite(θlb)
+
+function setθbound!(nlds::NLDS, i, bound)
+    if isfinite(bound)
         delete!(nlds.θfree, i)
-        nlds.θlb[i] = θlb
-    end
-end
-# Returns the lower bounds and cones for θ
-function θC(nlds::NLDS)
-    if nlds.nθ == length(nlds.θlb)
-        # Multi cut
-        θlb = nlds.θlb
-        if length(nlds.θfree) < nlds.nθ
-            bounded = collect(setdiff(BitSet(1:nlds.nθ), nlds.θfree))
-            θC = [(:NonNeg, collect(nlds.nx .+ bounded))]
-            if !isempty(nlds.θfree)
-                free = collect(nlds.θfree)
-                push!(nlds.θC, (:Free, collect(nlds.nx .+ free)))
-            end
-        else
-            θC = [(:Free, collect(nlds.nx .+ (1:nlds.nθ)))]
-        end
-    elseif nlds.nθ == 1
-        # Averaged cut
-        if isempty(nlds.θfree)
-            θlb = [dot(nlds.proba, nlds.θlb)]
-            θC = [(:NonNeg, [nlds.nx + 1])]
-        else
-            θlb = [0.]
-            θC = [(:Free, [nlds.nx + 1])]
-        end
+        nlds.θlb[i] = bound
     else
-        θlb = Float64[]
-        θC = Tuple{Symbol, Vector{Int}}[]
+        push!(nlds.θfree, i)
+        nlds.θlb[i] = 0
     end
-    θlb, θC
+    update_bellman!(nlds)
 end
 
 function updatemaxncuts!(nlds::NLDS, maxncuts, i)
@@ -238,220 +213,178 @@ function updatemaxncuts!(nlds::NLDS, maxncuts, i)
     end
 end
 
-# .=== doesn't work :(
-function veceqeqeq(v::Vector, x)
-    map(el->el === x, v)
-end
-
-function padfcut(nlds::NLDS, D::AbstractMatrix{S}) where S
-    if nlds.nθ > 0
-        [D spzeros(size(D, 1), nlds.nθ)]
-    else
-        D
-    end
-end
-
-function getfeasibilitycuts(nlds::NLDS)
-    function f(i)
-        D = nlds.childFC[i].A
-        if nlds.childT !== nothing
-            D = D * nlds.childT[i]
-        end
-        D
-    end
-    cuts_D = reduce(vcat, map(i -> f(i), 1:length(nlds.childFC)), init=nlds.localFC.A)
-    cuts_d = reduce(vcat, map(x -> x.b, nlds.childFC), init=nlds.localFC.b)
-    mycut = reduce(vcat, map(x -> veceqeqeq(x.authors, nlds), nlds.childFC), init=veceqeqeq(nlds.localFC.authors, nlds))
-    (cuts_D, cuts_d, mycut)
-end
-
-# see https://github.com/JuliaLang/julia/issues/16661
-function padmultiocutaux(nlds::NLDS, E::AbstractMatrix{S}, i, onesvec) where S
-    nrows = size(E, 1)
-    [E spzeros(S, nrows, i-1) onesvec spzeros(S, nrows, nlds.nθ-i)]
-end
-function padmultiocut(nlds::NLDS, E::AbstractMatrix{S}, i) where S
-    nrows = size(E, 1)
-    padmultiocutaux(nlds, E, i, ones(S, nrows, 1))
-end
-function padmultiocut(nlds::NLDS, E::AbstractSparseMatrix{S}, i) where S
-    nrows = size(E, 1)
-    padmultiocutaux(nlds, E, i, sparse(ones(S, nrows, 1)))
-end
-
-function padavgocut(nlds::NLDS, E::AbstractMatrix{S}) where S
-    nrows = size(E, 1)
-    [E ones(S, nrows)]
-end
-function padavgocut(nlds::NLDS, E::AbstractSparseMatrix{S}) where S
-    nrows = size(E, 1)
-    [E sparse(ones(S, nrows))]
-end
-
-function getoptimalitycuts(nlds::NLDS{S}) where S
-    function f(i)
-        E = nlds.childOC[i].A
-        if nlds.childT !== nothing
-            E = E * nlds.childT[i]
-        end
-        padmultiocut(nlds, E, i)
-    end
-    if nlds.nθ == 1
-        cuts_E = padavgocut(nlds, nlds.localOC.A)
-    else
-        cuts_E = spzeros(S, 0, nlds.nx + nlds.nθ)
-    end
-    if nlds.nθ == length(nlds.childOC)
-        cuts_E = reduce(vcat, map(f, 1:length(nlds.childOC)), init=cuts_E)
-    end
-    cuts_e = reduce(vcat, map(x -> x.b, nlds.childOC), init=nlds.localOC.b)
-    mycut = reduce(vcat, map(x -> veceqeqeq(x.authors, nlds), nlds.childOC), init=veceqeqeq(nlds.localOC.authors, nlds))
-    (cuts_E, cuts_e, mycut)
-end
-
-
 function notifynewcuts(nlds::NLDS{S}, A::AbstractMatrix{S}, b::AbstractVector{S}, attrs, authors::Vector{NLDS{S}}) where S
     @assert attrs[1] in [:Feasibility, :Optimality]
     isfc = attrs[1] == :Feasibility
-    nnewcuts = size(A, 1)
     i = attrs[2]
     if i > 0 && nlds.childT !== nothing
         A = A * nlds.childT[i]
     end
-    # No .=== :(
-    mine = [authors[i] === nlds for i in 1:length(authors)]
+    if !isfc && i == 0
+        i = 1  # The local averaged cut uses the single Bellman variable.
+    end
+    mine = map(author -> author === nlds, authors)
     if isfc
         pruner = nlds.FCpruner
     else
         pruner = nlds.OCpruners[i]
     end
-    ncur = ncuts(pruner)
-    addstatus = addcuts!(pruner, A, b, mine)
-    npushed = sum(addstatus .> ncur)
-    @assert ncur + npushed == ncuts(pruner)
-    if isfc
-        nlds.nσ += npushed
-        is = nlds.σs
-    else
-        nlds.nρ[i] += npushed
-        is = nlds.ρs[i]
-    end
-    append!(is, Vector{JuMP.ConstraintRef}(undef, npushed))
-    x = [nlds.model.variable_map[i] for i in 1:nlds.nx]
-    θ = nlds.model.parameter_map[i]
-    for j in 1:nnewcuts
-        if addstatus[j] > 0
-            if addstatus[j] <= ncur
-                JuMP.delete(is[addstatus[j]])
-            end
-            a = A[j, :]
-            β = b[j]
-            is[addstatus[j]] = if isfc
-                @constraint(nlds.model.model, dot(a, x) ≥ β)
-            else
-                @constraint(nlds.model.model, θ ≥ β - dot(a, x))
-            end
-            nlds.prevsol = nothing
+    refs = isfc ? nlds.σs : nlds.ρs[i]
+    slots = addcuts!(pruner, A, b, mine)
+    resize!(refs, ncuts(pruner))
+    for (j, slot) in enumerate(slots)
+        if slot <= 0
+            continue
         end
+        if nlds.newcut == :InvalidateSolver
+            MOI.Utilities.reset_optimizer(nlds.model)
+        end
+        if isassigned(refs, slot)
+            JuMP.delete(nlds.model, refs[slot])
+        end
+        lhs = dot(A[j, :], nlds.variables)
+        if !isfc
+            lhs += nlds.θ[i]
+        end
+        refs[slot] = @constraint(nlds.model, lhs >= b[j])
+        nlds.prevsol = nothing
     end
-    checkconsistency(nlds)
 end
 
-function checkconsistency(nlds)
-    @assert length(nlds.πs) == nlds.nπ
-    @assert length(nlds.σs) == nlds.nσ
-    for i in 1:nlds.nθ
-        @assert length(nlds.ρs[i]) == nlds.nρ[i]
-    end
-    ρs = reduce(append!, nlds.ρs, init=Int[])
-    @assert sort([nlds.πs; nlds.nπ .+ nlds.σs; nlds.nπ .+ ρs]) == collect(1:(nlds.nπ + nlds.nσ + sum(nlds.nρ)))
-end
-
-function setparentx(nlds::NLDS, x_a::AbstractVector, xuray_a, objvalxuray_a)
+function setparentx(nlds::NLDS, x_a, ray, ray_cost)
     nlds.x_a = x_a
-    unbounded_a = xuray_a !== nothing
-    if nlds.xuray_a !== nothing || unbounded_a
-        error("TODO")
-        nlds.prevsol = nothing
+    if nlds.ray_step !== nothing
+        JuMP.delete(nlds.model, nlds.ray_step)
+        nlds.ray_step = nothing
     end
-    if unbounded_a
-        nlds.xuray_a = xuray_a
-        nlds.objvalxuray_a = objvalxuray_a
-    elseif nlds.xuray_a !== nothing
-        nlds.xuray_a = nothing
-        nlds.objvalxuray_a = nothing
-    end
-    if nlds.loaded
-        if unbounded_a
-            nlds.loaded = false
-        else
-            values = nlds.T * x_a
-            @assert length(nlds.model.parameter_map) == length(values)
-            for (index, parameter) in nlds.model.parameter_map
-                JuMP.fix(parameter, values[index])
-            end
-            bs, Ks = getrhs(nlds)
-            _setconstrB!(nlds.model, bs, Ks)
+    if ray !== nothing && (!iszero(ray) || ray_cost < 0)
+        step = @variable(nlds.model, lower_bound = 0)
+        for (i, con) in enumerate(nlds.parent_constraints)
+            JuMP.set_normalized_coefficient(con, step, -ray[i])
         end
-        nlds.prevsol = nothing
+        JuMP.set_objective_coefficient(nlds.model, step, ray_cost)
+        nlds.ray_step = step
     end
+    for (i, con) in enumerate(nlds.parent_constraints)
+        JuMP.set_normalized_rhs(con, x_a[i])
+    end
+    nlds.prevsol = nothing
 end
 
-function computecuts!(nlds::NLDS)
-    nlds.nπ = length(nlds.h)
-    nlds.πs = collect(1:nlds.nπ)
-    cuts_D, cuts_d, mycut_d = getfeasibilitycuts(nlds)
-    cuts_D = padfcut(nlds, cuts_D)
-    cuts_E, cuts_e, mycut_e = getoptimalitycuts(nlds)
-    # I will add the cuts in notifynewcuts! now
-    noneedstored!(nlds.localFC, nlds)
-    for store in nlds.childFC
-        noneedstored!(store, nlds)
-    end
-    noneedstored!(nlds.localOC, nlds)
-    for store in nlds.childOC
-        noneedstored!(store, nlds)
-    end
-end
-
-function Eθlb(nlds::NLDS)
-    if nlds.nθ == 0
-        0.0
+function read_solution!(nlds::NLDS{S}, sol) where S
+    model = nlds.model
+    status = JuMP.termination_status(model)
+    if status == MOI.INFEASIBLE && JuMP.dual_status(model) == MOI.INFEASIBILITY_CERTIFICATE
+        sol.status = :Infeasible
+        sol.objval = Inf
+        sol.xuray = sol.θuray = sol.objvalxuray = nothing
+    elseif status == MOI.OPTIMAL
+        sol.x = JuMP.value.(nlds.variables)
+        sol.θ = JuMP.value.(nlds.θ)
+        sol.objvalx = JuMP.value(nlds.stage_cost)
+        addposition!(nlds.FCpruner, sol.x)
+        for pruner in nlds.OCpruners
+            addposition!(pruner, sol.x)
+        end
+        if sol.status == :Optimal
+            sol.objval = JuMP.objective_value(model)
+        end
     else
-        if nlds.nθ == length(nlds.proba)
-            dot(nlds.proba, nlds.θlb)
-        else
-            θlb, _ = θC(nlds)
-            @assert length(θlb) == 1
-            θlb[1]
-        end
+        error("Cannot construct a stage solution with solver status $status")
     end
-end
-
-function solve!(nlds::NLDS{S}) where S
-    if nlds.prevsol === nothing
-        JuMP.optimize!(nlds.model.model)
-        if JuMP.primal_status(nlds.model.model) == MOI.INFEASIBILITY_CERTIFICATE
-            # The dual is infeasible but this may not mean that the primal is
-            # unbounded:
-            # See https://github.com/JuliaOpt/Gurobi.jl/issues/80
-            # We set the objective to zero and reoptimize to check
-            obj = JuMP.objective_function(nlds.model.model)
-            set_objective_function(nlds.model.model, zero(AffExpr))
-            JuMP.optimize!(nlds.model.model)
-            set_objective_function(nlds.model.model, obj)
+    if sol.status != :Unbounded
+        sol.cut_slope = -S[JuMP.dual(c) for c in nlds.parent_constraints]
+        sol.cut_intercept = JuMP.dual_objective_value(model) + dot(sol.cut_slope, nlds.x_a)
+        addusage!(nlds.FCpruner, JuMP.dual.(nlds.σs))
+        for (pruner, refs) in zip(nlds.OCpruners, nlds.ρs)
+            addusage!(pruner, JuMP.dual.(refs))
         end
-        solution = StructJuMP.optimize(nlds.model)
-        nlds.prevsol = Solution(
-            solution.feasible ? :Optimal : :Infeasible,
-            solution.objective_value, nothing, nothing,
-            [solution.variable_value[nlds.model.variable_map[i]] for i in 1:nlds.nx],
-            nothing, )
     end
     return
 end
 
-function getsolution(nlds::NLDS)
-    solve!(nlds)
-    return nlds.prevsol
+function getsolution(nlds::NLDS{S}) where S
+    if nlds.prevsol !== nothing
+        return nlds.prevsol
+    end
+    model = nlds.model
+    objective = JuMP.objective_function(model)
+    sol = Solution(:Optimal, Inf)
+    # Before the first cut, an unbounded Bellman variable gives a known ray.
+    free = findfirst(eachindex(nlds.θ)) do i
+        return isempty(nlds.ρs[i]) && !haskey(nlds.θbounds, i) &&
+               JuMP.coefficient(objective, nlds.θ[i]) > 0
+    end
+    if free === nothing
+        JuMP.optimize!(model)
+        has_ray = JuMP.primal_status(model) == MOI.INFEASIBILITY_CERTIFICATE
+        if has_ray
+            sol.xuray = JuMP.value.(nlds.variables)
+            sol.θuray = JuMP.value.(nlds.θ)
+            sol.objvalxuray = JuMP.value(nlds.stage_cost) - JuMP.constant(nlds.stage_cost)
+        end
+    else
+        has_ray = true
+        sol.xuray = zeros(S, nlds.nx)
+        sol.θuray = zeros(S, length(nlds.θ))
+        sol.θuray[free] = -1
+        sol.objvalxuray = zero(S)
+    end
+    if has_ray
+        sol.status = :Unbounded
+        sol.objval = -Inf
+        # Recover a feasible base point for the recession direction.
+        JuMP.set_objective_function(model, zero(JuMP.AffExpr))
+        try
+            JuMP.optimize!(model)
+            read_solution!(nlds, sol)
+        finally
+            JuMP.set_objective_function(model, objective)
+        end
+    else
+        read_solution!(nlds, sol)
+    end
+    nlds.prevsol = sol
+    return sol
+end
+
+# Matrix interface: h - W*x - T*parent belongs to K, and x belongs to C.
+function NLDS{S}(W::AbstractMatrix, h, T::AbstractMatrix, K, C, c, solver,
+                 pruningalgo, newcut::Symbol=:AddImmediately) where S
+    parent = StructuredModel(num_scenarios=1)
+    p = @variable(parent, [1:size(T, 2)])
+    stage = StructuredModel(parent=parent, id=1)
+    x = @variable(stage, [1:size(W, 2)])
+    for (cone, indices) in C
+        for i in indices
+            if cone == :NonNeg
+                JuMP.set_lower_bound(x[i], 0)
+            elseif cone == :NonPos
+                JuMP.set_upper_bound(x[i], 0)
+            elseif cone == :Zero
+                JuMP.fix(x[i], 0)
+            elseif cone != :Free
+                throw(ArgumentError("Unsupported variable cone $cone"))
+            end
+        end
+    end
+    lhs = W * x
+    if !isempty(p)
+        lhs += T * p
+    end
+    for (cone, indices) in K
+        for i in indices
+            if cone == :NonNeg
+                @constraint(stage, lhs[i] <= h[i])
+            elseif cone == :NonPos
+                @constraint(stage, lhs[i] >= h[i])
+            elseif cone == :Zero
+                @constraint(stage, lhs[i] == h[i])
+            elseif cone != :Free
+                throw(ArgumentError("Unsupported constraint cone $cone"))
+            end
+        end
+    end
+    @objective(stage, Min, dot(c, x))
+    return NLDS{S}(stage, solver, length(p), pruningalgo, newcut)
 end

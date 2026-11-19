@@ -1,9 +1,9 @@
 # StructDualDynProg
 
-| **Documentation** | **PackageEvaluator** | **Build Status** | **Social** |
-|:-----------------:|:--------------------:|:----------------:|:----------:|
-| [![][docs-stable-img]][docs-stable-url] | [![][pkg-0.6-img]][pkg-0.6-url] | [![Build Status][build-img]][build-url] [![Build Status][winbuild-img]][winbuild-url] | [![Gitter][gitter-img]][gitter-url] |
-| [![][docs-latest-img]][docs-latest-url] | [![][pkg-0.7-img]][pkg-0.7-url] | [![Coveralls branch][coveralls-img]][coveralls-url] [![Codecov branch][codecov-img]][codecov-url] | [<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/af/Discourse_logo.png/799px-Discourse_logo.png" width="64">][discourse-url] |
+[![CI][build-img]][build-url] [![Codecov][codecov-img]][codecov-url] [![Documentation][docs-latest-img]][docs-latest-url] [![Gitter][gitter-img]][gitter-url] [Discourse][discourse-url]
+
+> [!WARNING]
+> This package is unmaintained, use [SDDP.jl](https://sddp.dev/) instead.
 
 Generic interface for the [Stochastic Dual Dynamic Programming (SDDP) algorithm](http://www.optimization-online.org/DB_FILE/2009/12/2509.pdf) as well as a generic implementation.
 The problem can either be provided using the [StructJuMP](https://github.com/joehuchette/StructJuMP.jl) modeling interface or using a lower level interface.
@@ -17,37 +17,26 @@ This package is used by the [Entropic Cone](https://github.com/blegat/EntropicCo
 
 ## Installation
 
-The `master` branch is aimed at JuMP v0.19. To try this
-package with JuMP v0.19, do:
+This branch supports JuMP 1.x. To install the package from a local checkout, run
 ```julia
-] add StructJuMP#master
-] add StructDualDynProg#master
+] develop .
 ```
-Note that this package has not been updated yet to JuMP v0.19, see [here](https://github.com/JuliaStochOpt/StructDualDynProg.jl/issues/22).
 
-## Notes for choice of solvers
-This package should work with any linear programming (LP) solver [supported by MathProgBase](http://www.juliaopt.org/).
-If some subproblems are infeasible, an infeasibility ray will be asked to the solver.
-In this case, it is advised to turn presolve off in `CPLEX` (i.e. `CPLEX.CplexSolver(CPX_PARAM_REDUCE=0)`) and to avoid using Clp since it [often cannot find the infeasibility ray](https://projects.coin-or.org/Clp/ticket/79).
-If some subproblems are unbounded, an unbounded ray and a feasible solution will be asked for the solver. Again, [avoid using Clp in that case](https://projects.coin-or.org/Clp/ticket/82). Hopefully subproblems shouldn't be unbounded if `detectlb` is left at `true` when calling `SOI.stochasticprogram`.
+## Solver requirements
+
+Pass a JuMP optimizer factory, such as `GLPK.Optimizer`, to
+`SOI.stochasticprogram`. The solver must provide dual solutions for optimal
+subproblems, dual certificates for infeasible subproblems, and primal rays
+for unbounded subproblems.
 
 [docs-stable-img]: https://img.shields.io/badge/docs-stable-blue.svg
 [docs-latest-img]: https://img.shields.io/badge/docs-latest-blue.svg
 [docs-stable-url]: https://juliastochopt.github.io/StructDualDynProg.jl/stable
-[docs-latest-url]: https://juliastochopt.github.io/StructDualDynProg.jl/latest
+[docs-latest-url]: https://juliastochopt.github.io/StructDualDynProg.jl/dev
 
-[pkg-0.6-img]: http://pkg.julialang.org/badges/StructDualDynProg_0.6.svg
-[pkg-0.6-url]: http://pkg.julialang.org/?pkg=StructDualDynProg
-[pkg-0.7-img]: http://pkg.julialang.org/badges/StructDualDynProg_0.7.svg
-[pkg-0.7-url]: http://pkg.julialang.org/?pkg=StructDualDynProg
-
-[build-img]: https://travis-ci.org/JuliaStochOpt/StructDualDynProg.jl.svg?branch=master
-[build-url]: https://travis-ci.org/JuliaStochOpt/StructDualDynProg.jl
-[winbuild-img]: https://ci.appveyor.com/api/projects/status/3lh9e6tujojgodar/branch/master?svg=true
-[winbuild-url]: https://ci.appveyor.com/project/blegat/structdualdynprog-jl/branch/master
-[coveralls-img]: https://coveralls.io/repos/github/blegat/StructDualDynProg.jl/badge.svg
-[coveralls-url]: https://coveralls.io/github/JuliaStochOpt/StructDualDynProg.jl
-[codecov-img]: https://codecov.io/gh/JuliaStochOpt/StructDualDynProg.jl/branch/master/graph/badge.svg
+[build-img]: https://github.com/JuliaStochOpt/StructDualDynProg.jl/actions/workflows/ci.yml/badge.svg
+[build-url]: https://github.com/JuliaStochOpt/StructDualDynProg.jl/actions/workflows/ci.yml
+[codecov-img]: https://codecov.io/gh/JuliaStochOpt/StructDualDynProg.jl/branch/main/graph/badge.svg
 [codecov-url]: https://codecov.io/gh/JuliaStochOpt/StructDualDynProg.jl
 
 [gitter-url]: https://gitter.im/JuliaOpt/StochasticDualDynamicProgramming.jl?utm_source=share-link&utm_medium=link&utm_campaign=share-link

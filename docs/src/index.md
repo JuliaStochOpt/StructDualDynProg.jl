@@ -6,7 +6,7 @@ It features the following:
 * Support for unfeasible problem by generating a feasibility cut.
 * Support for unbounded problem by using an unbounded ray.
 * Support for a variety of cut pruning algorithm through the [CutPruners](https://github.com/JuliaPolyhedra/CutPruners.jl) package.
-* Support for any linear or conic solvers available through [MathProgBase](https://github.com/JuliaOpt/MathProgBase.jl); see [JuliaOpt's webpage](http://www.juliaopt.org/) for a list.
+* Use a JuMP optimizer that supports the subproblem constraints, duals, and infeasibility certificates.
 * Support modeling the problem using the [StructJuMP modeling interface](https://github.com/StructJuMP/StructJuMP.jl).
 * Support specifying the problem using a low-level interface. This is used for example by the [EntropicCone](https://github.com/blegat/EntropicCone.jl) package.
 
@@ -15,13 +15,24 @@ It implements an representation of stochastic programming implementing SOI in th
 and provides the following function for transforming a [StructJuMP](https://github.com/StructJuMP/StructJuMP.jl)
 model into an instance of this representation:
 ```@docs
-StructDualDynProg.StochOptInterface.stochasticprogram(m::StructDualDynProg.StructProg.JuMP.Model, num_stages, solver, pruningalgo::StructDualDynProg.StructProg.CutPruners.AbstractCutPruningAlgo, cutgen::StructProg.AbstractOptimalityCutGenerator, detectlb::Bool, newcut::Symbol)
+StructDualDynProg.SOI.stochasticprogram
 ```
 
 This packages also provides an implemention of the SDDP algorithm that can be run on any stochastic
 program implementing the SOI interface:
 ```@docs
 SDDP.Algorithm
+```
+
+## Stochastic program and path operations
+
+```@docs
+StructProg.StochasticProgram
+StructProg.CutGenerator
+SDDP.childjobs
+SDDP.solvejob!
+SDDP.jobstopaths
+SDDP.mergesamepaths
 ```
 
 ## Contents

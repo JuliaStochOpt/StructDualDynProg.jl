@@ -74,7 +74,7 @@ end
 
 function addfollower(store::CutStore, nlds)
     push!(store.followers, nlds)
-    push!(store.needstored, true)
+    push!(store.needstored, false)
 end
 
 function needstored!(store::CutStore, nlds)

@@ -1,3 +1,12 @@
+using LinearAlgebra, Test
+using CutPruners
+using JuMP
+using StructJuMP
+using StochOptInterface
+const SOI = StochOptInterface
+using StructDualDynProg
+import Statistics
+
 # Similar to JuMP/test/solvers.jl
 
 function try_import(name::Symbol)
@@ -16,7 +25,8 @@ iscpx(solver) = occursin("CplexSolver", string(typeof(solver)))
 xpr = false && try_import(:Xpress)
 clp = false && try_import(:Clp)
 isclp(solver) = occursin("ClpSolver", string(typeof(solver)))
-glp = try_import(:GLPK)
+import GLPK
+glp = true
 msk = false && try_import(:Mosek)
 ismsk(solver) = occursin("MosekSolver", string(typeof(solver)))
 

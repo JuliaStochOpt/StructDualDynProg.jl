@@ -1,35 +1,39 @@
+if !isdefined(@__MODULE__, :fulltest)
+    include("prob5.2_setup.jl")
+end
+
 @testset "3 stages with $solver" for solver in lp_solvers
     include("prob5.2_data.jl")
 
     numScen = 2
     M = StructuredModel(num_scenarios=numScen)
 
-    x = Vector{Vector{JuMP.Variable}}(undef, 2)
-    v = Vector{Vector{JuMP.Variable}}(undef, 2)
-    y = Vector{Matrix{JuMP.Variable}}(undef, 2)
+    x = Vector{Vector{StructJuMP.StructuredVariableRef}}(undef, 2)
+    v = Vector{Vector{StructJuMP.StructuredVariableRef}}(undef, 2)
+    y = Vector{Matrix{StructJuMP.StructuredVariableRef}}(undef, 2)
 
-    x[1] = @variable(M, [1:n], lowerbound=0)
-    v[1] = @variable(M, [1:n], lowerbound=0)
+    x[1] = @variable(M, [1:n], lower_bound=0)
+    v[1] = @variable(M, [1:n], lower_bound=0)
     @constraints M begin
-        x[1] .== v[1]
+        balance[i=1:n], x[1][i] == v[1][i]
     end
     @objective(M, Min, dot(ic, v[1]))
 
 
     for s in 1:numScen
         M2 = StructuredModel(parent=M, prob=p2[s], id=s)
-        y[1] = @variable(M2, [1:n, 1:m], lowerbound=0)
-        x[2] = @variable(M2, [1:n], lowerbound=0)
-        v[2] = @variable(M2, [1:n], lowerbound=0)
+        y[1] = @variable(M2, [1:n, 1:m], lower_bound=0)
+        x[2] = @variable(M2, [1:n], lower_bound=0)
+        v[2] = @variable(M2, [1:n], lower_bound=0)
         @constraints M2 begin
-            x[2] .== x[1] + v[2]
+            balance[i=1:n], x[2][i] == x[1][i] + v[2][i]
             demand[j=1:m], sum(y[1][:,j]) == D2[j,s]
             ylim[i=1:n], sum(y[1][i,:]) <= x[1][i]
         end
         @objective(M2, Min, dot(ic, v[2]) + dot(C, y[1] * T))
         for S in 1:numScen
             M3 = StructuredModel(parent=M2, prob=p2[S], id=S)
-            y[2] = @variable(M3, [1:n, 1:m], lowerbound=0)
+            y[2] = @variable(M3, [1:n, 1:m], lower_bound=0)
             @constraints M3 begin
                 demand[j=1:m], sum(y[2][:,j]) == D2[j,S]
                 ylim[i=1:n], sum(y[2][i,:]) <= x[2][i]

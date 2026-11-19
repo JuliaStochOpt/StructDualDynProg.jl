@@ -5,7 +5,7 @@ end
 function createnode(sp::StochasticProgram, model::StructJuMP.StructuredModel, t,
                     num_stages, solver, parent, pruningalgo::AbstractCutPruningAlgo,
                     cutgen::AbstractOptimalityCutGenerator,
-                    model_to_data::Dict{StructJuMP.StructuredModel, SDDPModelData},
+                    model_to_data = Dict{StructJuMP.StructuredModel, SDDPModelData}(),
                     detectlb::Bool=true, newcut::Symbol=:InvalidateSolver)
     # For each model, we need to create a different node for each t.
     # We store all these node in a nodes array per model
@@ -16,15 +16,13 @@ function createnode(sp::StochasticProgram, model::StructJuMP.StructuredModel, t,
     end
     nodes = model_to_data[model].nodes
     if nodes[t] === nothing
-        # The last argument contains the categories (e.g. :Cont, :Int, :Bool, ...) but it is currently unused
-        param_model = StructJuMP.ParametrizedModel(model, solver)
-        newnodedata = NodeData(NLDS{Float64}(param_model, pruningalgo, newcut), parent === nothing ? 0 : SOI.get(sp, SOI.Dimension(), parent))
+        nparent = parent === nothing ? 0 : SOI.get(sp, SOI.Dimension(), parent)
+        newnodedata = NodeData(NLDS{Float64}(model, solver, nparent, pruningalgo, newcut), nparent)
         newnode = SOI.add_scenario_node!(sp, newnodedata)
         SOI.set!(sp, CutGenerator(), newnode, cutgen)
         nodes[t] = newnode
         if t < num_stages
-            num_scen = length(model.children)
-            for id in keys(model.children)
+            for id in sort!(collect(keys(model.children)))
                 child = createnode(sp, model.children[id], t+1, num_stages,
                                    solver, newnode, pruningalgo, cutgen,
                                    model_to_data, detectlb, newcut)

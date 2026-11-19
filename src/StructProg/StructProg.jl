@@ -21,6 +21,7 @@ include("cutgen.jl")
 
 # Generic implementation of Stochastic Program
 include("cutstore.jl")
+include("stage.jl")
 include("nlds.jl")
 include("graph.jl")
 

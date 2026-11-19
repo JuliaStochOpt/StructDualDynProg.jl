@@ -21,10 +21,10 @@ This allows us to use the variables of other models from a given model.
 We also create an array of the first model of each stage to give play the role of parent for the models of the next stage.
 ```julia
 using StructJuMP
-x = Matrix{JuMP.Variable}(undef, num_stages, numScen)
-y = Matrix{JuMP.Variable}(undef, num_stages, numScen)
-p = Matrix{JuMP.Variable}(undef, num_stages, numScen)
-models = Vector{JuMP.Model}(undef, num_stages)
+x = Matrix{StructJuMP.StructuredVariableRef}(undef, num_stages, numScen)
+y = Matrix{StructJuMP.StructuredVariableRef}(undef, num_stages, numScen)
+p = Matrix{StructJuMP.StructuredVariableRef}(undef, num_stages, numScen)
+models = Vector{StructuredModel}(undef, num_stages)
 ```
 
 Now, we create all the models.
@@ -40,9 +40,9 @@ for s in 1:num_stages
         else
             model = StructuredModel(parent=models[s-1], prob=1/2, same_children_as=(ξ == 1 ? nothing : models[s]), id=ξ, num_scenarios=(s == num_stages ? 0 : numScen))
         end
-        x[s, ξ] = @variable(model, lowerbound=0, upperbound=V)
-        y[s, ξ] = @variable(model, lowerbound=0)
-        p[s, ξ] = @variable(model, lowerbound=0)
+        x[s, ξ] = @variable(model, lower_bound=0, upper_bound=V)
+        y[s, ξ] = @variable(model, lower_bound=0)
+        p[s, ξ] = @variable(model, lower_bound=0)
         if s > 1
             @constraint(model, x[s, ξ] <= x[s-1, 1] + r[ξ] - y[s, ξ])
         else
@@ -60,8 +60,8 @@ end
 
 We now create the lattice, note that the master problem is `models[1]`.
 ```julia
-using GLPKMathProgInterface
-const solver = GLPKMathProgInterface.GLPKSolverLP()
+import GLPK
+const solver = GLPK.Optimizer
 using CutPruners
 const pruner = AvgCutPruningAlgo(-1)
 using StructDualDynProg
