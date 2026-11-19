@@ -73,8 +73,8 @@ end
                         # up to 15 on Mac OS, <= 14 on Linux
                         @test 13 <= niter <= 16
                     else
-                        # 10 on Gurobi/CPLEX, between 14 and 15 otherwise
-                        @test 10 <= niter <= 17
+                        # GLPK can take 20 iterations on 32-bit Linux.
+                        @test 10 <= niter <= (Sys.WORD_SIZE == 32 ? 20 : 17)
                     end
                 else
                     # 9 on Gurobi/CPLEX, between 11 and 12 otherwise

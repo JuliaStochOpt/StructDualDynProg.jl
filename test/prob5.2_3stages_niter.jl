@@ -13,8 +13,8 @@ function testniter_3stages(niter, K, maxncuts, cutgen, detectlb)
             else
                 if detectlb
                     # down to 14 with Gurobi
-                    # down to 15 and up to 19 on Mac OS, 17 <= ... <= 18 on Linux
-                    @test 14 <= niter <= 21
+                    # GLPK can take 22 iterations on 32-bit Linux.
+                    @test 14 <= niter <= (Sys.WORD_SIZE == 32 ? 22 : 21)
                 else
                     # between 16, 17 on Gurobi
                     # between 15, 16 on CPLEX
