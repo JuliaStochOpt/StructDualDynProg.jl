@@ -1,5 +1,7 @@
 name = "StructDualDynProg"
 uuid = "5d41aeb0-57df-5a94-a3c4-60ba49600646"
+authors = ["Benoît Legat <benoit.legat@gmail.com>"]
+version = "0.3.0"
 
 [deps]
 CutPruners = "65d46eb8-70e9-5a30-bf48-2afa3a021b8f"
