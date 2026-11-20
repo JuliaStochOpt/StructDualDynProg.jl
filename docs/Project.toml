@@ -6,4 +6,4 @@ StructDualDynProg = "5d41aeb0-57df-5a94-a3c4-60ba49600646"
 StructDualDynProg = {path = ".."}
 
 [compat]
-Documenter = "0.27"
+Documenter = "1"
