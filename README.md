@@ -2,12 +2,6 @@
 
 [![CI][build-img]][build-url] [![Codecov][codecov-img]][codecov-url] [![Documentation][docs-latest-img]][docs-latest-url] [![Gitter][gitter-img]][gitter-url] [Discourse][discourse-url]
 
-> [!WARNING]
-> This package is unmaintained, use [SDDP.jl](https://sddp.dev/) instead.
-
-> [!WARNING]
-> This package is unmaintained, use [SDDP.jl](https://sddp.dev/) instead.
-
 Generic interface for the [Stochastic Dual Dynamic Programming (SDDP) algorithm](http://www.optimization-online.org/DB_FILE/2009/12/2509.pdf) as well as a generic implementation.
 The problem can either be provided using the [StructJuMP](https://github.com/joehuchette/StructJuMP.jl) modeling interface or using a lower level interface.
 
