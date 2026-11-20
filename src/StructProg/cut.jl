@@ -31,8 +31,8 @@ function SOI.addcut!(sp::StochasticProgram, tr::Transition, cut::FeasibilityCut)
     # Hence coef might have very large coefficients and alter
     # the numerial accuracy of the master's solver.
     # We scale it to avoid this issue
-    scaling = max(abs(cut.β), maximum(abs, cut.a))
-    addcut(nodedata(sp, SOI.get(sp, SOI.Target(), tr)).fcuts, cut.a/scaling, sign(cut.β), nodedata(sp, SOI.get(sp, SOI.Source(), tr)).nlds)
+    scaling = max(abs(cut.β), maximum(abs, cut.a; init=zero(cut.β)))
+    addcut(nodedata(sp, SOI.get(sp, SOI.Target(), tr)).fcuts, cut.a/scaling, cut.β/scaling, nodedata(sp, SOI.get(sp, SOI.Source(), tr)).nlds)
 end
 function SOI.addcut!(sp::StochasticProgram, tr::Transition, cut::MultiOptimalityCut)
     addcut(nodedata(sp, SOI.get(sp, SOI.Target(), tr)).ocuts, cut.a, cut.β, nodedata(sp, SOI.get(sp, SOI.Source(), tr)).nlds)

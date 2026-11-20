@@ -37,8 +37,8 @@ end
 This structured model need to be transformed into an appropriate structure to run SDDP on it.
 This is achieved by [`StructDualDynProg.StochOptInterface.stochasticprogram`](@ref):
 ```julia
-using GLPKMathProgInterface
-const solver = GLPKMathProgInterface.GLPKSolverLP()
+import GLPK
+const solver = GLPK.Optimizer
 using CutPruners
 const pruner = AvgCutPruningAlgo(-1)
 using StructDualDynProg
@@ -46,7 +46,7 @@ using StochOptInterface
 const SOI = StructDualDynProg.SOI
 sp = SOI.stochasticprogram(m1, num_stages, solver, pruner)
 ```
-In this example, we have chosen the [GLPK](https://github.com/JuliaOpt/GLPKMathProgInterface.jl/) solver but you can use any LP solver listed in the table of the [JuliaOpt's webpage](http://www.juliaopt.org/).
+This example uses the [GLPK optimizer](https://jump.dev/JuMP.jl/stable/packages/GLPK/).
 
 You can now run the [`SDDP.Algorithm`](@ref) on it:
 ```julia

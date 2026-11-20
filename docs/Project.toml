@@ -1,5 +1,9 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+StructDualDynProg = "5d41aeb0-57df-5a94-a3c4-60ba49600646"
+
+[sources]
+StructDualDynProg = {path = ".."}
 
 [compat]
-Documenter = "~0.19"
+Documenter = "0.27"

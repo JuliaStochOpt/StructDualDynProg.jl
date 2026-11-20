@@ -1,0 +1,37 @@
+name: Documentation
+on:
+  push:
+    branches: [main]
+    tags: '*'
+  pull_request:
+    types: [opened, synchronize, reopened]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+      statuses: write
+      pages: write
+    env:
+      # Fix for Plots with GR backend, see https://github.com/JuliaPolyhedra/Polyhedra.jl/pull/265
+      GKSwstype: nul
+      DEPLOY_DOCS: ${{ github.event_name == 'push' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]') }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          # Build documentation on the latest Julia 1.x
+          version: '1'
+      - name: Install dependencies
+        run: julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
+      - name: Build and deploy
+        env:
+          GITHUB_TOKEN: ${{ env.DEPLOY_DOCS == 'true' && secrets.GITHUB_TOKEN || '' }}
+        run: julia --project=docs/ docs/make.jl
+      # A gh-pages commit made with GITHUB_TOKEN needs an explicit Pages build.
+      - name: Rebuild GitHub Pages
+        if: env.DEPLOY_DOCS == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh api --method POST "repos/$GITHUB_REPOSITORY/pages/builds" --silent

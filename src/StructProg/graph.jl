@@ -1,6 +1,4 @@
-using LightGraphs
-
-import MathProgBase
+using Graphs
 
 mutable struct NodeData{S}
     nlds::NLDS{S}
@@ -90,7 +88,40 @@ function SOI.add_scenario_node!(sp::StochasticProgram{S}, data::NodeData) where 
     length(sp.data)
 end
 
+# A changed scenario distribution invalidates averaged cuts at its source and
+# all cuts for the old expected cost in preceding stages.
+function invalidate_cost!(sp, node, visited=BitSet())
+    if node in visited
+        return
+    end
+    push!(visited, node)
+    data = nodedata(sp, node)
+    nlds = data.nlds
+    for (i, refs) in enumerate(nlds.ρs)
+        if !isempty(refs)
+            JuMP.delete.(nlds.model, refs)
+            empty!(refs)
+            pruner = CutPruner{nlds.nx, eltype(nlds.x_a)}(nlds.pruningalgo, :Max, true)
+            pruner.maxncuts = nlds.OCpruners[i].maxncuts
+            nlds.OCpruners[i] = pruner
+        end
+    end
+    nlds.prevsol = nothing
+    if isempty(data.ocuts.followers)
+        return
+    end
+    for transitions in sp.out_transitions, tr in transitions
+        if tr.target == node
+            parent = nodedata(sp, tr.source).nlds
+            setθbound!(parent, tr.σ, -Inf)
+            invalidate_cost!(sp, tr.source, visited)
+        end
+    end
+    return
+end
+
 function SOI.add_scenario_transition!(sp::StochasticProgram, parent, child, proba, childT=nothing)
+    invalidate_cost!(sp, parent)
     tr = Transition(parent, child, outdegree(sp, parent)+1, proba, childT)
     push!(sp.out_transitions[parent], tr)
     data = nodedata(sp, parent)
@@ -102,6 +133,9 @@ function SOI.add_scenario_transition!(sp::StochasticProgram, parent, child, prob
 end
 
 function SOI.set!(sp::StochasticProgram, ::SOI.Probability, tr, proba)
+    if tr.proba != proba
+        invalidate_cost!(sp, tr.source)
+    end
     tr.proba = proba
     data = nodedata(sp, SOI.get(sp, SOI.Source(), tr))
     setprobability!(data.nlds, edgeid(sp, tr), proba)

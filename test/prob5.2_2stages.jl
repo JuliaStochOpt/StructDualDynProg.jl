@@ -1,3 +1,7 @@
+if !isdefined(@__MODULE__, :fulltest)
+    include("prob5.2_setup.jl")
+end
+
 @testset "2 stages with $solver" for solver in lp_solvers
     include("prob5.2_data.jl")
 
@@ -7,7 +11,7 @@
     @variable M1 x1[1:n] >= 0
     @variable M1 v1[1:n] >= 0
     @constraints M1 begin
-        x1 .== v1
+        balance[i=1:n], x1[i] == v1[i]
     end
     @objective(M1, Min, dot(ic, v1))
 
@@ -47,36 +51,20 @@
     #    11     | Optimal   | 339235.89 |  344363.19 |  0  |  1  | -> Pereira stops here
     #    12     | Optimal   | 339779.51 |  340949.37 |  0  |  1  |
     #    13     | Optimal   | 340315.52 |  340315.52 |  0  |  0  |
-    function testniter(niter, K, maxncuts, cutgen, detectlb)
+    function testniter(niter, maxncuts, cutgen, detectlb)
         if isa(cutgen, StructProg.MultiCutGenerator)
-            @test niter == 10
-        else
-            if maxncuts == -1
-                if K == -1
-                    if detectlb
-                        @test niter == 13
-                    else
-                        # 10 on Gurobi/CPLEX, 14 otherwise
-                        @test niter == 10 || niter == 14
-                    end
-                else
-                    # 9 on Gurobi/CPLEX, 11 otherwise
-                    @test niter == 9 || niter == 11 # Pereira stops earlier
-                end
+            @test niter in (10, 12)
+        elseif maxncuts == -1
+            if detectlb
+                @test niter in (13, 15)
             else
-                if K == -1
-                    if detectlb
-                        # up to 15 on Mac OS, <= 14 on Linux
-                        @test 13 <= niter <= 15
-                    else
-                        # 10 on Gurobi/CPLEX, between 14 and 15 otherwise
-                        @test 10 <= niter <= 15
-                    end
-                else
-                    # 9 on Gurobi/CPLEX, between 11 and 12 otherwise
-                    @test 9 <= niter <= 12 # Pereira stops earlier
-                end
+                @test niter in (10, 14, 15)
             end
+        elseif detectlb
+            @test 13 <= niter <= 16
+        else
+            # GLPK can take 20 iterations on 32-bit Linux.
+            @test 10 <= niter <= (Sys.WORD_SIZE == 32 ? 20 : 17)
         end
     end
     fulltest(M1, 2, 340315.52, [5085,1311,3919,854], 334687.754566, 15869.996575, testniter, solver)

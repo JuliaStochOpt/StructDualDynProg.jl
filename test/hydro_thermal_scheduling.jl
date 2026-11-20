@@ -1,3 +1,7 @@
+if !isdefined(@__MODULE__, :lp_solvers)
+    include("solvers.jl")
+end
+
 # See https://web.stanford.edu/~lcambier/fast/tuto.php
 @testset "Hydro Thermal Scheduling with $solver" for solver in lp_solvers
     num_stages = 5
@@ -6,11 +10,11 @@
     V = 8
     d = 6
     r = [2, 10]
-    x = Matrix{JuMP.Variable}(undef, num_stages, numScen)
-    y = Matrix{JuMP.Variable}(undef, num_stages, numScen)
-    p = Matrix{JuMP.Variable}(undef, num_stages, numScen)
+    x = Matrix{StructJuMP.StructuredVariableRef}(undef, num_stages, numScen)
+    y = Matrix{StructJuMP.StructuredVariableRef}(undef, num_stages, numScen)
+    p = Matrix{StructJuMP.StructuredVariableRef}(undef, num_stages, numScen)
 
-    models = Vector{JuMP.Model}(undef, num_stages)
+    models = Vector{StructuredModel}(undef, num_stages)
 	for s in 1:num_stages
         for ξ in 1:(s == 1 ? 1 : numScen)
 			if s == 1
@@ -18,13 +22,13 @@
 			else
 				model = StructuredModel(parent=models[s-1], prob=1/2, same_children_as=(ξ == 1 ? nothing : models[s]), id=ξ, num_scenarios=(s == num_stages ? 0 : numScen))
 			end
-			x[s, ξ] = @variable(model, lowerbound=0, upperbound=V)
-			y[s, ξ] = @variable(model, lowerbound=0)
-			p[s, ξ] = @variable(model, lowerbound=0)
+			x[s, ξ] = @variable(model, lower_bound=0, upper_bound=V)
+			y[s, ξ] = @variable(model, lower_bound=0)
+			p[s, ξ] = @variable(model, lower_bound=0)
 			if s > 1
 				@constraint(model, x[s, ξ] <= x[s-1, 1] + r[ξ] - y[s, ξ])
 			else
-                @constraint(model, x[s, ξ] <= Compat.Statistics.mean(r) - y[s, ξ])
+                @constraint(model, x[s, ξ] <= Statistics.mean(r) - y[s, ξ])
 			end
 			@constraint(model, p[s, ξ] + y[s, ξ] >= d)
 			@objective(model, Min, C * p[s, ξ])
@@ -66,7 +70,6 @@
                     end
                 end
 
-                StructProg.clear(models[1])
             end
         end
     end

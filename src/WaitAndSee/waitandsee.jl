@@ -1,22 +1,20 @@
 module WaitAndSee
 
-using Compat, Compat.SparseArrays
+using JuMP
 
 using StructDualDynProg
 using StochOptInterface
 const SOI = StochOptInterface
 
-using MathProgBase
-
-struct Algorithm{S<:MathProgBase.AbstractMathProgSolver} <: SOI.AbstractAlgorithm
+struct Algorithm{S} <: SOI.AbstractAlgorithm
     solver::S
     K::Int
 end
-Algorithm(solver::MathProgBase.AbstractMathProgSolver, K=25) = Algorithm(solver, K)
+Algorithm(solver) = Algorithm(solver, 25)
 
 mutable struct WaitAndSeePath{NodeT}
     node::NodeT
-    nlds::Vector{StructDualDynProg.StructProg.NLDS}
+    transitions::Vector{StructDualDynProg.StructProg.Transition}
     z::Float64
     proba::Float64
     K::Int
@@ -34,7 +32,7 @@ function SOI.optimize!(sp::SOI.AbstractStochasticProgram, algo::Algorithm,
                        verbose::Int=0)
     master = SOI.get(sp, SOI.MasterNode())
     num_stages = SOI.get(sp, SOI.NumberOfStages())
-    paths = WaitAndSeePath[WaitAndSeePath(master, StructDualDynProg.StructProg.NLDS[StructDualDynProg.StructProg.nodedata(sp, master).nlds], .0, 1., algo.K)]
+    paths = WaitAndSeePath[WaitAndSeePath(master, StructDualDynProg.StructProg.Transition[], .0, 1., algo.K)]
     for t in 2:num_stages
         newpaths = WaitAndSeePath[]
         for path in paths
@@ -42,10 +40,9 @@ function SOI.optimize!(sp::SOI.AbstractStochasticProgram, algo::Algorithm,
                 push!(newpaths, path)
             else
                 npaths = StructDualDynProg.SDDP.samplepaths(StructDualDynProg.SDDP.ProbaPathSampler(true), sp, path.node, path.K, t, num_stages)
-                childs = algo.K == -1 ? (1:length(SOI.get(sp, SOI.OutTransitions(), path.node))) : findall(npaths .> 0)
                 for (i, tr) in enumerate(SOI.get(sp, SOI.OutTransitions(), path.node))
                     if algo.K == -1 || npaths[i] > 0
-                        push!(newpaths, WaitAndSeePath(SOI.get(sp, SOI.Target(), tr), [path.nlds; StructDualDynProg.StructProg.nodedata(sp, SOI.get(sp, SOI.Target(), tr)).nlds], path.z, path.proba * SOI.get(sp, SOI.Probability(), tr), npaths[i]))
+                        push!(newpaths, WaitAndSeePath(SOI.get(sp, SOI.Target(), tr), [path.transitions; tr], path.z, path.proba * SOI.get(sp, SOI.Probability(), tr), npaths[i]))
                     end
                 end
             end
@@ -53,48 +50,25 @@ function SOI.optimize!(sp::SOI.AbstractStochasticProgram, algo::Algorithm,
         paths = newpaths
     end
 
-    sumz = 0
     newpaths = WaitAndSeePath[]
     for path in paths
-        nvars = cumsum(Int[nlds.nx for nlds in path.nlds])
-        ncons = cumsum(Int[nlds.nπ for nlds in path.nlds])
-        # b - Ax in K_1
-        # x \in K_2
-        A = spzeros(ncons[end], nvars[end])
-        bs = Vector{Vector}(undef, length(path.nlds))
-        Ks = []
-        C = []
-        c = similar(StructDualDynProg.StructProg.nodedata(sp, master).nlds.c, nvars[end])
-        for i in 1:length(path.nlds)
-            offsetnvars = i == 1 ? 0 : nvars[i-1]
-            offsetncons = i == 1 ? 0 : ncons[i-1]
-            nlds = path.nlds[i]
-            c[offsetnvars+1:nvars[i]] = nlds.c
-            bs[i] = nlds.h
-            A[offsetncons+1:ncons[i], offsetnvars+1:nvars[i]] = nlds.W
-            if i > 1
-                offset = i == 2 ? 0 : nvars[i-2]
-                A[offsetncons+1:ncons[i], offset+1:nvars[i-1]] = nlds.T
-            end
-            push!(Ks, nlds.K)
-            append!(C, [(cone, offsetnvars .+ idx) for (cone, idx) in nlds.C])
+        model = JuMP.Model(algo.solver)
+        root = StructDualDynProg.StructProg.nodedata(sp, master).nlds
+        variables, objective = StructDualDynProg.StructProg.add_stage!(model, root.stage, JuMP.VariableRef[])
+        for tr in path.transitions
+            parent = isnothing(tr.childT) ? variables : tr.childT * variables
+            child = StructDualDynProg.StructProg.nodedata(sp, tr.target).nlds
+            variables, cost = StructDualDynProg.StructProg.add_stage!(model, child.stage, parent)
+            JuMP.add_to_expression!(objective, cost)
         end
-        model = MathProgBase.LinearQuadraticModel(algo.solver)
-        StructDualDynProg.StructProg._load!(model, c, A, bs, Ks, C)
-        MathProgBase.optimize!(model)
-        status = MathProgBase.status(model)
-        if status == :Error
-            error("The solver reported an error")
-        elseif status == :UserLimit
-            error("The solver reached iteration limit or timed out")
-        elseif status == :Infeasible
-            error("The problem is infeasible for some realization of the uncertainty")
-        elseif status == :Unbounded
-            error("The problem is unbounded for some realization of the uncertainty")
+        @objective(model, Min, objective)
+        JuMP.optimize!(model)
+        status = JuMP.termination_status(model)
+        if status == MOI.OPTIMAL
+            objval = JuMP.objective_value(model)
+            push!(newpaths, WaitAndSeePath(path.node, path.transitions, objval, path.proba, path.K))
         else
-            @assert status == :Optimal
-            objval = MathProgBase.getobjval(model)
-            push!(newpaths, WaitAndSeePath(path.node, path.nlds, objval, path.proba, path.K))
+            error("The solver terminated with $status")
         end
     end
     meanstdpaths(newpaths, algo.K)
